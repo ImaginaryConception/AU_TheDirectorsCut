@@ -1,0 +1,72 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <NoWarn>CS0618;CS8604</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.697" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+    <PackageReference Include="Il2CppInterop.Runtime" Version="1.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Il2Cppmscorlib" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2Cppmscorlib.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppSystem" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2CppSystem.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2CppSystem.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppSystem.Core" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2CppSystem.Core.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2CppSystem.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.CoreModule.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Hazel" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Hazel.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Hazel.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="0Harmony" Condition="Exists('$(AmongUsPath)\BepInEx\core\0Harmony.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx" Condition="Exists('$(AmongUsPath)\BepInEx\core\BepInEx.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP" Condition="Exists('$(AmongUsPath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime" Condition="Exists('$(AmongUsPath)\BepInEx\core\Il2CppInterop.Runtime.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('$(AmongUsPath)')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AmongUsPath)\BepInEx\plugins\" />
+  </Target>
+
+</Project>
