@@ -82,6 +82,9 @@ namespace AU_TheDirectorsCut
             {
                 if (Plugin.Log != null)
                     Plugin.Log.LogInfo($"[The Director's Cut] {message}");
+
+                if (DirectorOptions.AnnounceInChat)
+                    ChatManager.Queue(message);
             }
             catch (Exception e)
             {
@@ -511,7 +514,9 @@ namespace AU_TheDirectorsCut
                         if (Plugin.Log != null)
                             Plugin.Log.LogInfo($"[DirectorCore] Player {player.Data.PlayerName} moved {distance:F2} units - eliminating!");
                         SendHostMessage($">> Joueur {player.Data.PlayerName} éliminé ! <<");
-                        NetworkManager.MurderPlayer(player);
+
+                        if (DirectorOptions.CutKills)
+                            NetworkManager.MurderPlayer(player);
                     }
                 }
             }

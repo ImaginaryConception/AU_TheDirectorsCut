@@ -8,3 +8,4 @@ C:\Users\anish\Desktop\AU_TheDirectorsCut\obj\Debug\AU_TheDirectorsCut.dll
 C:\Users\anish\Desktop\AU_TheDirectorsCut\obj\Debug\refint\AU_TheDirectorsCut.dll
 C:\Users\anish\Desktop\AU_TheDirectorsCut\obj\Debug\AU_TheDirectorsCut.pdb
 C:\Users\anish\Desktop\AU_TheDirectorsCut\obj\Debug\ref\AU_TheDirectorsCut.dll
+C:\Users\anish\Desktop\AU_TheDirectorsCut\obj\Debug\AU_TheDirectorsCut.sourcelink.json

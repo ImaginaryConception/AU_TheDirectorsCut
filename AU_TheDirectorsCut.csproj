@@ -63,6 +63,10 @@
       <HintPath>$(AmongUsPath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.IMGUIModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('$(AmongUsPath)')">
