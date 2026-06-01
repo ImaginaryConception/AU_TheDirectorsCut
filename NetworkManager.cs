@@ -1,342 +1,207 @@
-using HarmonyLib;
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using HarmonyLib;
+using Hazel;
 using UnityEngine;
+using AmongUs.GameOptions;
 
 namespace AU_TheDirectorsCut
 {
     public static class NetworkManager
     {
-        public static void Initialize()
+        private static float _origSpeed      = -1f;
+        private static float _origCrewVision = -1f;
+        private static float _origImpVision  = -1f;
+
+        public static void Initialize() =>
+            Plugin.Log?.LogInfo("[NetworkManager] Initialisé.");
+
+        // ── MEURTRE répliqué ──────────────────────────────────────────────
+        public static void MurderPlayer(PlayerControl target)
         {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] Initialized completely!");
+            if (!IsHost() || target == null || target.Data.IsDead) return;
+            try { target.RpcMurderPlayer(target, true); }
+            catch (Exception e) { Log("MurderPlayer", e); }
         }
 
-        public static void SendCutSignal()
+        // ── TÉLÉPORT répliqué ─────────────────────────────────────────────
+        public static void Teleport(PlayerControl p, Vector2 pos)
         {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] SendCutSignal called!");
-            
-            if (!AmongUsClient.Instance.AmHost) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] Not host, can't send cut signal!");
-                return;
-            }
+            if (p?.NetTransform == null) return;
+            try { p.NetTransform.SnapTo(pos); }
+            catch (Exception e) { Log("Teleport", e); }
+        }
 
+        // ── SWAP ──────────────────────────────────────────────────────────
+        public static void SwapPlayers(PlayerControl p1, PlayerControl p2)
+        {
+            if (p1 == null || p2 == null) return;
             try
             {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo("[NetworkManager] Sending cut visual/audio signals!");
-                
-                // Trigger reactor sabotage for red light effect - try multiple methods
-                if (ShipStatus.Instance != null)
-                {
-                    if (Plugin.Log != null)
-                        Plugin.Log.LogInfo("[NetworkManager] Activating reactor visual!");
-                    
-                    // Method 1: UpdateSystem (what we tried)
-                    try
-                    {
-                        ShipStatus.Instance.UpdateSystem(SystemTypes.Reactor, PlayerControl.LocalPlayer, 128);
-                        if (Plugin.Log != null)
-                            Plugin.Log.LogInfo("[NetworkManager] Method 1 (UpdateSystem 128) worked!");
-                    }
-                    catch (Exception e1)
-                    {
-                        if (Plugin.Log != null)
-                            Plugin.Log.LogError($"[NetworkManager] Method 1 failed: {e1}");
-                    }
-                }
-                
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo("[NetworkManager] Cut signals sent!");
+                var a = p1.GetTruePosition();
+                var b = p2.GetTruePosition();
+                p1.NetTransform.SnapTo(b);
+                p2.NetTransform.SnapTo(a);
             }
-            catch (Exception e)
+            catch (Exception e) { Log("SwapPlayers", e); }
+        }
+
+        // ── TÉLÉPORT TOUS ─────────────────────────────────────────────────
+        public static void TeleportAllTo(PlayerControl target)
+        {
+            if (!IsHost() || target == null) return;
+            var dest = target.GetTruePosition();
+            foreach (var p in Alive())
             {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError($"[NetworkManager] Error sending cut signal: {e}");
+                if (p.PlayerId == target.PlayerId) continue;
+                Teleport(p, dest + new Vector2(
+                    UnityEngine.Random.Range(-1f, 1f),
+                    UnityEngine.Random.Range(-1f, 1f)));
             }
+        }
+
+        // ── MÉLANGE ───────────────────────────────────────────────────────
+        public static void ShuffleAllPlayers()
+        {
+            if (!IsHost()) return;
+            var players   = Alive();
+            var positions = players.Select(p => p.GetTruePosition()).ToList();
+            var rng = new System.Random();
+            int n = positions.Count;
+            while (n > 1) { n--; int k = rng.Next(n + 1); (positions[k], positions[n]) = (positions[n], positions[k]); }
+            for (int i = 0; i < players.Count; i++) Teleport(players[i], positions[i]);
+        }
+
+        // ── VITESSE (Hyperdrive) — GameOptions → visible par TOUS ─────────
+        public static void SetGameSpeed(float multiplier)
+        {
+            if (!IsHost()) return;
+            try
+            {
+                var manager = GameOptionsManager.Instance;
+                if (manager == null) { Plugin.Log?.LogError("[Hyper] GameOptionsManager null"); return; }
+                var opt = manager.CurrentGameOptions;
+                if (opt == null) { Plugin.Log?.LogError("[Hyper] CurrentGameOptions null"); return; }
+
+                if (_origSpeed < 0f)
+                {
+                    float got = opt.GetFloat(FloatOptionNames.PlayerSpeedMod);
+                    _origSpeed = got > 0.01f ? got : 1f;
+                    Plugin.Log?.LogInfo($"[Hyper] Vitesse originale : {_origSpeed}");
+                }
+
+                float target = _origSpeed * multiplier;
+                opt.SetFloat(FloatOptionNames.PlayerSpeedMod, target);
+
+                var factory = manager.gameOptionsFactory;
+                if (factory != null)
+                    PlayerControl.LocalPlayer.RpcSyncSettings(factory.ToBytes(opt, false));
+
+                Plugin.Log?.LogInfo($"[Hyper] Vitesse → {target} (×{multiplier})");
+            }
+            catch (Exception e) { Plugin.Log?.LogError($"[Hyper] {e.Message}"); }
+        }
+
+        public static void ResetGameSpeed()
+        {
+            if (_origSpeed < 0f) return;
+            try
+            {
+                var manager = GameOptionsManager.Instance;
+                var opt = manager?.CurrentGameOptions;
+                if (opt == null) return;
+                opt.SetFloat(FloatOptionNames.PlayerSpeedMod, _origSpeed);
+                var factory = manager?.gameOptionsFactory;
+                if (factory != null)
+                    PlayerControl.LocalPlayer.RpcSyncSettings(factory.ToBytes(opt, false));
+                Plugin.Log?.LogInfo("[Hyper] Vitesse restaurée.");
+            }
+            catch (Exception e) { Log("ResetGameSpeed", e); }
+            finally { _origSpeed = -1f; }
+        }
+
+        // ── VISION GLOBALE ────────────────────────────────────────────────
+        public static void SetGlobalVision(float factor)
+        {
+            if (!IsHost()) return;
+            try
+            {
+                var manager = GameOptionsManager.Instance;
+                var opt = manager?.CurrentGameOptions;
+                if (opt == null) return;
+                if (_origCrewVision < 0f) _origCrewVision = opt.GetFloat(FloatOptionNames.CrewLightMod);
+                if (_origImpVision  < 0f) _origImpVision  = opt.GetFloat(FloatOptionNames.ImpostorLightMod);
+                opt.SetFloat(FloatOptionNames.CrewLightMod,     _origCrewVision * factor);
+                opt.SetFloat(FloatOptionNames.ImpostorLightMod, _origImpVision  * factor);
+                var factory = manager?.gameOptionsFactory;
+                if (factory != null)
+                    PlayerControl.LocalPlayer.RpcSyncSettings(factory.ToBytes(opt, false));
+            }
+            catch (Exception e) { Log("SetGlobalVision", e); }
+        }
+
+        public static void ResetGlobalVision()
+        {
+            if (_origCrewVision < 0f) return;
+            try
+            {
+                var manager = GameOptionsManager.Instance;
+                var opt = manager?.CurrentGameOptions;
+                if (opt == null) return;
+                opt.SetFloat(FloatOptionNames.CrewLightMod,     _origCrewVision);
+                opt.SetFloat(FloatOptionNames.ImpostorLightMod, _origImpVision);
+                var factory = manager?.gameOptionsFactory;
+                if (factory != null)
+                    PlayerControl.LocalPlayer.RpcSyncSettings(factory.ToBytes(opt, false));
+            }
+            catch (Exception e) { Log("ResetGlobalVision", e); }
+            finally { _origCrewVision = _origImpVision = -1f; }
+        }
+
+        // ── COULEURS ALÉATOIRES ───────────────────────────────────────────
+        public static void RandomizeColors()
+        {
+            if (!IsHost()) return;
+            var rng  = new System.Random();
+            var used = new HashSet<byte>();
+            foreach (var p in Alive())
+            {
+                byte c; do { c = (byte)rng.Next(0, 18); } while (used.Contains(c));
+                used.Add(c);
+                try { p.RpcSetColor(c); } catch (Exception e) { Log("RpcSetColor", e); }
+            }
+        }
+
+        // ── SIGNAL CUT (réacteur) ─────────────────────────────────────────
+        public static void SendCutSignal()
+        {
+            if (ShipStatus.Instance == null) return;
+            try { ShipStatus.Instance.UpdateSystem(SystemTypes.Reactor, PlayerControl.LocalPlayer, 128); }
+            catch { }
         }
 
         public static void StopCutSignal()
         {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] StopCutSignal called!");
-            
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            // Try to repair the reactor - try multiple methods
-            if (ShipStatus.Instance != null)
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo("[NetworkManager] Trying to stop reactor...");
-                
-                // Method 1: Try with 0
-                try
-                {
-                    ShipStatus.Instance.UpdateSystem(SystemTypes.Reactor, PlayerControl.LocalPlayer, 0);
-                    if (Plugin.Log != null)
-                        Plugin.Log.LogInfo("[NetworkManager] Method 1 (UpdateSystem 0) worked!");
-                }
-                catch (Exception e1)
-                {
-                    if (Plugin.Log != null)
-                        Plugin.Log.LogError($"[NetworkManager] Method 1 failed: {e1}");
-                }
-
-                // Method 2: Try with 16
-                try
-                {
-                    ShipStatus.Instance.UpdateSystem(SystemTypes.Reactor, PlayerControl.LocalPlayer, 16);
-                    if (Plugin.Log != null)
-                        Plugin.Log.LogInfo("[NetworkManager] Method 2 (UpdateSystem 16) worked!");
-                }
-                catch (Exception e2)
-                {
-                    if (Plugin.Log != null)
-                        Plugin.Log.LogError($"[NetworkManager] Method 2 failed: {e2}");
-                }
-            }
+            if (ShipStatus.Instance == null) return;
+            try { ShipStatus.Instance.UpdateSystem(SystemTypes.Reactor, PlayerControl.LocalPlayer, 16); }
+            catch { }
         }
 
-        public static void SwapPlayers(PlayerControl p1, PlayerControl p2)
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] SwapPlayers called!");
-            
-            if (!AmongUsClient.Instance.AmHost) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] Not host, can't swap players!");
-                return;
-            }
+        // ── Helpers ───────────────────────────────────────────────────────
+        public static List<PlayerControl> Alive() =>
+            PlayerControl.AllPlayerControls.ToArray()
+                .Where(p => p?.Data != null && !p.Data.IsDead && !p.Data.Disconnected)
+                .ToList();
 
-            if (p1 == null || p2 == null) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] One or both players are null!");
-                return;
-            }
+        private static bool IsHost() => AmongUsClient.Instance?.AmHost == true;
+        private static void Log(string fn, Exception e) =>
+            Plugin.Log?.LogError($"[{fn}] {e.Message}");
 
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo($"[NetworkManager] Swapping players {p1.Data.PlayerName} (ID: {p1.PlayerId}) and {p2.Data.PlayerName} (ID: {p2.PlayerId})");
-
-            try
-            {
-                Vector2 pos1 = p1.GetTruePosition();
-                Vector2 pos2 = p2.GetTruePosition();
-
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo($"[NetworkManager] Pos1: {pos1}, Pos2: {pos2}");
-
-                p1.NetTransform.SnapTo(pos2);
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo("[NetworkManager] Player1 snapped!");
-                
-                p2.NetTransform.SnapTo(pos1);
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo("[NetworkManager] Player2 snapped!");
-
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo("[NetworkManager] Swap completed!");
-            }
-            catch (Exception e)
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError($"[NetworkManager] Error swapping players: {e}");
-            }
-        }
-
-        public static void SetGameSpeed(float speedMultiplier)
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] SetGameSpeed called!");
-            
-            if (!AmongUsClient.Instance.AmHost) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] Not host, can't set game speed!");
-                return;
-            }
-
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo($"[NetworkManager] Setting game speed to {speedMultiplier}");
-        }
-
-        public static void MurderPlayer(PlayerControl target)
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] MurderPlayer called!");
-            
-            if (!AmongUsClient.Instance.AmHost) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] Not host, can't murder player!");
-                return;
-            }
-
-            if (target == null) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] Target player is null!");
-                return;
-            }
-
-            if (target.Data.IsDead) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] Target player is already dead!");
-                return;
-            }
-
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo($"[NetworkManager] Murdering player {target.Data.PlayerName} (ID: {target.PlayerId})");
-
-            try
-            {
-                target.Die(DeathReason.Kill, true);
-                if (Plugin.Log != null)
-                    Plugin.Log.LogInfo("[NetworkManager] Murder completed!");
-            }
-            catch (Exception e)
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError($"[NetworkManager] Error murdering player: {e}");
-            }
-        }
-
-        public static void BlindPlayer(byte targetId)
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] BlindPlayer called!");
-            
-            if (!AmongUsClient.Instance.AmHost) 
-            {
-                if (Plugin.Log != null)
-                    Plugin.Log.LogError("[NetworkManager] Not host, can't blind player!");
-                return;
-            }
-
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo($"[NetworkManager] Blinding player with ID: {targetId}");
-        }
-
-        public static void FreezePlayer(PlayerControl target)
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] FreezePlayer called!");
-            
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            if (target == null || target.Data == null) return;
-            
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo($"[NetworkManager] Freezing player {target.Data.PlayerName}!");
-        }
-
-        public static void TeleportAllTo(PlayerControl target)
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] TeleportAllTo called!");
-            
-            if (!AmongUsClient.Instance.AmHost || target == null) return;
-            
-            Vector2 targetPos = target.GetTruePosition();
-            
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo($"[NetworkManager] Teleporting all players to {target.Data.PlayerName} at {targetPos}!");
-            
-            foreach (var player in PlayerControl.AllPlayerControls.ToArray())
-            {
-                if (player != null && player.Data != null && !player.Data.IsDead && !player.Data.Disconnected && player.PlayerId != target.PlayerId)
-                {
-                    try
-                    {
-                        player.NetTransform.SnapTo(targetPos);
-                        if (Plugin.Log != null)
-                            Plugin.Log.LogInfo($"[NetworkManager] Teleported {player.Data.PlayerName}!");
-                    }
-                    catch (Exception e)
-                    {
-                        if (Plugin.Log != null)
-                            Plugin.Log.LogError($"[NetworkManager] Error teleporting {player.Data.PlayerName}: {e}");
-                    }
-                }
-            }
-        }
-
-        public static void ShuffleAllPlayers()
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] ShuffleAllPlayers called!");
-            
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] Shuffling all players!");
-            
-            var allPlayers = PlayerControl.AllPlayerControls.ToArray().Where(p => p != null && p.Data != null && !p.Data.IsDead && !p.Data.Disconnected).ToList();
-            var positions = allPlayers.Select(p => p.GetTruePosition()).ToList();
-            
-            System.Random rng = new System.Random();
-            int n = positions.Count;
-            while (n > 1)
-            {
-                n--;
-                int k = rng.Next(n + 1);
-                Vector2 temp = positions[k];
-                positions[k] = positions[n];
-                positions[n] = temp;
-            }
-            
-            for (int i = 0; i < allPlayers.Count; i++)
-            {
-                try
-                {
-                    allPlayers[i].NetTransform.SnapTo(positions[i]);
-                }
-                catch (Exception e)
-                {
-                    if (Plugin.Log != null)
-                        Plugin.Log.LogError($"[NetworkManager] Error shuffling {allPlayers[i].Data.PlayerName}: {e}");
-                }
-            }
-        }
-
-        public static void SpinPlayer(PlayerControl target)
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] SpinPlayer called!");
-            
-            if (!AmongUsClient.Instance.AmHost || target == null) return;
-            
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo($"[NetworkManager] Spinning player {target.Data.PlayerName}!");
-        }
-
-        public static void BouncyMode()
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] BouncyMode called!");
-            
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] Bouncy mode activated!");
-        }
-
-        public static void RandomizeColors()
-        {
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] RandomizeColors called!");
-            
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            if (Plugin.Log != null)
-                Plugin.Log.LogInfo("[NetworkManager] Randomizing all player colors!");
-        }
+        // Stubs
+        public static void FreezePlayer(PlayerControl _) { }
+        public static void BlindPlayer(byte _)           { }
+        public static void SpinPlayer(PlayerControl _)   { }
+        public static void BouncyMode()                  { }
     }
 }

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -9,7 +9,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <NoWarn>CS0618;CS8604</NoWarn>
+    <NoWarn>CS0618;CS8604;CS8600;CS8603;CS8618</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,58 +19,51 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Il2Cppmscorlib" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2Cppmscorlib.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath>
-      <Private>False</Private>
+    <!-- Interop DLLs depuis BepInEx (générés au 1er lancement du jeu) -->
+    <Reference Include="Il2Cppmscorlib"        Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2Cppmscorlib.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath><Private>False</Private>
     </Reference>
-    <Reference Include="Il2CppSystem" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2CppSystem.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2CppSystem.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Il2CppSystem.Core" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2CppSystem.Core.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2CppSystem.Core.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="Il2CppSystem"          Condition="Exists('$(AmongUsPath)\BepInEx\interop\Il2CppSystem.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Il2CppSystem.dll</HintPath><Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.CoreModule.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath><Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="UnityEngine"           Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.dll</HintPath><Private>False</Private>
     </Reference>
-    <Reference Include="Assembly-CSharp" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
+    <!-- IMGUI (panneau OnGUI) -->
+    <Reference Include="UnityEngine.IMGUIModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll</HintPath><Private>False</Private>
     </Reference>
-    <Reference Include="Hazel" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Hazel.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\Hazel.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="Assembly-CSharp"       Condition="Exists('$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll</HintPath><Private>False</Private>
     </Reference>
-    <Reference Include="0Harmony" Condition="Exists('$(AmongUsPath)\BepInEx\core\0Harmony.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\core\0Harmony.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="Hazel"                 Condition="Exists('$(AmongUsPath)\BepInEx\interop\Hazel.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Hazel.dll</HintPath><Private>False</Private>
     </Reference>
-    <Reference Include="BepInEx" Condition="Exists('$(AmongUsPath)\BepInEx\core\BepInEx.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\core\BepInEx.dll</HintPath>
-      <Private>False</Private>
+    <!-- AmongUs.GameOptions : nécessaire pour FloatOptionNames (vitesse, vision) -->
+    <Reference Include="AmongUs.GameOptions"   Condition="Exists('$(AmongUsPath)\BepInEx\interop\AmongUs.GameOptions.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\AmongUs.GameOptions.dll</HintPath><Private>False</Private>
     </Reference>
-    <Reference Include="BepInEx.Unity.IL2CPP" Condition="Exists('$(AmongUsPath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
-      <Private>False</Private>
+    <!-- BepInEx core -->
+    <Reference Include="0Harmony"              Condition="Exists('$(AmongUsPath)\BepInEx\core\0Harmony.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\core\0Harmony.dll</HintPath><Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx"               Condition="Exists('$(AmongUsPath)\BepInEx\core\BepInEx.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\core\BepInEx.dll</HintPath><Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP"  Condition="Exists('$(AmongUsPath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath><Private>False</Private>
     </Reference>
     <Reference Include="Il2CppInterop.Runtime" Condition="Exists('$(AmongUsPath)\BepInEx\core\Il2CppInterop.Runtime.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll')">
-      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>$(AmongUsPath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath><Private>False</Private>
     </Reference>
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('$(AmongUsPath)')">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AmongUsPath)\BepInEx\plugins\" />
+    <Message Importance="high" Text="✅ DLL copié dans BepInEx/plugins/" />
   </Target>
 
 </Project>
