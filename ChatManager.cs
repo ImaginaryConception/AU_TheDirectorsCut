@@ -64,9 +64,20 @@ namespace AU_TheDirectorsCut
             if (inLobby)
             {
                 Plugin.Log?.LogInfo($"[ChatManager/Lobby] Sending lobby message to all: {plainMsg}");
+                
+                // First show it on host's chat locally
+                try
+                {
+                    IsSending = true;
+                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                    IsSending = false;
+                }
+                catch { IsSending = false; }
+                
+                // Then send RPC to other players
                 foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
                 {
-                    if (pc?.Data == null || pc.OwnerId < 0) continue;
+                    if (pc?.Data == null || pc.OwnerId < 0 || pc == PlayerControl.LocalPlayer) continue;
 
                     try
                     {
@@ -190,6 +201,9 @@ namespace AU_TheDirectorsCut
         private static void ProcessPendingWelcome()
         {
             if (!AmongUsClient.Instance.AmHost) return;
+            
+            // Skip welcome if we have a pending auto GG
+            if (DirectorCore.PendingAutoGG) return;
             
             float minWait = (ShipStatus.Instance == null) ? 1.0f : 0.8f;
             

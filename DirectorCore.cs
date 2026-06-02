@@ -13,6 +13,7 @@ namespace AU_TheDirectorsCut
         public static byte? DirectorPlayerId { get; private set; }
         public static bool IsCutActive { get; private set; }
         public static bool PendingAutoGG = false;
+        private static float pendingAutoGGDelay = 0f;
 
         private static int cutStep;
         private static float cutStepTimer;
@@ -63,6 +64,7 @@ namespace AU_TheDirectorsCut
             DirectorPlayerId = null;
             IsCutActive = false;
             PendingAutoGG = false;
+            pendingAutoGGDelay = 0f;
             cutStep = 0; cutStepTimer = 0f;
             cutStartPositions.Clear();
             _frozen.Clear(); _spin.Clear();
@@ -81,11 +83,77 @@ namespace AU_TheDirectorsCut
 
         public static bool IsDirector(byte id) => DirectorPlayerId.HasValue && DirectorPlayerId.Value == id;
 
+        private static string NumberToFrench(int number)
+        {
+            if (number < 0) return number.ToString();
+            switch (number)
+            {
+                case 0: return "zéro";
+                case 1: return "un";
+                case 2: return "deux";
+                case 3: return "trois";
+                case 4: return "quatre";
+                case 5: return "cinq";
+                case 6: return "six";
+                case 7: return "sept";
+                case 8: return "huit";
+                case 9: return "neuf";
+                case 10: return "dix";
+                case 11: return "onze";
+                case 12: return "douze";
+                case 13: return "treize";
+                case 14: return "quatorze";
+                case 15: return "quinze";
+                case 16: return "seize";
+                case 17: return "dix-sept";
+                case 18: return "dix-huit";
+                case 19: return "dix-neuf";
+                case 20: return "vingt";
+                case 21: return "vingt-et-un";
+                case 22: return "vingt-deux";
+                case 23: return "vingt-trois";
+                case 24: return "vingt-quatre";
+                case 25: return "vingt-cinq";
+                case 26: return "vingt-six";
+                case 27: return "vingt-sept";
+                case 28: return "vingt-huit";
+                case 29: return "vingt-neuf";
+                case 30: return "trente";
+                case 31: return "trente-et-un";
+                case 32: return "trente-deux";
+                case 33: return "trente-trois";
+                case 34: return "trente-quatre";
+                case 35: return "trente-cinq";
+                case 36: return "trente-six";
+                case 37: return "trente-sept";
+                case 38: return "trente-huit";
+                case 39: return "trente-neuf";
+                case 40: return "quarante";
+                default: return number.ToString();
+            }
+        }
+
+        private static bool TryParseId(string input, out byte id)
+        {
+            id = 0;
+            if (string.IsNullOrWhiteSpace(input)) return false;
+            char c = char.ToUpperInvariant(input.Trim()[0]);
+            if (c >= 'A' && c <= 'Z')
+            {
+                id = (byte)(c - 'A');
+                return true;
+            }
+            // Also accept numbers for backwards compatibility
+            return byte.TryParse(input, out id);
+        }
+
         private static bool TryCooldown(string cmd)
         {
             if (IsOnCooldown(cmd))
             {
-                SendHostMessage(string.Format(ModMessages.CooldownMsg, cmd, Mathf.CeilToInt(CooldownRemaining(cmd))));
+                int remaining = Mathf.CeilToInt(CooldownRemaining(cmd));
+                string remainingStr = NumberToFrench(remaining);
+                SendHostMessage(string.Format(ModMessages.CooldownMsg, cmd, remainingStr));
                 return false;
             }
             if (_cdMax.TryGetValue(cmd, out float max)) _cd[cmd] = max;
@@ -384,8 +452,18 @@ namespace AU_TheDirectorsCut
             // Auto send GG when game ends
             if (PendingAutoGG)
             {
-                PendingAutoGG = false;
-                ChatManager.Queue(ChatManager.GenerateGGMessageColored(), ChatManager.GenerateGGMessagePlain());
+                pendingAutoGGDelay += dt;
+                if (pendingAutoGGDelay >= 1.5f)
+                {
+                    PendingAutoGG = false;
+                    pendingAutoGGDelay = 0f;
+                    ChatManager.Queue(ChatManager.GenerateGGMessageColored(), ChatManager.GenerateGGMessagePlain());
+                    Plugin.Log?.LogInfo("[DirectorCore] Sent auto GG");
+                }
+            }
+            else
+            {
+                pendingAutoGGDelay = 0f;
             }
 
             foreach (var k in _cd.Keys.ToList())
@@ -510,6 +588,18 @@ namespace AU_TheDirectorsCut
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartGame))]
     static class Start_P { static void Postfix() => DirectorCore.Reset(); }
 
+    [HarmonyPatch(typeof(AmongUsClient), nameof(AmongUsClient.ExitGame))]
+    static class ExitGame_P
+    {
+        static void Postfix()
+        {
+            if (AmongUsClient.Instance?.AmHost != true) return;
+            DirectorCore.SnapshotEndState();
+            DirectorCore.PendingAutoGG = true;
+            Plugin.Log?.LogInfo("[DirectorCore] ExitGame → snapshot + GG pending");
+        }
+    }
+    
     [HarmonyPatch(typeof(ShipStatus), "OnDestroy")]
     static class ShipDestroy_P
     {

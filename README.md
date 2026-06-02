@@ -104,7 +104,7 @@ Requires the **.NET 6 SDK**.
 
 ## ⌨️ Commands
 
-Players are identified by **letters** (A, B, C…) — run `/players` to see them.
+Players are identified by **numbers** (1, 2, 3…) — run `/players` to see them.
 
 ### 🟢 Public (everyone)
 | Command | Effect |
@@ -112,14 +112,14 @@ Players are identified by **letters** (A, B, C…) — run `/players` to see the
 | `/welcome` | Welcome message |
 | `/help` | Command list (3 pages) |
 | `/gg` | Previous-game stats (alive / eliminated) |
-| `/players` | List players with their letter IDs |
+| `/players` | List players with their number IDs |
 | `/h<cmd>` | Detailed help, e.g. `/hcut`, `/hswap`, `/hblind`… |
 
 ### 🎬 Director directives
 | Command | Effect | Duration | Cooldown |
 |---|---|---|---|
 | `/cut` | "Red Light, Green Light" — freeze or be eliminated | ~5s window | 30s |
-| `/swap [A] [B]` | Swap two players' positions | instant | 15s |
+| `/swap [ID] [ID]` | Swap two players' positions | instant | 15s |
 | `/blind [ID]` | Reduce vision (applies to everyone) | 8s | 25s |
 | `/darkness` | Total darkness | 10s | 35s |
 | `/freeze [ID]` | Freeze a player in place | 8s | 30s |
@@ -247,7 +247,7 @@ Nécessite le **SDK .NET 6**.
 
 ## ⌨️ Commandes
 
-Les joueurs sont identifiés par des **lettres** (A, B, C…) — tape `/players` pour les voir.
+Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/players` pour les voir.
 
 ### 🟢 Publiques (tout le monde)
 | Commande | Effet |
@@ -255,14 +255,14 @@ Les joueurs sont identifiés par des **lettres** (A, B, C…) — tape `/players
 | `/welcome` | Message de bienvenue |
 | `/help` | Liste des commandes (3 pages) |
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
-| `/players` | Liste les joueurs et leurs ID-lettres |
+| `/players` | Liste les joueurs et leurs ID-nums |
 | `/h<cmd>` | Aide détaillée, ex. `/hcut`, `/hswap`, `/hblind`… |
 
 ### 🎬 Directives du Réalisateur
 | Commande | Effet | Durée | Cooldown |
 |---|---|---|---|
 | `/cut` | « 1, 2, 3 Soleil » — immobile ou éliminé | fenêtre ~5s | 30s |
-| `/swap [A] [B]` | Échange la position de deux joueurs | instantané | 15s |
+| `/swap [ID] [ID]` | Échange la position de deux joueurs | instantané | 15s |
 | `/blind [ID]` | Réduit la vision (s'applique à tous) | 8s | 25s |
 | `/darkness` | Obscurité totale | 10s | 35s |
 | `/freeze [ID]` | Immobilise un joueur | 8s | 30s |
