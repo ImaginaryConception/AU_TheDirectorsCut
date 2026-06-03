@@ -20,17 +20,17 @@ namespace AU_TheDirectorsCut
         // ────────────────────────────────────────────────
         
         public const string Help1 = "<color=#ffd23f>HELP 1/3</color>: /help, /welcome, /gg, /players";
-        public const string Help1Plain = "HELP un/trois: /help, /welcome, /gg, /players";
+        public const string Help1Plain = "HELP 1/3: /help, /welcome, /gg, /players";
         
         public const string Help2 = "<color=#88ccff>HELP 2/3</color>: DIRECTIVES → /cut, /swap ID1 ID2, /blind ID, /darkness";
-        public const string Help2Plain = "HELP deux/trois: DIRECTIVES → /cut, /swap ID1 ID2, /blind ID, /darkness";
+        public const string Help2Plain = "HELP 2/3: DIRECTIVES → /cut, /swap ID1 ID2, /blind ID, /darkness";
         
         public const string Help3 = "<color=#00ff88>HELP 3/3</color>: /freeze ID, /spin ID, /randomcolors, /shuffle, /teleportall ID - /h[cmd] pour détails";
-        public const string Help3Plain = "HELP trois/trois: /freeze ID, /spin ID, /randomcolors, /shuffle, /teleportall ID - /h[cmd] pour détails";
+        public const string Help3Plain = "HELP 3/3: /freeze ID, /spin ID, /randomcolors, /shuffle, /teleportall ID - /h[cmd] pour détails";
 
         // Aides détaillées (/hcut, /hswap, etc.)
-        public const string HelpCut = "<color=#ffd23f>/cut</color> - 1,2,3 Soleil! Immobilisez-vous! Durée 5s - Cooldown 30s";
-        public const string HelpCutPlain = "/cut - un,deux,trois Soleil! Immobilisez-vous! Durée cinq s - Cooldown trente s";
+        public const string HelpCut = "<color=#ffd23f>/cut</color> - Immobilisez-vous! Durée 5s - Cooldown 30s";
+        public const string HelpCutPlain = "/cut - Immobilisez-vous! Durée cinq s - Cooldown trente s";
 
         public const string HelpSwap = "<color=#ffd23f>/swap</color> - Échange positions de 2 joueurs. IDs avec /players! Cooldown 15s";
         public const string HelpSwapPlain = "/swap - Échange positions de deux joueurs. IDs avec /players! Cooldown quinze s";
