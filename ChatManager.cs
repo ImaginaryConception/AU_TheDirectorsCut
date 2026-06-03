@@ -17,14 +17,23 @@ namespace AU_TheDirectorsCut
         // ────────────────────────────────────────────────
         // File d'attente
         // ────────────────────────────────────────────────
-        private static readonly Queue<(string plain, string colored)> _queue = new();
+        // Chaque message porte son propre délai minimum. wait < 0 => délai par défaut (cadence normale).
+        private static readonly Queue<(string plain, string colored, float wait)> _queue = new();
+
+        // Limite DURE d'Among Us vanilla : 100 caractères par message (texte réseau, sans balises <color>).
+        private const int MaxChatChars = 100;
+        private static string SafeChat(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.Length <= MaxChatChars) return s;
+            return s.Substring(0, MaxChatChars - 3) + "...";
+        }
 
         public static void Queue(string coloredMsg, string plainMsg)
         {
             if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
             {
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg));
+                _queue.Enqueue((plainMsg, coloredMsg, -1f)); // -1 = cadence par défaut
             }
         }
 
@@ -33,6 +42,16 @@ namespace AU_TheDirectorsCut
         {
             string plainMsg = System.Text.RegularExpressions.Regex.Replace(coloredMsg, "<[^>]*>", "");
             Queue(coloredMsg, plainMsg);
+        }
+
+        // Réservé à /players et /help : impose 3.5s avant CHAQUE message de la file.
+        public static void QueueSlow(string coloredMsg, string plainMsg)
+        {
+            if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
+            {
+                _colorMap[plainMsg] = coloredMsg;
+                _queue.Enqueue((plainMsg, coloredMsg, 3.5f));
+            }
         }
 
         // ────────────────────────────────────────────────
@@ -46,13 +65,15 @@ namespace AU_TheDirectorsCut
 
             if (_queue.Count == 0) return;
 
-            float minWait = (ShipStatus.Instance == null) ? 1.0f : 0.8f;
+            // Délai propre au message : cadence normale par défaut, 3.5s pour /players et /help.
+            var head = _queue.Peek();
+            float minWait = head.wait >= 0f ? head.wait : ((ShipStatus.Instance == null) ? 1.0f : 0.8f);
             if (chat.timeSinceLastMessage < minWait) return;
 
             var speaker = LowestAlive() ?? PlayerControl.LocalPlayer;
             if (speaker == null) return;
 
-            var (plain, colored) = _queue.Dequeue();
+            var (plain, colored, _) = _queue.Dequeue();
             Send(speaker, plain, colored);
             chat.timeSinceLastMessage = 0f;
         }
@@ -83,7 +104,7 @@ namespace AU_TheDirectorsCut
                     {
                         var writer = AmongUsClient.Instance.StartRpcImmediately(
                             PlayerControl.LocalPlayer.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, pc.OwnerId);
-                        writer.Write(plainMsg);
+                        writer.Write(SafeChat(plainMsg));
                         AmongUsClient.Instance.FinishRpcImmediately(writer);
                     }
                     catch (Exception e)
@@ -110,7 +131,7 @@ namespace AU_TheDirectorsCut
             w.StartMessage(5);
             w.Write(AmongUsClient.Instance.GameId);
             WSetName(w, speaker, sysName);
-            WSendChat(w, speaker, plainMsg);
+            WSendChat(w, speaker, SafeChat(plainMsg));
             WSetName(w, speaker, orig);
             w.EndMessage();
             AmongUsClient.Instance.SendOrDisconnect(w);
@@ -269,7 +290,7 @@ namespace AU_TheDirectorsCut
                 // Envoie la version plain text via RPC (pas de couleurs !)
                 var writer = AmongUsClient.Instance.StartRpcImmediately(
                     speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
-                writer.Write(plainMsg);
+                writer.Write(SafeChat(plainMsg));
                 AmongUsClient.Instance.FinishRpcImmediately(writer);
                 
                 Plugin.Log?.LogInfo($"[ChatManager] Message envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");

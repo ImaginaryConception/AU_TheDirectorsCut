@@ -187,9 +187,9 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/help":
-                    ChatManager.Queue(ModMessages.Help1, ModMessages.Help1Plain);
-                    ChatManager.Queue(ModMessages.Help2, ModMessages.Help2Plain);
-                    ChatManager.Queue(ModMessages.Help3, ModMessages.Help3Plain);
+                    ChatManager.QueueSlow(ModMessages.Help1, ModMessages.Help1Plain);
+                    ChatManager.QueueSlow(ModMessages.Help2, ModMessages.Help2Plain);
+                    ChatManager.QueueSlow(ModMessages.Help3, ModMessages.Help3Plain);
                     return true;
 
                 case "/gg":
@@ -197,52 +197,68 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/players":
+                {
                     var players = PlayerControl.AllPlayerControls.ToArray()
                         .Where(p => p?.Data != null)
                         .OrderBy(p => p.PlayerId)
                         .ToList();
-                    
-                    // Version colorée
-                    string coloredPrefix = "Joueurs : ";
-                    List<string> coloredParts = new List<string>();
-                    string coloredResult = coloredPrefix;
-                    
-                    // Version plain text pour le réseau
-                    string plainPrefix = "Joueurs : ";
-                    List<string> plainParts = new List<string>();
-                    string plainResult = plainPrefix;
-                    
+
+                    const int maxLen = 100;      // limite DURE vanilla
+                    const int maxMessages = 8;   // garde-fou : tronque au-delà
+
+                    var chunksPlain = new List<string>();
+                    var chunksColored = new List<string>();
+
+                    string plainCur = "Joueurs : ";
+                    string coloredCur = "Joueurs : ";
+                    int partsInCur = 0;
+                    bool truncated = false;
+
                     foreach (var p in players)
                     {
-                        string coloredPart = $"[{p.PlayerId}] {p.Data.PlayerName}{(p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "")}";
-                        string plainPart = $"[{p.PlayerId}] {p.Data.PlayerName}{(p.Data.IsDead ? " (éliminé)" : "")}";
-                        
-                        // Teste si on peut ajouter sans dépasser 120 chars
-                        string testColored = coloredResult + (coloredParts.Count > 0 ? " | " : "") + coloredPart;
-                        string testPlain = plainResult + (plainParts.Count > 0 ? " | " : "") + plainPart;
-                        
-                        if (testPlain.Length <= 120)
+                        string coloredPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "")}";
+                        string plainPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " (éliminé)" : "")}";
+                        string sep = partsInCur > 0 ? " | " : "";
+
+                        // On remplit le message courant tant qu'on reste <= 100 caractères
+                        if ((plainCur + sep + plainPart).Length <= maxLen)
                         {
-                            coloredParts.Add(coloredPart);
-                            plainParts.Add(plainPart);
-                            coloredResult = testColored;
-                            plainResult = testPlain;
+                            plainCur += sep + plainPart;
+                            coloredCur += sep + coloredPart;
+                            partsInCur++;
                         }
                         else
                         {
-                            break; // On arrête si on dépasse
+                            // message plein -> on le valide et on repart sur une nouvelle page
+                            if (partsInCur > 0)
+                            {
+                                chunksPlain.Add(plainCur);
+                                chunksColored.Add(coloredCur);
+                            }
+                            if (chunksPlain.Count >= maxMessages) { truncated = true; break; }
+                            plainCur = plainPart;     // nouvelle page, sans préfixe
+                            coloredCur = coloredPart;
+                            partsInCur = 1;
                         }
                     }
-                    
-                    // Si on n'a pas pu mettre tous les joueurs, on ajoute "..."
-                    if (players.Count > coloredParts.Count)
+
+                    if (!truncated && partsInCur > 0)
                     {
-                        coloredResult += " ...";
-                        plainResult += " ...";
+                        chunksPlain.Add(plainCur);
+                        chunksColored.Add(coloredCur);
                     }
-                    
-                    SendHostMessage(coloredResult, plainResult);
+                    else if (truncated && chunksPlain.Count > 0)
+                    {
+                        chunksPlain[chunksPlain.Count - 1] += " ...";
+                        chunksColored[chunksColored.Count - 1] += " ...";
+                    }
+
+                    // Chaque page : envoi LENT (3.5s entre chaque), borné à 100 car. à l'émission.
+                    for (int i = 0; i < chunksPlain.Count; i++)
+                        ChatManager.QueueSlow(chunksColored[i], chunksPlain[i]);
+
                     return true;
+                }
 
                 case "/setdirector":
                     if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
@@ -534,7 +550,7 @@ namespace AU_TheDirectorsCut
 
         private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
-        private static void SendHostMessage(string coloredMessage) => SendHostMessage(coloredMessage, null!);
+        private static void SendHostMessage(string coloredMessage) => SendHostMessage(coloredMessage, null);
         private static void SendHostMessage(string coloredMessage, string plainMessage)
         {
             Plugin.Log?.LogInfo($"[Director's Cut] {coloredMessage}");
