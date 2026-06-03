@@ -534,7 +534,7 @@ namespace AU_TheDirectorsCut
 
         private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
-        private static void SendHostMessage(string coloredMessage) => SendHostMessage(coloredMessage, null);
+        private static void SendHostMessage(string coloredMessage) => SendHostMessage(coloredMessage, null!);
         private static void SendHostMessage(string coloredMessage, string plainMessage)
         {
             Plugin.Log?.LogInfo($"[Director's Cut] {coloredMessage}");
