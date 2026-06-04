@@ -98,10 +98,27 @@ namespace AU_TheDirectorsCut
 
         public static void OnPlayerDie(PlayerControl player)
         {
-            if (!AmongUsClient.Instance.AmHost || DirectorPlayerId.HasValue) return;
+            // Hôte uniquement, et on n'attribue qu'UNE fois (le tout premier mort).
+            if (AmongUsClient.Instance?.AmHost != true) return;
+            if (player?.Data == null) return;
+            if (DirectorPlayerId.HasValue) return;
+
             DirectorPlayerId = player.PlayerId;
-            DirectorName = player.Data.PlayerName;
-            SendHostMessage(string.Format(ModMessages.FirstDirector, player.Data.PlayerName), string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName));
+            DirectorName     = player.Data.PlayerName;
+
+            // OwnerId = client réseau propriétaire du PlayerControl.
+            // HostId  = client hôte du lobby. L'égalité identifie l'avatar de l'hôte,
+            // sinon c'est un client distant (vanilla / mobile).
+            bool isHost = player.OwnerId == AmongUsClient.Instance.HostId;
+
+            Plugin.Log?.LogInfo(
+                $"[Director] RÉALISATEUR attribué → \"{DirectorName}\" " +
+                $"(PlayerId={player.PlayerId}, OwnerId={player.OwnerId}, " +
+                $"{(isHost ? "HÔTE du lobby" : "CLIENT vanilla/mobile")}).");
+
+            SendHostMessage(
+                string.Format(ModMessages.FirstDirector,      player.Data.PlayerName),
+                string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName));
         }
 
         public static bool IsDirector(byte id) => DirectorPlayerId.HasValue && DirectorPlayerId.Value == id;
