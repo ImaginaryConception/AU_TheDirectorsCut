@@ -19,8 +19,8 @@ namespace AU_TheDirectorsCut
         // MESSAGES D'AIDE (CHAQUE <120 CARACTÈRES !)
         // ────────────────────────────────────────────────
         
-        public const string Help1 = "<color=#ffd23f>HELP 1/3</color>: /help, /welcome, /gg, /players";
-        public const string Help1Plain = "HELP 1/3: /help, /welcome, /gg, /players";
+        public const string Help1 = "<color=#ffd23f>HELP 1/3</color>: /help, /welcome, /gg, /players, /discord";
+        public const string Help1Plain = "HELP 1/3: /help, /welcome, /gg, /players, /discord";
         
         public const string Help2 = "<color=#88ccff>HELP 2/3</color>: DIRECTIVES → /cut, /swap ID1 ID2, /blind ID, /darkness";
         public const string Help2Plain = "HELP 2/3: DIRECTIVES → /cut, /swap ID1 ID2, /blind ID, /darkness";
@@ -65,8 +65,8 @@ namespace AU_TheDirectorsCut
         public const string GgSimple = "<color=#ffd23f>FIN</color> - Partie terminée. GG !";
         public const string GgSimplePlain = "FIN - Partie terminée. GG !";
 
-        public const string GgFormat = "<color=#ffd23f>FIN</color> - Vivants : {0} - Éliminés : {1} - GG !";
-        public const string GgFormatPlain = "FIN - Vivants : {0} - Éliminés : {1} - GG !";
+        public const string GgFormat = "<color=#ffd23f>FIN</color> - Réalisateur : {2} - Vivants : {0} - Éliminés : {1} - GG !";
+        public const string GgFormatPlain = "FIN - Réalisateur : {2} - Vivants : {0} - Éliminés : {1} - GG !";
 
         // ────────────────────────────────────────────────
         // AUTRES MESSAGES
@@ -136,5 +136,7 @@ namespace AU_TheDirectorsCut
 
         public const string FirstDirector = "<color=#ff6b6b>{0}</color> est le RÉALISATEUR ! (/help)";
         public const string FirstDirectorPlain = "{0} est le RÉALISATEUR ! (/help)";
+        public const string Discord = "<color=#ffd23f>DISCORD</color> : imaginaryconception ou kalinina_sn";
+        public const string DiscordPlain = "DISCORD : imaginaryconception ou kalinina_sn";
     }
 }

@@ -22,10 +22,17 @@ namespace AU_TheDirectorsCut
 
         // Limite DURE d'Among Us vanilla : 100 caractères par message (texte réseau, sans balises <color>).
         private const int MaxChatChars = 100;
+        private const int MaxChatBytes = 100;
         private static string SafeChat(string s)
         {
-            if (string.IsNullOrEmpty(s) || s.Length <= MaxChatChars) return s;
-            return s.Substring(0, MaxChatChars - 3) + "...";
+            if (string.IsNullOrEmpty(s)) return s;
+            if (s.Length > MaxChatChars) s = s.Substring(0, MaxChatChars - 3) + "...";
+            // Les caractères accentués (é, É, …) comptent pour plusieurs octets en
+            // UTF-8 : on tronque aussi sur la taille réseau pour rester sous la
+            // limite serveur et éviter un rejet/déconnexion de l'hôte.
+            while (System.Text.Encoding.UTF8.GetByteCount(s) > MaxChatBytes && s.Length > 1)
+                s = s.Substring(0, s.Length - 1);
+            return s;
         }
 
         public static void Queue(string coloredMsg, string plainMsg)
@@ -44,7 +51,7 @@ namespace AU_TheDirectorsCut
             Queue(coloredMsg, plainMsg);
         }
 
-        // Réservé à /players et /help : impose 3.5s avant CHAQUE message de la file.
+        // Réservé à /players, /help, /welcome et /gg : impose 3.5s avant CHAQUE message de la file.
         public static void QueueSlow(string coloredMsg, string plainMsg)
         {
             if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
@@ -62,8 +69,17 @@ namespace AU_TheDirectorsCut
             if (AmongUsClient.Instance == null || !AmongUsClient.Instance.AmHost) return;
 
             ProcessPendingWelcome();
+            ProcessPendingGG();
 
             if (_queue.Count == 0) return;
+            
+            // Attendre que le lobby soit stable avant d'envoyer des messages publics
+            bool inLobby = ShipStatus.Instance == null;
+            if (inLobby)
+            {
+                if (_lobbyReadyTime < 0f) return;
+                if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
+            }
 
             // Délai propre au message : cadence normale par défaut, 3.5s pour /players et /help.
             var head = _queue.Peek();
@@ -76,6 +92,51 @@ namespace AU_TheDirectorsCut
             var (plain, colored, _) = _queue.Dequeue();
             Send(speaker, plain, colored);
             chat.timeSinceLastMessage = 0f;
+        }
+        
+        private static void ProcessPendingGG()
+        {
+            if (!AmongUsClient.Instance.AmHost || _ggPlayerQueue.Count == 0) return;
+
+            // Sécurité : uniquement en lobby. Envoyer un chat en pleine partie /
+            // pendant l'écran de fin est illégal côté serveur et kicke l'hôte.
+            if (ShipStatus.Instance != null) return;
+            
+            // Attendre que le lobby soit stable (même principe que pour le welcome)
+            // pour éviter de kicker l'hôte quand des joueurs vanilla arrivent en même temps.
+            if (_lobbyReadyTime < 0f) return;
+            if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
+
+            float minWait = 3.5f;
+            
+            // Check if it's time to send next GG
+            if (Time.time < _nextGgTime) return;
+            
+            // Check if enough time has passed since last chat message (3.5s)
+            if (HudManager.Instance?.Chat != null && HudManager.Instance.Chat.timeSinceLastMessage < minWait)
+            {
+                return;
+            }
+            
+            // Take first player in queue
+            byte pid = _ggPlayerQueue[0];
+            _ggPlayerQueue.RemoveAt(0);
+            
+            PlayerControl target = null;
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                if (pc?.PlayerId == pid) { target = pc; break; }
+                
+            if (target?.Data != null && target.OwnerId >= 0)
+            {
+                SendPrivate(target, GenerateGGMessagePlain(), GenerateGGMessageColored());
+                Plugin.Log?.LogInfo($"[ChatManager] GG sent to {target.Data.PlayerName}!");
+                
+                // Reset chat time and schedule next GG
+                if (HudManager.Instance?.Chat != null)
+                    HudManager.Instance.Chat.timeSinceLastMessage = 0f;
+                
+                _nextGgTime = Time.time + 3.5f;
+            }
         }
 
         private static void Send(PlayerControl speaker, string plainMsg, string coloredMsg)
@@ -150,17 +211,32 @@ namespace AU_TheDirectorsCut
         }
 
         // ────────────────────────────────────────────────
-        // Welcome privé automatique (AVEC DELAI DE 3s !!)
+        // Welcome privé automatique
         // ────────────────────────────────────────────────
-        private static readonly Dictionary<byte, (float time, int step)> _pendingWelcome = new();
+        private static readonly List<(byte playerId, float earliestSendTime)> _welcomeQueue = new();
+        private static float _nextWelcomeTime = 0f;
         private static readonly HashSet<byte> _sentWelcome = new();
+
+        // Délai par joueur depuis sa détection (couvre l'arrivée tardive).
+        private const float WelcomeDelaySec = 3f;
+        // Délai de stabilisation depuis le (re)chargement du lobby. Quand l'hôte
+        // ET des clients arrivent EN MÊME TEMPS (retour de partie groupé), les
+        // clients vanilla n'ont pas encore fini de se synchroniser à +3s : leur
+        // envoyer un chat les fait diverger et l'hôte se fait kick. On attend
+        // donc que le lobby soit stable depuis assez longtemps.
+        private const float LobbySettleSec = 7f;
+        private static float _lobbyReadyTime = -1f;
 
         public static void ClearWelcomeSent()
         {
-            _pendingWelcome.Clear();
+            _welcomeQueue.Clear();
+            _nextWelcomeTime = 0f;
             _sentWelcome.Clear();
+            _ggPlayerQueue.Clear();
+            _nextGgTime = 0f;
+            _lobbyReadyTime = -1f;
             _colorMap.Clear();
-            Plugin.Log?.LogInfo("[ChatManager] Welcome system cleared!");
+            Plugin.Log?.LogInfo("[ChatManager] Welcome and GG system cleared!");
         }
         
         public static void OnPlayerLeave(byte playerId)
@@ -170,10 +246,15 @@ namespace AU_TheDirectorsCut
                 _sentWelcome.Remove(playerId);
                 Plugin.Log?.LogInfo($"[ChatManager] Removed player {playerId} from sent welcome");
             }
-            if (_pendingWelcome.ContainsKey(playerId))
+            // Remove from welcome queue
+            for (int i = _welcomeQueue.Count - 1; i >= 0; i--)
             {
-                _pendingWelcome.Remove(playerId);
-                Plugin.Log?.LogInfo($"[ChatManager] Removed player {playerId} from pending welcome");
+                if (_welcomeQueue[i].playerId == playerId)
+                {
+                    _welcomeQueue.RemoveAt(i);
+                    Plugin.Log?.LogInfo($"[ChatManager] Removed player {playerId} from welcome queue");
+                    break;
+                }
             }
         }
 
@@ -182,6 +263,14 @@ namespace AU_TheDirectorsCut
             if (!AmongUsClient.Instance.AmHost) return;
             if (ShipStatus.Instance != null) return;
             Plugin.Log?.LogInfo($"[ChatManager] CheckNewPlayers() called!");
+
+            // Premier passage dans CE lobby : on note l'instant où il est devenu
+            // actif (point de départ du délai de stabilisation).
+            if (_lobbyReadyTime < 0f)
+            {
+                _lobbyReadyTime = Time.time;
+                Plugin.Log?.LogInfo("[ChatManager] Lobby actif — départ du délai de stabilisation.");
+            }
             
             // First: collect current player IDs
             var currentPlayerIds = new HashSet<byte>();
@@ -200,12 +289,13 @@ namespace AU_TheDirectorsCut
                     Plugin.Log?.LogInfo($"[ChatManager] Removed player {id} from sent welcome (no longer present)");
                 }
             }
-            foreach (var id in _pendingWelcome.Keys.ToArray())
+            // Remove from welcome queue
+            for (int i = _welcomeQueue.Count - 1; i >= 0; i--)
             {
-                if (!currentPlayerIds.Contains(id))
+                if (!currentPlayerIds.Contains(_welcomeQueue[i].playerId))
                 {
-                    _pendingWelcome.Remove(id);
-                    Plugin.Log?.LogInfo($"[ChatManager] Removed player {id} from pending welcome (no longer present)");
+                    _welcomeQueue.RemoveAt(i);
+                    Plugin.Log?.LogInfo($"[ChatManager] Removed player {_welcomeQueue[i].playerId} from welcome queue (no longer present)");
                 }
             }
             
@@ -213,68 +303,91 @@ namespace AU_TheDirectorsCut
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
                 if (pc == null || pc.Data == null) continue;
-                if (_sentWelcome.Contains(pc.PlayerId) || _pendingWelcome.ContainsKey(pc.PlayerId)) continue;
-                _pendingWelcome[pc.PlayerId] = (Time.time + 3f, 0); // Attend 3 secondes
-                Plugin.Log?.LogInfo($"[ChatManager] Welcome programmé pour {pc.Data.PlayerName} (id={pc.PlayerId})!");
+                
+                // Check if player is already in sent or queue
+                bool alreadyProcessed = _sentWelcome.Contains(pc.PlayerId);
+                foreach (var item in _welcomeQueue)
+                {
+                    if (item.playerId == pc.PlayerId)
+                    {
+                        alreadyProcessed = true;
+                        break;
+                    }
+                }
+                if (alreadyProcessed) continue;
+
+                // Calculate earliest send time
+                float earliestSendTime = Mathf.Max(Time.time + WelcomeDelaySec, _lobbyReadyTime + LobbySettleSec);
+                _welcomeQueue.Add((pc.PlayerId, earliestSendTime));
+                Plugin.Log?.LogInfo($"[ChatManager] {pc.Data.PlayerName} (id={pc.PlayerId}) ajouté à la file d'attente, envoi possible à {earliestSendTime}!");
             }
         }
 
         private static void ProcessPendingWelcome()
         {
-            if (!AmongUsClient.Instance.AmHost) return;
+            if (!AmongUsClient.Instance.AmHost || _welcomeQueue.Count == 0) return;
+
+            // Sécurité : uniquement en lobby. Envoyer un chat en pleine partie /
+            // pendant l'écran de fin est illégal côté serveur et kicke l'hôte.
+            if (ShipStatus.Instance != null) return;
             
-            // Skip welcome if we have a pending auto GG
-            if (DirectorCore.PendingAutoGG) return;
+            // Attendre que le lobby soit stable
+            if (_lobbyReadyTime < 0f) return;
+            if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
+
+            float minWait = 3.5f;
             
-            float minWait = (ShipStatus.Instance == null) ? 1.0f : 0.8f;
+            // Get first player in queue
+            var firstItem = _welcomeQueue[0];
+            byte pid = firstItem.playerId;
+            float earliestSendTime = firstItem.earliestSendTime;
             
-            foreach (var pid in _pendingWelcome.Keys.ToList())
+            // Check if we can send this player's message yet
+            if (Time.time < earliestSendTime) return;
+            
+            // Check if it's time to send next welcome/gg (global delay)
+            if (Time.time < _nextWelcomeTime) return;
+            
+            // Check if enough time has passed since last chat message
+            if (HudManager.Instance?.Chat != null && HudManager.Instance.Chat.timeSinceLastMessage < minWait)
             {
-                var (time, step) = _pendingWelcome[pid];
-                Plugin.Log?.LogInfo($"[ChatManager] Checking pending welcome for player {pid} (step {step}): delay elapsed? {Time.time >= time}");
-                if (Time.time < time) continue;
+                return;
+            }
+            
+            // Remove from queue now
+            _welcomeQueue.RemoveAt(0);
+            
+            PlayerControl target = null;
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                if (pc?.PlayerId == pid) { target = pc; break; }
+                    
+            if (target?.Data != null && target.OwnerId >= 0)
+            {
+                // Vérifier si le joueur était présent dans la partie précédente
+                bool isReturningPlayer = DirectorCore.LastAlive.Contains(target.Data.PlayerName) || DirectorCore.LastDead.Contains(target.Data.PlayerName);
+                bool hasGG = DirectorCore.LastAlive.Count > 0 || DirectorCore.LastDead.Count > 0;
+
+                Plugin.Log?.LogInfo($"[ChatManager] Traitement de {target.Data.PlayerName} (id={pid}): isReturning={isReturningPlayer}, hasGG={hasGG}");
                 
-                // Check if enough time has passed since last chat message
-                if (HudManager.Instance?.Chat != null && HudManager.Instance.Chat.timeSinceLastMessage < minWait)
+                if (isReturningPlayer && hasGG)
                 {
-                    Plugin.Log?.LogInfo($"[ChatManager] Waiting to send welcome to {pid} (last message too recent: {HudManager.Instance.Chat.timeSinceLastMessage:F2}s < {minWait}s)");
-                    continue;
-                }
-                
-                PlayerControl target = null;
-                foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-                    if (pc?.PlayerId == pid) { target = pc; break; }
-                    
-                if (target?.Data != null && target.OwnerId >= 0)
-                {
-                    if (step == 0)
-                    {
-                        SendPrivate(target, ModMessages.WelcomePlain, ModMessages.Welcome);
-                    }
-                    
-                    Plugin.Log?.LogInfo($"[ChatManager] Welcome step {step} sent to {target.Data.PlayerName}!");
-                    
-                    // Reset chat time since last message to respect rate limits
-                    if (HudManager.Instance?.Chat != null)
-                        HudManager.Instance.Chat.timeSinceLastMessage = 0f;
-                    
-                    int totalSteps = 1; // Seulement le message de bienvenue
-                    if (step + 1 < totalSteps)
-                    {
-                        _pendingWelcome[pid] = (Time.time + 3f, step + 1); // Next message after 3 sec
-                    }
-                    else
-                    {
-                        _pendingWelcome.Remove(pid);
-                        _sentWelcome.Add(pid);
-                        Plugin.Log?.LogInfo($"[ChatManager] All welcome messages sent to {target.Data.PlayerName}!");
-                    }
+                    // Joueur de retour → envoie /gg
+                    SendPrivate(target, GenerateGGMessagePlain(), GenerateGGMessageColored());
+                    Plugin.Log?.LogInfo($"[ChatManager] GG envoyé à {target.Data.PlayerName} (joueur de retour)!");
                 }
                 else
                 {
-                    _pendingWelcome.Remove(pid);
-                    Plugin.Log?.LogInfo($"[ChatManager] Could not find target for pid {pid}!");
+                    // Nouveau joueur → envoie seulement /welcome
+                    SendPrivate(target, ModMessages.WelcomePlain, ModMessages.Welcome);
+                    Plugin.Log?.LogInfo($"[ChatManager] Welcome envoyé à {target.Data.PlayerName} (nouveau joueur)!");
                 }
+
+                // Reset chat time and schedule next welcome/gg
+                if (HudManager.Instance?.Chat != null)
+                    HudManager.Instance.Chat.timeSinceLastMessage = 0f;
+                
+                _nextWelcomeTime = Time.time + 3.5f;
+                _sentWelcome.Add(pid);
             }
         }
 
@@ -303,10 +416,32 @@ namespace AU_TheDirectorsCut
         private static void WSendChat(MessageWriter w, PlayerControl p, string m)
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SendChat); w.Write(m); w.EndMessage(); }
         
+        // Pour envoyer des GG en privé à tous les joueurs
+        private static readonly List<byte> _ggPlayerQueue = new();
+        private static float _nextGgTime = 0f;
+        
+        public static void SendPrivateGGToAll()
+        {
+            // /gg MANUEL : envoi privé joueur par joueur (même canal que le
+            // welcome), traité par ProcessPendingGG, un message toutes les 3.5s,
+            // et seulement en lobby. L'auto-GG de fin de partie, lui, passe par
+            // le flux welcome (étape 1).
+            _ggPlayerQueue.Clear();
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.Data != null && !pc.Data.Disconnected && pc.OwnerId >= 0)
+                    _ggPlayerQueue.Add(pc.PlayerId);
+            }
+            _nextGgTime = Time.time + 0.5f;
+            Plugin.Log?.LogInfo($"[ChatManager] /gg manuel : {_ggPlayerQueue.Count} joueur(s) en file (envoi privé).");
+        }
+
         public static string GenerateGGMessageColored()
         {
             var alive = DirectorCore.LastAlive;
             var dead = DirectorCore.LastDead;
+            var director = DirectorCore.DirectorName ?? "aucun";
+            Plugin.Log?.LogInfo($"[ChatManager] GenerateGGMessageColored - Alive count: {alive.Count}, Dead count: {dead.Count}, Director: {director}");
             if (alive.Count == 0 && dead.Count == 0)
                 return ModMessages.GgNoGame;
 
@@ -324,20 +459,22 @@ namespace AU_TheDirectorsCut
 
             string s = TruncateList(new List<string>(alive), "aucun");
             string d = TruncateList(new List<string>(dead), "aucun");
-            string msgPlain = string.Format(ModMessages.GgFormatPlain, s, d);
+            string msgPlain = string.Format(ModMessages.GgFormatPlain, s, d, director);
             
             if (msgPlain.Length > 120)
             {
                 return ModMessages.GgSimple;
             }
             
-            return string.Format(ModMessages.GgFormat, s, d);
+            return string.Format(ModMessages.GgFormat, s, d, director);
         }
         
         public static string GenerateGGMessagePlain()
         {
             var alive = DirectorCore.LastAlive;
             var dead = DirectorCore.LastDead;
+            var director = DirectorCore.DirectorName ?? "aucun";
+            Plugin.Log?.LogInfo($"[ChatManager] GenerateGGMessagePlain - Alive count: {alive.Count}, Dead count: {dead.Count}, Director: {director}");
             if (alive.Count == 0 && dead.Count == 0)
                 return ModMessages.GgNoGamePlain;
 
@@ -355,7 +492,7 @@ namespace AU_TheDirectorsCut
 
             string s = TruncateList(new List<string>(alive), "aucun");
             string d = TruncateList(new List<string>(dead), "aucun");
-            string msg = string.Format(ModMessages.GgFormatPlain, s, d);
+            string msg = string.Format(ModMessages.GgFormatPlain, s, d, director);
             
             // Vérification finale : si c'est trop long, on simplifie encore
             if (msg.Length > 120)

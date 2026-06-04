@@ -11,9 +11,11 @@ namespace AU_TheDirectorsCut
     public static class DirectorCore
     {
         public static byte? DirectorPlayerId { get; private set; }
+        public static string? DirectorName { get; private set; }
         public static bool IsCutActive { get; private set; }
         public static bool PendingAutoGG = false;
         private static float pendingAutoGGDelay = 0f;
+        private static float _snapshotTimer = 0f;
 
         private static int cutStep;
         private static float cutStepTimer;
@@ -43,15 +45,34 @@ namespace AU_TheDirectorsCut
         private static List<string> _lastAlive = new();
         private static List<string> _lastDead = new();
 
-        public static void SnapshotEndState()
+        public static void SnapshotEndState() => SnapshotEndState(true);
+
+        public static void SnapshotEndState(bool verbose)
         {
-            _lastAlive = PlayerControl.AllPlayerControls.ToArray()
+            var allPlayers = PlayerControl.AllPlayerControls.ToArray();
+
+            var alive = allPlayers
                 .Where(p => p?.Data != null && !p.Data.IsDead && !p.Data.Disconnected)
                 .Select(p => p.Data.PlayerName).ToList();
-            _lastDead = PlayerControl.AllPlayerControls.ToArray()
+            var dead = allPlayers
                 .Where(p => p?.Data != null && p.Data.IsDead && !p.Data.Disconnected)
                 .Select(p => p.Data.PlayerName).ToList();
-            Plugin.Log?.LogInfo($"[DirectorCore] Snapshot — Alive:{_lastAlive.Count} Dead:{_lastDead.Count}");
+
+            // Ne JAMAIS écraser un snapshot valide par un vide : à la fin de
+            // partie, les PlayerControl peuvent déjà être détruits selon l'ordre
+            // des événements (EndGame / ExitGame / ShipStatus.OnDestroy). Dans ce
+            // cas on conserve le dernier état connu capturé en jeu.
+            if (alive.Count == 0 && dead.Count == 0)
+            {
+                if (verbose)
+                    Plugin.Log?.LogInfo("[DirectorCore] Snapshot ignoré (aucun joueur présent, on garde le précédent).");
+                return;
+            }
+
+            _lastAlive = alive;
+            _lastDead = dead;
+            if (verbose)
+                Plugin.Log?.LogInfo($"[DirectorCore] Snapshot — Alive:{_lastAlive.Count} Dead:{_lastDead.Count}");
         }
 
         public static float CooldownRemaining(string cmd) => _cd.TryGetValue(cmd, out float r) ? r : 0f;
@@ -62,6 +83,7 @@ namespace AU_TheDirectorsCut
         public static void Reset()
         {
             DirectorPlayerId = null;
+            DirectorName = null;
             IsCutActive = false;
             PendingAutoGG = false;
             pendingAutoGGDelay = 0f;
@@ -78,6 +100,7 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost || DirectorPlayerId.HasValue) return;
             DirectorPlayerId = player.PlayerId;
+            DirectorName = player.Data.PlayerName;
             SendHostMessage(string.Format(ModMessages.FirstDirector, player.Data.PlayerName), string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName));
         }
 
@@ -174,7 +197,7 @@ namespace AU_TheDirectorsCut
             switch (cmd)
             {
                 case "/welcome":
-                    ChatManager.Queue(ModMessages.Welcome, ModMessages.WelcomePlain);
+                    ChatManager.QueueSlow(ModMessages.Welcome, ModMessages.WelcomePlain);
                     return true;
 
                 case "/start":
@@ -193,7 +216,11 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/gg":
-                    ChatManager.Queue(ChatManager.GenerateGGMessageColored(), ChatManager.GenerateGGMessagePlain());
+                    ChatManager.SendPrivateGGToAll();
+                    return true;
+
+                case "/discord":
+                    ChatManager.QueueSlow(ModMessages.Discord, ModMessages.DiscordPlain);
                     return true;
 
                 case "/players":
@@ -267,6 +294,7 @@ namespace AU_TheDirectorsCut
                         return true;
                     }
                     DirectorPlayerId = sender.PlayerId;
+                    DirectorName = sender.Data.PlayerName;
                     SendHostMessage(string.Format(ModMessages.DirectorSet, sender.Data.PlayerName), string.Format(ModMessages.DirectorSetPlain, sender.Data.PlayerName));
                     return true;
 
@@ -465,21 +493,31 @@ namespace AU_TheDirectorsCut
             if (!AmongUsClient.Instance.AmHost) return;
             float dt = Time.deltaTime;
 
-            // Auto send GG when game ends
+            // Capture continue de l'état de la partie tant qu'on est en jeu.
+            // Ainsi, quel que soit l'ordre de destruction des joueurs à la fin,
+            // on dispose toujours d'un état récent pour le récap /gg.
+            if (ShipStatus.Instance != null)
+            {
+                _snapshotTimer -= dt;
+                if (_snapshotTimer <= 0f)
+                {
+                    SnapshotEndState(false);
+                    _snapshotTimer = 1f;
+                }
+            }
+
+            // Fin de partie : le récap /gg est désormais émis par le flux welcome
+            // (étape 1, juste APRÈS le message de bienvenue, joueur par joueur).
+            // Ici on se contente de retomber le drapeau une fois en lobby, pour
+            // éviter tout double envoi.
             if (PendingAutoGG)
             {
-                pendingAutoGGDelay += dt;
-                if (pendingAutoGGDelay >= 1.5f)
+                if (ShipStatus.Instance == null)
                 {
                     PendingAutoGG = false;
                     pendingAutoGGDelay = 0f;
-                    ChatManager.Queue(ChatManager.GenerateGGMessageColored(), ChatManager.GenerateGGMessagePlain());
-                    Plugin.Log?.LogInfo("[DirectorCore] Sent auto GG");
+                    Plugin.Log?.LogInfo("[DirectorCore] Fin de partie → récap délégué au flux welcome.");
                 }
-            }
-            else
-            {
-                pendingAutoGGDelay = 0f;
             }
 
             foreach (var k in _cd.Keys.ToList())
@@ -604,15 +642,34 @@ namespace AU_TheDirectorsCut
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartGame))]
     static class Start_P { static void Postfix() => DirectorCore.Reset(); }
 
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.EndGame))]
+    static class EndGame_P
+    {
+        static void Prefix()
+        {
+            if (AmongUsClient.Instance?.AmHost != true) return;
+            DirectorCore.SnapshotEndState();
+            Plugin.Log?.LogInfo("[DirectorCore] EndGame → snapshot taken");
+        }
+        static void Postfix()
+        {
+            if (AmongUsClient.Instance?.AmHost != true) return;
+            DirectorCore.PendingAutoGG = true;
+            Plugin.Log?.LogInfo("[DirectorCore] EndGame → GG pending");
+        }
+    }
+
     [HarmonyPatch(typeof(AmongUsClient), nameof(AmongUsClient.ExitGame))]
     static class ExitGame_P
     {
         static void Postfix()
         {
             if (AmongUsClient.Instance?.AmHost != true) return;
-            DirectorCore.SnapshotEndState();
+            // Only snapshot if we haven't already (to keep existing data)
+            if (DirectorCore.LastAlive.Count == 0 && DirectorCore.LastDead.Count == 0)
+                DirectorCore.SnapshotEndState();
             DirectorCore.PendingAutoGG = true;
-            Plugin.Log?.LogInfo("[DirectorCore] ExitGame → snapshot + GG pending");
+            Plugin.Log?.LogInfo("[DirectorCore] ExitGame → snapshot (if needed) + GG pending");
         }
     }
     
@@ -622,9 +679,11 @@ namespace AU_TheDirectorsCut
         static void Prefix()
         {
             if (AmongUsClient.Instance?.AmHost != true) return;
-            DirectorCore.SnapshotEndState();
+            // Only snapshot if we haven't already
+            if (DirectorCore.LastAlive.Count == 0 && DirectorCore.LastDead.Count == 0)
+                DirectorCore.SnapshotEndState();
             DirectorCore.PendingAutoGG = true;
-            Plugin.Log?.LogInfo("[DirectorCore] ShipDestroy → snapshot + GG pending");
+            Plugin.Log?.LogInfo("[DirectorCore] ShipDestroy → snapshot (if needed) + GG pending");
         }
     }
 
