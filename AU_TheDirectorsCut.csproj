@@ -9,7 +9,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <NoWarn>CS0618;CS8604;CS8600;CS8603;CS8618</NoWarn>
+    <NoWarn>CS0618;CS8604;CS8600;CS8603;CS8618;CS8625;CS0414</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

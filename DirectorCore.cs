@@ -38,6 +38,10 @@ namespace AU_TheDirectorsCut
         private static readonly Dictionary<byte, (Vector2 pos, float rem)> _frozen = new();
         private static readonly Dictionary<byte, (Vector2 center, float angle, float rem)> _spin = new();
         private static float _visionDur;
+        // Cadence des téléportations d'effet (freeze/spin) : le RPC SnapTo est
+        // diffusé à tous, donc on le limite à ~10/s pour ne pas saturer le réseau
+        // et éviter un kick anti-triche côté client vanilla.
+        private static float _effectTpTimer;
 
         // Données de la partie précédente
         public static IReadOnlyList<string> LastAlive => _lastAlive;
@@ -125,52 +129,7 @@ namespace AU_TheDirectorsCut
 
         private static string NumberToFrench(int number)
         {
-            if (number < 0) return number.ToString();
-            switch (number)
-            {
-                case 0: return "zéro";
-                case 1: return "un";
-                case 2: return "deux";
-                case 3: return "trois";
-                case 4: return "quatre";
-                case 5: return "cinq";
-                case 6: return "six";
-                case 7: return "sept";
-                case 8: return "huit";
-                case 9: return "neuf";
-                case 10: return "dix";
-                case 11: return "onze";
-                case 12: return "douze";
-                case 13: return "treize";
-                case 14: return "quatorze";
-                case 15: return "quinze";
-                case 16: return "seize";
-                case 17: return "dix-sept";
-                case 18: return "dix-huit";
-                case 19: return "dix-neuf";
-                case 20: return "vingt";
-                case 21: return "vingt-et-un";
-                case 22: return "vingt-deux";
-                case 23: return "vingt-trois";
-                case 24: return "vingt-quatre";
-                case 25: return "vingt-cinq";
-                case 26: return "vingt-six";
-                case 27: return "vingt-sept";
-                case 28: return "vingt-huit";
-                case 29: return "vingt-neuf";
-                case 30: return "trente";
-                case 31: return "trente-et-un";
-                case 32: return "trente-deux";
-                case 33: return "trente-trois";
-                case 34: return "trente-quatre";
-                case 35: return "trente-cinq";
-                case 36: return "trente-six";
-                case 37: return "trente-sept";
-                case 38: return "trente-huit";
-                case 39: return "trente-neuf";
-                case 40: return "quarante";
-                default: return number.ToString();
-            }
+            return number.ToString();
         }
 
         private static bool TryParseId(string input, out byte id)
@@ -211,19 +170,93 @@ namespace AU_TheDirectorsCut
 
             bool inLobby = ShipStatus.Instance == null;
 
+            // ────────────────────────────────────────────────
+            // COMMANDES DEV — /start /stop /setdirector /setimpostor
+            // Utilisables UNIQUEMENT si devMode == true.
+            // Hors devMode : aucun message « désactivé », elles sont
+            // simplement traitées comme une commande inconnue.
+            // Réservées à l'hôte (avatar local).
+            // ────────────────────────────────────────────────
+            bool isDevCommand = cmd == "/start" || cmd == "/stop"
+                             || cmd == "/setdirector";
+
+            if (isDevCommand)
+            {
+                if (!DevModeManager.devMode)
+                {
+                    // devMode OFF → commande non reconnue.
+                    SendHostMessage($"Commande inconnue : {cmd} — /help");
+                    return true;
+                }
+
+                // Seul l'hôte peut déclencher ces commandes de contrôle.
+                if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
+                {
+                    SendHostMessage(ModMessages.HostOnly, ModMessages.HostOnlyPlain);
+                    return true;
+                }
+
+                switch (cmd)
+                {
+                    case "/start":
+                        if (!inLobby) { SendHostMessage("Pas en lobby !"); return true; }
+                        AmongUsClient.Instance.StartGame();
+                        return true;
+
+                    case "/stop":
+                        if (inLobby)
+                        {
+                            SendHostMessage(ModMessages.NoGameRunning, ModMessages.NoGameRunningPlain);
+                            return true;
+                        }
+                        try
+                        {
+                            // RpcEndGame est indépendant de CheckEndCriteria : il
+                            // termine la partie même avec devMode actif. On désactive
+                            // d'abord GameManager pour qu'il ne ré-évalue pas la fin
+                            // (même approche que TOHE pour une fin forcée). La raison
+                            // « disconnect » évite tout calcul de vainqueur.
+                            GameManager.Instance.enabled = false;
+                            GameManager.Instance.RpcEndGame(GameOverReason.CrewmateDisconnect, false);
+                            SendHostMessage(ModMessages.GameStopped, ModMessages.GameStoppedPlain);
+                            Plugin.Log?.LogInfo("[Director] /stop → RpcEndGame.");
+                        }
+                        catch (Exception e) { Plugin.Log?.LogError($"[/stop] {e.Message}"); }
+                        return true;
+
+                    case "/setdirector":
+                    // Avec un ID → ce joueur devient Réalisateur.
+                    // Sans ID → l'hôte se désigne lui-même (comportement d'origine).
+                    if (parts.Length >= 2 && byte.TryParse(parts[1], out byte did))
+                    {
+                        var dtarget = FindById(did);
+                        if (dtarget?.Data == null)
+                        {
+                            SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                            return true;
+                        }
+                        DirectorPlayerId = dtarget.PlayerId;
+                        DirectorName = dtarget.Data.PlayerName;
+                        SendHostMessage(
+                            string.Format(ModMessages.DirectorSet, dtarget.Data.PlayerName),
+                            string.Format(ModMessages.DirectorSetPlain, dtarget.Data.PlayerName));
+                    }
+                    else
+                    {
+                        DirectorPlayerId = sender.PlayerId;
+                        DirectorName = sender.Data.PlayerName;
+                        SendHostMessage(
+                            string.Format(ModMessages.DirectorSet, sender.Data.PlayerName),
+                            string.Format(ModMessages.DirectorSetPlain, sender.Data.PlayerName));
+                    }
+                    return true;
+                }
+            }
+
             switch (cmd)
             {
                 case "/welcome":
                     ChatManager.QueueSlow(ModMessages.Welcome, ModMessages.WelcomePlain);
-                    return true;
-
-                case "/start":
-                    if (!inLobby)
-                    {
-                        SendHostMessage("Pas en lobby !");
-                        return true;
-                    }
-                    AmongUsClient.Instance.StartGame();
                     return true;
 
                 case "/help":
@@ -303,17 +336,6 @@ namespace AU_TheDirectorsCut
 
                     return true;
                 }
-
-                case "/setdirector":
-                    if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
-                    {
-                        SendHostMessage(ModMessages.HostOnly, ModMessages.HostOnlyPlain);
-                        return true;
-                    }
-                    DirectorPlayerId = sender.PlayerId;
-                    DirectorName = sender.Data.PlayerName;
-                    SendHostMessage(string.Format(ModMessages.DirectorSet, sender.Data.PlayerName), string.Format(ModMessages.DirectorSetPlain, sender.Data.PlayerName));
-                    return true;
 
                 case "/hcut":
                     ChatManager.Queue(ModMessages.HelpCut, ModMessages.HelpCutPlain);
@@ -569,12 +591,17 @@ namespace AU_TheDirectorsCut
                 }
             }
 
+            // Tick de téléportation d'effet (~10 Hz) partagé par freeze et spin.
+            _effectTpTimer -= dt;
+            bool tpTick = _effectTpTimer <= 0f;
+            if (tpTick) _effectTpTimer = 0.1f;
+
             foreach (var k in _frozen.Keys.ToList())
             {
                 var (pos, rem) = _frozen[k];
                 var p = FindById(k);
                 if (p == null || p.Data.IsDead) { _frozen.Remove(k); continue; }
-                if (Vector2.Distance(p.GetTruePosition(), pos) > 0.15f) NetworkManager.Teleport(p, pos);
+                if (tpTick && Vector2.Distance(p.GetTruePosition(), pos) > 0.15f) NetworkManager.Teleport(p, pos);
                 float nr = rem - dt;
                 if (nr <= 0f)
                 {
@@ -591,7 +618,7 @@ namespace AU_TheDirectorsCut
                 var p = FindById(k);
                 if (p == null || p.Data.IsDead) { _spin.Remove(k); continue; }
                 angle += 3.5f * dt;
-                NetworkManager.Teleport(p, center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 1.0f);
+                if (tpTick) NetworkManager.Teleport(p, center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 1.0f);
                 float nr = rem - dt;
                 if (nr <= 0f)
                 {
@@ -654,7 +681,34 @@ namespace AU_TheDirectorsCut
     }
 
     [HarmonyPatch(typeof(ChatController), nameof(ChatController.SetVisible))]
-    static class Visible_P { static bool Prefix() => !AmongUsClient.Instance.AmHost; }
+    static class Visible_P { static bool Prefix(ChatController __instance) { __instance.gameObject.SetActive(true); return false; } }
+
+    [HarmonyPatch(typeof(ChatController), nameof(ChatController.SendChat))]
+    static class SendChat_P
+    {
+        static bool Prefix(ChatController __instance)
+        {
+            // If we are the host, allow sending messages always!
+            if (AmongUsClient.Instance.AmHost)
+            {
+                return true;
+            }
+
+            // Check if we're in a meeting (allow sending if yes)
+            if (MeetingHud.Instance != null)
+            {
+                return true;
+            }
+
+            // If in a game (not meeting) and not host, block sending
+            if (ShipStatus.Instance != null)
+            {
+                return false;
+            }
+
+            return true; // Always allow in lobby
+        }
+    }
 
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartGame))]
     static class Start_P { static void Postfix() => DirectorCore.Reset(); }
@@ -710,7 +764,7 @@ namespace AU_TheDirectorsCut
         static void Postfix(HudManager __instance)
         {
             DirectorCore.Update();
-            if (AmongUsClient.Instance.AmHost && __instance?.Chat != null)
+            if (__instance?.Chat != null)
                 __instance.Chat.gameObject.SetActive(true);
         }
     }

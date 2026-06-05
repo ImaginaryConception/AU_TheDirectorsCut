@@ -116,20 +116,20 @@ namespace AU_TheDirectorsCut
         public const string PlayerNotFound = "Joueur introuvable !";
         public const string PlayerNotFoundPlain = "Joueur introuvable !";
 
-        public const string UsageSwap = "Usage : /swap [ID1] [ID2]";
-        public const string UsageSwapPlain = "Usage : /swap [ID1] [ID2]";
+        public const string UsageSwap = "Usage : /swap ID1 ID2";
+        public const string UsageSwapPlain = "Usage : /swap ID1 ID2";
 
-        public const string UsageBlind = "Usage : /blind [ID]";
-        public const string UsageBlindPlain = "Usage : /blind [ID]";
+        public const string UsageBlind = "Usage : /blind ID";
+        public const string UsageBlindPlain = "Usage : /blind ID";
 
-        public const string UsageFreeze = "Usage : /freeze [ID]";
-        public const string UsageFreezePlain = "Usage : /freeze [ID]";
+        public const string UsageFreeze = "Usage : /freeze ID";
+        public const string UsageFreezePlain = "Usage : /freeze ID";
 
-        public const string UsageSpin = "Usage : /spin [ID]";
-        public const string UsageSpinPlain = "Usage : /spin [ID]";
+        public const string UsageSpin = "Usage : /spin ID";
+        public const string UsageSpinPlain = "Usage : /spin ID";
 
-        public const string UsageTeleportAll = "Usage : /teleportall [ID]";
-        public const string UsageTeleportAllPlain = "Usage : /teleportall [ID]";
+        public const string UsageTeleportAll = "Usage : /teleportall ID";
+        public const string UsageTeleportAllPlain = "Usage : /teleportall ID";
 
         public const string NotDirector = "{0} : tu n'es pas le Réalisateur !";
         public const string NotDirectorPlain = "{0} : tu n'es pas le Réalisateur !";
@@ -138,5 +138,26 @@ namespace AU_TheDirectorsCut
         public const string FirstDirectorPlain = "{0} est le RÉALISATEUR ! (/help)";
         public const string Discord = "<color=#ffd23f>DISCORD</color> : imaginaryconception ou kalinina_sn";
         public const string DiscordPlain = "DISCORD : imaginaryconception ou kalinina_sn";
+
+        // ────────────────────────────────────────────────
+        // COMMANDES DEV (utilisables uniquement si devMode == true)
+        // ────────────────────────────────────────────────
+        public const string SetImpostorSuccess = "<color=#ff6b6b>{0}</color> est désormais Imposteur !";
+        public const string SetImpostorSuccessPlain = "{0} est désormais Imposteur !";
+
+        public const string UsageSetImpostor = "Usage : /setimpostor ID";
+        public const string UsageSetImpostorPlain = "Usage : /setimpostor ID";
+
+        public const string GameStopped = "<color=#ff6b6b>STOP</color> - Partie arrêtée !";
+        public const string GameStoppedPlain = "STOP - Partie arrêtée !";
+
+        public const string NoGameRunning = "<color=#ffd23f>Aucune partie en cours !</color>";
+        public const string NoGameRunningPlain = "Aucune partie en cours !";
+
+        public const string KillSuccess = "<color=#ff6b6b>{0}</color> a été éliminé !";
+        public const string KillSuccessPlain = "{0} a été éliminé !";
+
+        public const string UsageKill = "Usage : /kill ID";
+        public const string UsageKillPlain = "Usage : /kill ID";
     }
 }

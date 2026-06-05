@@ -143,20 +143,18 @@ namespace AU_TheDirectorsCut
         {
             bool inLobby = ShipStatus.Instance == null;
 
+            // First show it on host's chat locally
+            try
+            {
+                IsSending = true;
+                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                IsSending = false;
+            }
+            catch { IsSending = false; }
+
             if (inLobby)
             {
-                Plugin.Log?.LogInfo($"[ChatManager/Lobby] Sending lobby message to all: {plainMsg}");
-                
-                // First show it on host's chat locally
-                try
-                {
-                    IsSending = true;
-                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                    IsSending = false;
-                }
-                catch { IsSending = false; }
-                
-                // Then send RPC to other players
+                // In lobby, send targeted SendChat RPC to each player (works fine)
                 foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
                 {
                     if (pc?.Data == null || pc.OwnerId < 0 || pc == PlayerControl.LocalPlayer) continue;
@@ -164,7 +162,7 @@ namespace AU_TheDirectorsCut
                     try
                     {
                         var writer = AmongUsClient.Instance.StartRpcImmediately(
-                            PlayerControl.LocalPlayer.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, pc.OwnerId);
+                            speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, pc.OwnerId);
                         writer.Write(SafeChat(plainMsg));
                         AmongUsClient.Instance.FinishRpcImmediately(writer);
                     }
@@ -173,30 +171,24 @@ namespace AU_TheDirectorsCut
                         Plugin.Log?.LogError($"[ChatManager/Lobby] Error sending to player {pc.Data.PlayerName}: {e.Message}");
                     }
                 }
-                return;
             }
-
-            const string sysName = "[ The Director's Cut ]";
-            string orig = speaker.Data.PlayerName;
-            try
+            else
             {
-                speaker.SetName(sysName);
-                IsSending = true;
-                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                IsSending = false;
-                speaker.SetName(orig);
-            }
-            catch { IsSending = false; speaker.SetName(orig); }
+                // IN GAME: use GameData message (StartMessage(5)) with SetName, SendChat, SetName, like original code!
+                // This is what vanilla clients expect during a game!
+                const string sysName = "The Director's Cut";
+                string orig = speaker.Data.PlayerName;
 
-            var w = MessageWriter.Get(SendOption.Reliable);
-            w.StartMessage(5);
-            w.Write(AmongUsClient.Instance.GameId);
-            WSetName(w, speaker, sysName);
-            WSendChat(w, speaker, SafeChat(plainMsg));
-            WSetName(w, speaker, orig);
-            w.EndMessage();
-            AmongUsClient.Instance.SendOrDisconnect(w);
-            w.Recycle();
+                var w = MessageWriter.Get(SendOption.Reliable);
+                w.StartMessage(5);
+                w.Write(AmongUsClient.Instance.GameId);
+                WSetName(w, speaker, sysName);
+                WSendChat(w, speaker, SafeChat(plainMsg));
+                WSetName(w, speaker, orig);
+                w.EndMessage();
+                AmongUsClient.Instance.SendOrDisconnect(w);
+                w.Recycle();
+            }
         }
 
         private static PlayerControl LowestAlive()
