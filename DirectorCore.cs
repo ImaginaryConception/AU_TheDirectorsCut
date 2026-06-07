@@ -36,8 +36,8 @@ namespace AU_TheDirectorsCut
             ["/freeze"] = 30f,
         };
 
-        // /freeze state: key = PlayerId, value = (timerLeft, frozenPosition)
-        private static Dictionary<byte, (float timer, Vector2 position)> _frozenPlayers = new();
+        // /freeze state: key = PlayerId, value = (timerLeft, frozenPosition, originalSpeedMod)
+        private static Dictionary<byte, (float timer, Vector2 position, float originalSpeed)> _frozenPlayers = new();
 
         // /darkness state
         private static bool _darknessActive = false;
@@ -497,15 +497,18 @@ namespace AU_TheDirectorsCut
             if (target?.Data == null || target.Data.IsDead || target.Data.Disconnected) return;
 
             Vector2 frozenPosition = (Vector2)target.transform.position;
-            _frozenPlayers[target.PlayerId] = (8f, frozenPosition);
+            float originalSpeedMod = GameManager.Instance.LogicOptions.currentGameOptions.GetFloat(FloatOptionNames.PlayerSpeedMod);
+            _frozenPlayers[target.PlayerId] = (8f, frozenPosition, originalSpeedMod);
 
             // Announce
             ChatManager.Queue(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
 
-            // Create a clone of the current game options, set PlayerSpeedMod to 0.01f (to freeze them—Hydra uses 0.1f for "Slow Speed", we use even slower!)
+            // If target IS the host: ONLY use local position-forcing, DO NOT send per-client options (prevents global options change!)
+            if (target == PlayerControl.LocalPlayer) return;
+
+            // Otherwise, for vanilla/other clients: use per-client speed-mod (0.01f) like before
             IGameOptions freezeOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
             freezeOptions.SetFloat(FloatOptionNames.PlayerSpeedMod, 0.01f);
-            // Send this modified options ONLY to the target player (using Hydra's function!)
             Hydra.GameOptions.SendGameOptionsToClient(freezeOptions, target.OwnerId);
         }
 
@@ -513,14 +516,19 @@ namespace AU_TheDirectorsCut
         {
             if (target?.Data == null || !_frozenPlayers.ContainsKey(target.PlayerId)) return;
 
+            bool isHost = target == PlayerControl.LocalPlayer;
+            float originalSpeedMod = _frozenPlayers[target.PlayerId].originalSpeed;
             _frozenPlayers.Remove(target.PlayerId);
 
             // Announce
             ChatManager.Queue(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
 
-            // Create a clone of the current game options with ORIGINAL speed mod
+            // If target IS the host: no need to send options, just stop forcing position
+            if (isHost) return;
+
+            // Otherwise, for vanilla/other clients: restore original speed mod
             IGameOptions normalOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
-            // Send this original options ONLY to the target player
+            normalOptions.SetFloat(FloatOptionNames.PlayerSpeedMod, originalSpeedMod);
             Hydra.GameOptions.SendGameOptionsToClient(normalOptions, target.OwnerId);
         }
 
@@ -571,7 +579,7 @@ namespace AU_TheDirectorsCut
                 }
                 else
                 {
-                    _frozenPlayers[playerId] = (newTimer, frozenPosition);
+                    _frozenPlayers[playerId] = (newTimer, frozenPosition, kvp.Value.originalSpeed);
                 }
             }
 
