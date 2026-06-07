@@ -18,11 +18,32 @@ namespace AU_TheDirectorsCut
         private static float pendingAutoGGDelay = 0f;
         private static float _snapshotTimer = 0f;
 
+        // /cut state
+        private static bool _cutActive = false;
+        private static float _cutTimer = 0f;
+        private static int _cutPhase = 0; // 0: not active, 1: reactor alert (2s), 2: no-movement phase (5s)
+        private static Dictionary<byte, Vector2> _cutInitialPositions = new();
+        private static List<byte> _cutKilledPlayers = new();
+        private static Vector3? _savedHostPosition = null;
+        private static float _hostPositionLockTimer = 0f;
+
         private static readonly Dictionary<string, float> _cd = new();
         private static readonly Dictionary<string, float> _cdMax = new()
         {
             ["/randomcolors"] = 20f,
+            ["/cut"] = 30f,
+            ["/darkness"] = 35f,
+            ["/freeze"] = 30f,
         };
+
+        // /freeze state: key = PlayerId, value = (timerLeft, frozenPosition)
+        private static Dictionary<byte, (float timer, Vector2 position)> _frozenPlayers = new();
+
+        // /darkness state
+        private static bool _darknessActive = false;
+        private static float _darknessTimer = 0f;
+        private static float _originalCrewLightMod = 1f;
+        private static float _originalImpostorLightMod = 1f;
 
         // Données de la partie précédente
         public static IReadOnlyList<string> LastAlive => _lastAlive;
@@ -67,6 +88,18 @@ namespace AU_TheDirectorsCut
             PendingAutoGG = false;
             pendingAutoGGDelay = 0f;
             _cd.Clear();
+            _cutActive = false;
+            _cutPhase = 0;
+            _cutTimer = 0f;
+            _cutInitialPositions.Clear();
+            _cutKilledPlayers.Clear();
+            _savedHostPosition = null;
+            _hostPositionLockTimer = 0f;
+            _darknessActive = false;
+            _darknessTimer = 0f;
+            _originalCrewLightMod = 1f;
+            _originalImpostorLightMod = 1f;
+            _frozenPlayers.Clear();
             ChatManager.ClearWelcomeSent();
         }
 
@@ -196,6 +229,11 @@ namespace AU_TheDirectorsCut
 
                 case "/help":
                     ChatManager.QueueSlow(ModMessages.Help1, ModMessages.Help1Plain);
+                    ChatManager.QueueSlow(ModMessages.Help2, ModMessages.Help2Plain);
+                    ChatManager.QueueSlow(ModMessages.HelpRandomColors, ModMessages.HelpRandomColorsPlain);
+                    ChatManager.QueueSlow(ModMessages.HelpCut, ModMessages.HelpCutPlain);
+                    ChatManager.QueueSlow(ModMessages.HelpDarkness, ModMessages.HelpDarknessPlain);
+                    ChatManager.QueueSlow(ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
                     return true;
 
                 case "/gg":
@@ -292,16 +330,314 @@ namespace AU_TheDirectorsCut
                     NetworkManager.RandomizeColors();
                     return true;
 
+                case "/cut":
+                    if (!TryCooldown("/cut")) return true;
+                    StartCutSequence();
+                    return true;
+
+                case "/darkness":
+                    if (!TryCooldown("/darkness")) return true;
+                    StartDarkness();
+                    return true;
+
+                case "/freeze":
+                    if (!TryCooldown("/freeze")) return true;
+                    if (parts.Length < 2)
+                    {
+                        SendHostMessage("Usage : /freeze ID");
+                        return true;
+                    }
+                    if (!byte.TryParse(parts[1], out byte targetId))
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    PlayerControl? target = FindById(targetId);
+                    if (target?.Data == null)
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    if (_frozenPlayers.ContainsKey(target.PlayerId))
+                    {
+                        SendHostMessage($"{target.Data.PlayerName} est déjà bloqué !");
+                        return true;
+                    }
+                    StartFreeze(target);
+                    return true;
+
                 default:
                     SendHostMessage($"Commande inconnue : {cmd} — /help");
                     return true;
             }
         }
 
+        private static void StartCutSequence()
+        {
+            _cutActive = true;
+            _cutPhase = 1;
+            _cutTimer = 2f;
+            _cutInitialPositions.Clear();
+            _cutKilledPlayers.Clear();
+            _savedHostPosition = null;
+            _hostPositionLockTimer = 0f;
+
+            // Announce /cut in chat
+            ChatManager.Queue(ModMessages.CutStart, ModMessages.CutStartPlain);
+
+            // Record initial positions of all alive players
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected)
+                {
+                    _cutInitialPositions[pc.PlayerId] = (Vector2)pc.transform.position;
+                }
+            }
+
+            // Trigger reactor sabotage
+            TriggerReactorSabotage(true);
+        }
+
+        private static void TriggerReactorSabotage(bool active)
+        {
+            if (ShipStatus.Instance == null) return;
+
+            // Get correct reactor system type for current map
+            SystemTypes reactorType = SystemTypes.Reactor;
+            MapNames map = (MapNames)GameManager.Instance.LogicOptions.currentGameOptions.GetByte(ByteOptionNames.MapId);
+            switch (map)
+            {
+                case MapNames.Polus:
+                    reactorType = SystemTypes.Laboratory;
+                    break;
+                case MapNames.Airship:
+                    reactorType = SystemTypes.HeliSabotage;
+                    break;
+            }
+
+            if (active)
+            {
+                // Start sabotage
+                ShipStatus.Instance.RpcUpdateSystem(reactorType, 128);
+            }
+            else
+            {
+                // Stop sabotage
+                ShipStatus.Instance.RpcUpdateSystem(reactorType, 16);
+            }
+        }
+
+        private static void HydraKillPlayer(PlayerControl target)
+        {
+            // Use Hydra's method to kill the player, exactly like in PlayersSection.AttemptMurder
+            if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
+            {
+                // Save host's position before killing
+                _savedHostPosition = PlayerControl.LocalPlayer.transform.position;
+                _hostPositionLockTimer = 0.3f; // Lock position for 0.3 seconds
+
+                // Kill the target
+                PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
+
+                // Immediately teleport host back to saved position
+                PlayerControl.LocalPlayer.transform.position = _savedHostPosition.Value;
+            }
+        }
+
+        private static void StartDarkness()
+        {
+            if (ShipStatus.Instance == null) return;
+
+            // Save original light mod values
+            _originalCrewLightMod = GameManager.Instance.LogicOptions.currentGameOptions.GetFloat(FloatOptionNames.CrewLightMod);
+            _originalImpostorLightMod = GameManager.Instance.LogicOptions.currentGameOptions.GetFloat(FloatOptionNames.ImpostorLightMod);
+
+            _darknessActive = true;
+            _darknessTimer = 10f;
+
+            // Announce
+            ChatManager.Queue(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
+
+            // Blind everyone using Hydra's method
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.Data == null || pc.Data.Disconnected) continue;
+
+                IGameOptions blindOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+                blindOptions.SetFloat(FloatOptionNames.CrewLightMod, -1.0f);
+                blindOptions.SetFloat(FloatOptionNames.ImpostorLightMod, -1.0f);
+                Hydra.GameOptions.SendGameOptionsToClient(blindOptions, pc.OwnerId);
+            }
+        }
+
+        private static void EndDarkness()
+        {
+            if (ShipStatus.Instance == null) return;
+
+            _darknessActive = false;
+            _darknessTimer = 0f;
+
+            // Announce
+            ChatManager.Queue(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
+
+            // Restore normal lighting using Hydra's method with original values
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.Data == null || pc.Data.Disconnected) continue;
+
+                IGameOptions normalOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+                normalOptions.SetFloat(FloatOptionNames.CrewLightMod, _originalCrewLightMod);
+                normalOptions.SetFloat(FloatOptionNames.ImpostorLightMod, _originalImpostorLightMod);
+                Hydra.GameOptions.SendGameOptionsToClient(normalOptions, pc.OwnerId);
+            }
+        }
+
+        private static void StartFreeze(PlayerControl target)
+        {
+            if (target?.Data == null || target.Data.IsDead || target.Data.Disconnected) return;
+
+            Vector2 frozenPosition = (Vector2)target.transform.position;
+            _frozenPlayers[target.PlayerId] = (8f, frozenPosition);
+
+            // Announce
+            ChatManager.Queue(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
+
+            // Create a clone of the current game options, set PlayerSpeedMod to 0.01f (to freeze them—Hydra uses 0.1f for "Slow Speed", we use even slower!)
+            IGameOptions freezeOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+            freezeOptions.SetFloat(FloatOptionNames.PlayerSpeedMod, 0.01f);
+            // Send this modified options ONLY to the target player (using Hydra's function!)
+            Hydra.GameOptions.SendGameOptionsToClient(freezeOptions, target.OwnerId);
+        }
+
+        private static void EndFreeze(PlayerControl target)
+        {
+            if (target?.Data == null || !_frozenPlayers.ContainsKey(target.PlayerId)) return;
+
+            _frozenPlayers.Remove(target.PlayerId);
+
+            // Announce
+            ChatManager.Queue(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
+
+            // Create a clone of the current game options with ORIGINAL speed mod
+            IGameOptions normalOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+            // Send this original options ONLY to the target player
+            Hydra.GameOptions.SendGameOptionsToClient(normalOptions, target.OwnerId);
+        }
+
         public static void Update()
         {
             if (!AmongUsClient.Instance.AmHost) return;
             float dt = Time.deltaTime;
+
+            // Handle host position lock
+            if (_hostPositionLockTimer > 0f && _savedHostPosition.HasValue && PlayerControl.LocalPlayer != null)
+            {
+                _hostPositionLockTimer -= dt;
+                PlayerControl.LocalPlayer.transform.position = _savedHostPosition.Value;
+            }
+
+            // Handle /darkness timer
+            if (_darknessActive)
+            {
+                _darknessTimer -= dt;
+                if (_darknessTimer <= 0f)
+                {
+                    EndDarkness();
+                }
+            }
+
+            // Handle /freeze timers AND force position
+            foreach (var kvp in _frozenPlayers.ToList())
+            {
+                byte playerId = kvp.Key;
+                PlayerControl? target = FindById(playerId);
+
+                // If player is dead, disconnected, or not found: remove from list
+                if (target?.Data == null || target.Data.IsDead || target.Data.Disconnected)
+                {
+                    _frozenPlayers.Remove(playerId);
+                    continue;
+                }
+
+                // Force position without any RPC calls!
+                Vector2 frozenPosition = kvp.Value.position;
+                target.transform.position = new Vector3(frozenPosition.x, frozenPosition.y, target.transform.position.z);
+
+                float newTimer = kvp.Value.timer - dt;
+
+                if (newTimer <= 0f)
+                {
+                    EndFreeze(target);
+                }
+                else
+                {
+                    _frozenPlayers[playerId] = (newTimer, frozenPosition);
+                }
+            }
+
+            // Handle /cut sequence
+            if (_cutActive && ShipStatus.Instance != null)
+            {
+                _cutTimer -= dt;
+
+                if (_cutPhase == 1) // Reactor alert phase (2s)
+                {
+                    if (_cutTimer <= 0f)
+                    {
+                        // Stop reactor, start no-movement phase
+                        TriggerReactorSabotage(false);
+                        _cutPhase = 2;
+                        _cutTimer = 5f;
+                    }
+                }
+                else if (_cutPhase == 2) // No-movement phase (5s)
+                {
+                    // Check all players for movement
+                    bool someoneMoved = false;
+                    foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                    {
+                        if (pc?.Data == null || pc.Data.IsDead || pc.Data.Disconnected) continue;
+                        if (_cutKilledPlayers.Contains(pc.PlayerId)) continue;
+
+                        if (_cutInitialPositions.TryGetValue(pc.PlayerId, out Vector2 initialPos))
+                        {
+                            Vector2 currentPos = (Vector2)pc.transform.position;
+                            float distance = Vector2.Distance(initialPos, currentPos);
+                            if (distance > 1.5f) // Increased threshold to make detection less sensitive
+                            {
+                                someoneMoved = true;
+                                _cutKilledPlayers.Add(pc.PlayerId);
+                                // Announce in chat that the player was eliminated for moving
+                                ChatManager.Queue(string.Format(ModMessages.CutEliminated, pc.Data.PlayerName), string.Format(ModMessages.CutEliminatedPlain, pc.Data.PlayerName));
+                                HydraKillPlayer(pc);
+                            }
+                        }
+                    }
+
+                    if (someoneMoved)
+                    {
+                        // Restart reactor alert for 2s
+                        _cutPhase = 1;
+                        _cutTimer = 2f;
+                        TriggerReactorSabotage(true);
+                        // Update initial positions (exclude killed players)
+                        _cutInitialPositions.Clear();
+                        foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                        {
+                            if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected && !_cutKilledPlayers.Contains(pc.PlayerId))
+                            {
+                                _cutInitialPositions[pc.PlayerId] = (Vector2)pc.transform.position;
+                            }
+                        }
+                    }
+                    else if (_cutTimer <= 0f)
+                    {
+                        // End sequence
+                        _cutActive = false;
+                        _cutPhase = 0;
+                    }
+                }
+            }
 
             if (ShipStatus.Instance != null)
             {

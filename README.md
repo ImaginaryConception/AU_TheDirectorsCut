@@ -118,6 +118,9 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | Command | Effect | Duration | Cooldown |
 |---|---|---|---|
 | `/randomcolors` | Random unique color for all | instant | 20s |
+| `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — anyone who moves dies! | 7s total | 30s |
+| `/darkness` | Total darkness across the entire map | 10s | 35s |
+| `/freeze ID` | Freezes the target player in place | 8s | 30s |
 
 ---
 
@@ -248,6 +251,9 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | Commande | Effet | Durée | Cooldown |
 |---|---|---|---|
 | `/randomcolors` | Couleurs aléatoires pour tous | instantané | 20s |
+| `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — qui bouge meurt ! | 7s total | 30s |
+| `/darkness` | Noir TOTAL sur toute la map | 10s | 35s |
+| `/freeze ID` | Bloque le joueur ciblé sur place | 8s | 30s |
 
 ---
 

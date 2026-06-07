@@ -22,8 +22,20 @@ namespace AU_TheDirectorsCut
         public const string Help1 = "<color=#ffd23f>HELP</color>: /help, /welcome, /gg, /players, /discord";
         public const string Help1Plain = "HELP: /help, /welcome, /gg, /players, /discord";
 
+        public const string Help2 = "<color=#ffd23f>DIRECTOR</color>: /randomcolors, /cut, /darkness, /freeze";
+        public const string Help2Plain = "DIRECTOR: /randomcolors, /cut, /darkness, /freeze";
+
         public const string HelpRandomColors = "<color=#ffd23f>/randomcolors</color> - Couleurs aléatoires pour TOUS! Cooldown 20s";
         public const string HelpRandomColorsPlain = "/randomcolors - Couleurs aléatoires pour TOUS! Cooldown 20s";
+
+        public const string HelpCut = "<color=#ffd23f>/cut</color> - Alerte sabotage (2s), puis arrêt (5s): bouge = mort! Cooldown 30s";
+        public const string HelpCutPlain = "/cut - Alerte sabotage (2s), puis arrêt (5s): bouge = mort! Cooldown 30s";
+
+        public const string HelpDarkness = "<color=#ffd23f>/darkness</color> - NOIR TOTAL pendant 10s! Cooldown 35s";
+        public const string HelpDarknessPlain = "/darkness - NOIR TOTAL pendant 10s! Cooldown 35s";
+
+        public const string HelpFreeze = "<color=#ffd23f>/freeze ID</color> - Bloque un joueur 8s! Cooldown 30s";
+        public const string HelpFreezePlain = "/freeze ID - Bloque un joueur 8s! Cooldown 30s";
 
         // ────────────────────────────────────────────────
         // MESSAGES DE FIN DE PARTIE (GG)
@@ -83,5 +95,23 @@ namespace AU_TheDirectorsCut
 
         public const string UsageKill = "Usage : /kill ID";
         public const string UsageKillPlain = "Usage : /kill ID";
+
+        public const string CutStart = "<color=#ffd23f>CUT !</color> Sabotage réacteur (2s) → ARRÊT (5s) : BOUGEZ PAS !";
+        public const string CutStartPlain = "CUT ! Sabotage réacteur (2s) → ARRÊT (5s) : BOUGEZ PAS !";
+
+        public const string CutEliminated = "<color=#ff6b6b>{0}</color> a bougé — éliminé !";
+        public const string CutEliminatedPlain = "{0} a bougé — éliminé !";
+
+        public const string DarknessStart = "<color=#2d3436>DARKNESS !</color> NOIR TOTAL pendant 10s !";
+        public const string DarknessStartPlain = "DARKNESS ! NOIR TOTAL pendant 10s !";
+
+        public const string DarknessEnd = "<color=#ffd23f>LUMIÈRE !</color> Retour à la normale !";
+        public const string DarknessEndPlain = "LUMIÈRE ! Retour à la normale !";
+
+        public const string FreezeStart = "<color=#74b9ff>FREEZE !</color> {0} est bloqué 8s !";
+        public const string FreezeStartPlain = "FREEZE ! {0} est bloqué 8s !";
+
+        public const string FreezeEnd = "<color=#ffd23f>GO !</color> {0} peut à nouveau bouger !";
+        public const string FreezeEndPlain = "GO ! {0} peut à nouveau bouger !";
     }
 }
