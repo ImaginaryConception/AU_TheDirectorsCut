@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Hydra-main\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.697" />
     <PackageReference Include="Lib.Harmony" Version="2.4.2" />
     <PackageReference Include="Il2CppInterop.Runtime" Version="1.5.1" />

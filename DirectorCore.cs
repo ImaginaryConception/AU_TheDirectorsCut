@@ -5,6 +5,8 @@ using HarmonyLib;
 using Hazel;
 using UnityEngine;
 using AmongUs.GameOptions;
+using InnerNet;
+using AU_TheDirectorsCut.Hydra;
 
 namespace AU_TheDirectorsCut
 {
@@ -13,7 +15,7 @@ namespace AU_TheDirectorsCut
         public static byte? DirectorPlayerId { get; private set; }
         public static string? DirectorName { get; private set; }
         public static bool IsCutActive { get; private set; }
-        public static bool PendingAutoGG = false;
+        public static bool PendingAutoGG { get; set; }
         private static float pendingAutoGGDelay = 0f;
         private static float _snapshotTimer = 0f;
 
@@ -38,10 +40,7 @@ namespace AU_TheDirectorsCut
         private static readonly Dictionary<byte, (Vector2 pos, float rem)> _frozen = new();
         private static readonly Dictionary<byte, (Vector2 center, float angle, float rem)> _spin = new();
         private static float _visionDur;
-        // Cadence des téléportations d'effet (freeze/spin) : le RPC SnapTo est
-        // diffusé à tous, donc on le limite à ~10/s pour ne pas saturer le réseau
-        // et éviter un kick anti-triche côté client vanilla.
-        private static float _effectTpTimer;
+        private static readonly Dictionary<byte, float> _blindedPlayers = new();
 
         // Données de la partie précédente
         public static IReadOnlyList<string> LastAlive => _lastAlive;
@@ -54,7 +53,6 @@ namespace AU_TheDirectorsCut
         public static void SnapshotEndState(bool verbose)
         {
             var allPlayers = PlayerControl.AllPlayerControls.ToArray();
-
             var alive = allPlayers
                 .Where(p => p?.Data != null && !p.Data.IsDead && !p.Data.Disconnected)
                 .Select(p => p.Data.PlayerName).ToList();
@@ -62,10 +60,6 @@ namespace AU_TheDirectorsCut
                 .Where(p => p?.Data != null && p.Data.IsDead && !p.Data.Disconnected)
                 .Select(p => p.Data.PlayerName).ToList();
 
-            // Ne JAMAIS écraser un snapshot valide par un vide : à la fin de
-            // partie, les PlayerControl peuvent déjà être détruits selon l'ordre
-            // des événements (EndGame / ExitGame / ShipStatus.OnDestroy). Dans ce
-            // cas on conserve le dernier état connu capturé en jeu.
             if (alive.Count == 0 && dead.Count == 0)
             {
                 if (verbose)
@@ -95,6 +89,7 @@ namespace AU_TheDirectorsCut
             cutStartPositions.Clear();
             _frozen.Clear(); _spin.Clear();
             _visionDur = 0f;
+            _blindedPlayers.Clear();
             _cd.Clear();
             NetworkManager.ResetGlobalVision();
             ChatManager.ClearWelcomeSent();
@@ -102,49 +97,29 @@ namespace AU_TheDirectorsCut
 
         public static void OnPlayerDie(PlayerControl player)
         {
-            // Hôte uniquement, et on n'attribue qu'UNE fois (le tout premier mort).
             if (AmongUsClient.Instance?.AmHost != true) return;
             if (player?.Data == null) return;
             if (DirectorPlayerId.HasValue) return;
 
             DirectorPlayerId = player.PlayerId;
-            DirectorName     = player.Data.PlayerName;
-
-            // OwnerId = client réseau propriétaire du PlayerControl.
-            // HostId  = client hôte du lobby. L'égalité identifie l'avatar de l'hôte,
-            // sinon c'est un client distant (vanilla / mobile).
-            bool isHost = player.OwnerId == AmongUsClient.Instance.HostId;
+            DirectorName = player.Data.PlayerName;
 
             Plugin.Log?.LogInfo(
                 $"[Director] RÉALISATEUR attribué → \"{DirectorName}\" " +
-                $"(PlayerId={player.PlayerId}, OwnerId={player.OwnerId}, " +
-                $"{(isHost ? "HÔTE du lobby" : "CLIENT vanilla/mobile")}).");
+                $"(PlayerId={player.PlayerId}, OwnerId={player.OwnerId})"
+            );
 
             SendHostMessage(
-                string.Format(ModMessages.FirstDirector,      player.Data.PlayerName),
-                string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName));
+                string.Format(ModMessages.FirstDirector, player.Data.PlayerName),
+                string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName)
+            );
         }
 
         public static bool IsDirector(byte id) => DirectorPlayerId.HasValue && DirectorPlayerId.Value == id;
 
-        private static string NumberToFrench(int number)
-        {
-            return number.ToString();
-        }
+        private static string NumberToFrench(int number) => number.ToString();
 
-        private static bool TryParseId(string input, out byte id)
-        {
-            id = 0;
-            if (string.IsNullOrWhiteSpace(input)) return false;
-            char c = char.ToUpperInvariant(input.Trim()[0]);
-            if (c >= 'A' && c <= 'Z')
-            {
-                id = (byte)(c - 'A');
-                return true;
-            }
-            // Also accept numbers for backwards compatibility
-            return byte.TryParse(input, out id);
-        }
+        private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
         private static bool TryCooldown(string cmd)
         {
@@ -170,26 +145,16 @@ namespace AU_TheDirectorsCut
 
             bool inLobby = ShipStatus.Instance == null;
 
-            // ────────────────────────────────────────────────
-            // COMMANDES DEV — /start /stop /setdirector /setimpostor
-            // Utilisables UNIQUEMENT si devMode == true.
-            // Hors devMode : aucun message « désactivé », elles sont
-            // simplement traitées comme une commande inconnue.
-            // Réservées à l'hôte (avatar local).
-            // ────────────────────────────────────────────────
-            bool isDevCommand = cmd == "/start" || cmd == "/stop"
-                             || cmd == "/setdirector";
+            bool isDevCommand = cmd == "/start" || cmd == "/stop" || cmd == "/setdirector";
 
             if (isDevCommand)
             {
                 if (!DevModeManager.devMode)
                 {
-                    // devMode OFF → commande non reconnue.
                     SendHostMessage($"Commande inconnue : {cmd} — /help");
                     return true;
                 }
 
-                // Seul l'hôte peut déclencher ces commandes de contrôle.
                 if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
                 {
                     SendHostMessage(ModMessages.HostOnly, ModMessages.HostOnlyPlain);
@@ -211,11 +176,6 @@ namespace AU_TheDirectorsCut
                         }
                         try
                         {
-                            // RpcEndGame est indépendant de CheckEndCriteria : il
-                            // termine la partie même avec devMode actif. On désactive
-                            // d'abord GameManager pour qu'il ne ré-évalue pas la fin
-                            // (même approche que TOHE pour une fin forcée). La raison
-                            // « disconnect » évite tout calcul de vainqueur.
                             GameManager.Instance.enabled = false;
                             GameManager.Instance.RpcEndGame(GameOverReason.CrewmateDisconnect, false);
                             SendHostMessage(ModMessages.GameStopped, ModMessages.GameStoppedPlain);
@@ -225,31 +185,31 @@ namespace AU_TheDirectorsCut
                         return true;
 
                     case "/setdirector":
-                    // Avec un ID → ce joueur devient Réalisateur.
-                    // Sans ID → l'hôte se désigne lui-même (comportement d'origine).
-                    if (parts.Length >= 2 && byte.TryParse(parts[1], out byte did))
-                    {
-                        var dtarget = FindById(did);
-                        if (dtarget?.Data == null)
+                        if (parts.Length >= 2 && byte.TryParse(parts[1], out byte did))
                         {
-                            SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
-                            return true;
+                            var dtarget = FindById(did);
+                            if (dtarget?.Data == null)
+                            {
+                                SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                                return true;
+                            }
+                            DirectorPlayerId = dtarget.PlayerId;
+                            DirectorName = dtarget.Data.PlayerName;
+                            SendHostMessage(
+                                string.Format(ModMessages.DirectorSet, dtarget.Data.PlayerName),
+                                string.Format(ModMessages.DirectorSetPlain, dtarget.Data.PlayerName)
+                            );
                         }
-                        DirectorPlayerId = dtarget.PlayerId;
-                        DirectorName = dtarget.Data.PlayerName;
-                        SendHostMessage(
-                            string.Format(ModMessages.DirectorSet, dtarget.Data.PlayerName),
-                            string.Format(ModMessages.DirectorSetPlain, dtarget.Data.PlayerName));
-                    }
-                    else
-                    {
-                        DirectorPlayerId = sender.PlayerId;
-                        DirectorName = sender.Data.PlayerName;
-                        SendHostMessage(
-                            string.Format(ModMessages.DirectorSet, sender.Data.PlayerName),
-                            string.Format(ModMessages.DirectorSetPlain, sender.Data.PlayerName));
-                    }
-                    return true;
+                        else
+                        {
+                            DirectorPlayerId = sender.PlayerId;
+                            DirectorName = sender.Data.PlayerName;
+                            SendHostMessage(
+                                string.Format(ModMessages.DirectorSet, sender.Data.PlayerName),
+                                string.Format(ModMessages.DirectorSetPlain, sender.Data.PlayerName)
+                            );
+                        }
+                        return true;
                 }
             }
 
@@ -274,68 +234,65 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/players":
-                {
-                    var players = PlayerControl.AllPlayerControls.ToArray()
-                        .Where(p => p?.Data != null)
-                        .OrderBy(p => p.PlayerId)
-                        .ToList();
-
-                    const int maxLen = 100;      // limite DURE vanilla
-                    const int maxMessages = 8;   // garde-fou : tronque au-delà
-
-                    var chunksPlain = new List<string>();
-                    var chunksColored = new List<string>();
-
-                    string plainCur = "Joueurs : ";
-                    string coloredCur = "Joueurs : ";
-                    int partsInCur = 0;
-                    bool truncated = false;
-
-                    foreach (var p in players)
                     {
-                        string coloredPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "")}";
-                        string plainPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " (éliminé)" : "")}";
-                        string sep = partsInCur > 0 ? " | " : "";
+                        var players = PlayerControl.AllPlayerControls.ToArray()
+                            .Where(p => p?.Data != null)
+                            .OrderBy(p => p.PlayerId)
+                            .ToList();
 
-                        // On remplit le message courant tant qu'on reste <= 100 caractères
-                        if ((plainCur + sep + plainPart).Length <= maxLen)
+                        const int maxLen = 100;
+                        const int maxMessages = 8;
+
+                        var chunksPlain = new List<string>();
+                        var chunksColored = new List<string>();
+
+                        string plainCur = "Joueurs : ";
+                        string coloredCur = "Joueurs : ";
+                        int partsInCur = 0;
+                        bool truncated = false;
+
+                        foreach (var p in players)
                         {
-                            plainCur += sep + plainPart;
-                            coloredCur += sep + coloredPart;
-                            partsInCur++;
-                        }
-                        else
-                        {
-                            // message plein -> on le valide et on repart sur une nouvelle page
-                            if (partsInCur > 0)
+                            string coloredPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "")}";
+                            string plainPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " (éliminé)" : "")}";
+                            string sep = partsInCur > 0 ? " | " : "";
+
+                            if ((plainCur + sep + plainPart).Length <= maxLen)
                             {
-                                chunksPlain.Add(plainCur);
-                                chunksColored.Add(coloredCur);
+                                plainCur += sep + plainPart;
+                                coloredCur += sep + coloredPart;
+                                partsInCur++;
                             }
-                            if (chunksPlain.Count >= maxMessages) { truncated = true; break; }
-                            plainCur = plainPart;     // nouvelle page, sans préfixe
-                            coloredCur = coloredPart;
-                            partsInCur = 1;
+                            else
+                            {
+                                if (partsInCur > 0)
+                                {
+                                    chunksPlain.Add(plainCur);
+                                    chunksColored.Add(coloredCur);
+                                }
+                                if (chunksPlain.Count >= maxMessages) { truncated = true; break; }
+                                plainCur = plainPart;
+                                coloredCur = coloredPart;
+                                partsInCur = 1;
+                            }
                         }
-                    }
 
-                    if (!truncated && partsInCur > 0)
-                    {
-                        chunksPlain.Add(plainCur);
-                        chunksColored.Add(coloredCur);
-                    }
-                    else if (truncated && chunksPlain.Count > 0)
-                    {
-                        chunksPlain[chunksPlain.Count - 1] += " ...";
-                        chunksColored[chunksColored.Count - 1] += " ...";
-                    }
+                        if (!truncated && partsInCur > 0)
+                        {
+                            chunksPlain.Add(plainCur);
+                            chunksColored.Add(coloredCur);
+                        }
+                        else if (truncated && chunksPlain.Count > 0)
+                        {
+                            chunksPlain[chunksPlain.Count - 1] += " ...";
+                            chunksColored[chunksColored.Count - 1] += " ...";
+                        }
 
-                    // Chaque page : envoi LENT (3.5s entre chaque), borné à 100 car. à l'émission.
-                    for (int i = 0; i < chunksPlain.Count; i++)
-                        ChatManager.QueueSlow(chunksColored[i], chunksPlain[i]);
+                        for (int i = 0; i < chunksPlain.Count; i++)
+                            ChatManager.QueueSlow(chunksColored[i], chunksPlain[i]);
 
-                    return true;
-                }
+                        return true;
+                    }
 
                 case "/hcut":
                     ChatManager.Queue(ModMessages.HelpCut, ModMessages.HelpCutPlain);
@@ -413,8 +370,8 @@ namespace AU_TheDirectorsCut
                             return true;
                         }
                         SendHostMessage(string.Format(ModMessages.BlindSuccess, bt.Data.PlayerName), string.Format(ModMessages.BlindSuccessPlain, bt.Data.PlayerName));
-                        NetworkManager.SetGlobalVision(0.05f);
-                        _visionDur = 8f;
+                        NetworkManager.BlindPlayer(bt);
+                        _blindedPlayers[bt.PlayerId] = Time.time + 8f;
                     }
                     else
                         SendHostMessage(ModMessages.UsageBlind, ModMessages.UsageBlindPlain);
@@ -422,7 +379,7 @@ namespace AU_TheDirectorsCut
 
                 case "/darkness":
                     if (!TryCooldown("/darkness")) return true;
-                    SendHostMessage(ModMessages.HelpDarkness, ModMessages.HelpDarknessPlain);
+                    SendHostMessage("Darkness activée ! Vision globale réduite pendant 10 secondes !");
                     NetworkManager.SetGlobalVision(0.05f);
                     _visionDur = 10f;
                     return true;
@@ -501,7 +458,7 @@ namespace AU_TheDirectorsCut
             if (IsCutActive) return;
             IsCutActive = true; cutStep = 1; cutStepTimer = 2f;
             cutStartPositions.Clear();
-            NetworkManager.SendCutSignal();
+            SendCutSignal();
         }
 
         private static void AdvanceCutStep()
@@ -509,18 +466,18 @@ namespace AU_TheDirectorsCut
             switch (cutStep)
             {
                 case 1:
-                    NetworkManager.StopCutSignal();
+                    StopCutSignal();
                     foreach (var p in NetworkManager.Alive())
                         cutStartPositions[p.PlayerId] = p.GetTruePosition();
                     SendHostMessage(ModMessages.CutStart, ModMessages.CutStartPlain);
                     cutStep = 2; cutStepTimer = 5f;
                     break;
                 case 2:
-                    NetworkManager.SendCutSignal();
+                    SendCutSignal();
                     cutStep = 3; cutStepTimer = 2f;
                     break;
                 case 3:
-                    NetworkManager.StopCutSignal();
+                    StopCutSignal();
                     SendHostMessage(ModMessages.Sun, ModMessages.SunPlain);
                     IsCutActive = false; cutStep = 0;
                     break;
@@ -532,9 +489,6 @@ namespace AU_TheDirectorsCut
             if (!AmongUsClient.Instance.AmHost) return;
             float dt = Time.deltaTime;
 
-            // Capture continue de l'état de la partie tant qu'on est en jeu.
-            // Ainsi, quel que soit l'ordre de destruction des joueurs à la fin,
-            // on dispose toujours d'un état récent pour le récap /gg.
             if (ShipStatus.Instance != null)
             {
                 _snapshotTimer -= dt;
@@ -545,10 +499,6 @@ namespace AU_TheDirectorsCut
                 }
             }
 
-            // Fin de partie : le récap /gg est désormais émis par le flux welcome
-            // (étape 1, juste APRÈS le message de bienvenue, joueur par joueur).
-            // Ici on se contente de retomber le drapeau une fois en lobby, pour
-            // éviter tout double envoi.
             if (PendingAutoGG)
             {
                 if (ShipStatus.Instance == null)
@@ -587,11 +537,27 @@ namespace AU_TheDirectorsCut
                 if (_visionDur <= 0f)
                 {
                     NetworkManager.ResetGlobalVision();
-                    SendHostMessage("Vision restaurée.");
+                    SendHostMessage("Vision globale restaurée");
                 }
             }
 
-            // Tick de téléportation d'effet (~10 Hz) partagé par freeze et spin.
+            foreach (var kvp in _blindedPlayers.ToList())
+            {
+                byte playerId = kvp.Key;
+                float endTime = kvp.Value;
+                if (Time.time >= endTime)
+                {
+                    var player = FindById(playerId);
+                    if (player != null)
+                    {
+                        NetworkManager.ResetPlayerVision(player);
+                        SendHostMessage($"Vision de {player.Data.PlayerName} restaurée");
+                    }
+                    _blindedPlayers.Remove(playerId);
+                }
+            }
+
+            float _effectTpTimer = 0f;
             _effectTpTimer -= dt;
             bool tpTick = _effectTpTimer <= 0f;
             if (tpTick) _effectTpTimer = 0.1f;
@@ -617,8 +583,8 @@ namespace AU_TheDirectorsCut
                 var (center, angle, rem) = _spin[k];
                 var p = FindById(k);
                 if (p == null || p.Data.IsDead) { _spin.Remove(k); continue; }
-                angle += 3.5f * dt;
-                if (tpTick) NetworkManager.Teleport(p, center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 1.0f);
+                float newAngle = angle + 3.5f * dt;
+                if (tpTick) NetworkManager.Teleport(p, center + new Vector2(Mathf.Cos(newAngle), Mathf.Sin(newAngle)) * 1.0f);
                 float nr = rem - dt;
                 if (nr <= 0f)
                 {
@@ -626,11 +592,9 @@ namespace AU_TheDirectorsCut
                     NetworkManager.Teleport(p, center);
                 }
                 else
-                    _spin[k] = (center, angle, nr);
+                    _spin[k] = (center, newAngle, nr);
             }
         }
-
-        private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
         private static void SendHostMessage(string coloredMessage) => SendHostMessage(coloredMessage, null);
         private static void SendHostMessage(string coloredMessage, string plainMessage)
@@ -643,6 +607,61 @@ namespace AU_TheDirectorsCut
                 else
                     ChatManager.Queue(coloredMessage, plainMessage);
             }
+        }
+
+        private static SystemTypes CriticalSabotage()
+        {
+            var s = ShipStatus.Instance?.Systems;
+            if (s == null) return SystemTypes.Reactor;
+            if (s.ContainsKey(SystemTypes.Reactor)) return SystemTypes.Reactor;
+            if (s.ContainsKey(SystemTypes.Laboratory)) return SystemTypes.Laboratory;
+            if (s.ContainsKey(SystemTypes.HeliSabotage)) return SystemTypes.HeliSabotage;
+            if (s.ContainsKey(SystemTypes.MushroomMixupSabotage)) return SystemTypes.MushroomMixupSabotage;
+            return SystemTypes.Reactor;
+        }
+
+        private static void SendCutSignal()
+        {
+            if (ShipStatus.Instance == null || !AmongUsClient.Instance.AmHost) return;
+            try
+            {
+                var sys = CriticalSabotage();
+                ShipStatus.Instance.UpdateSystem(sys, PlayerControl.LocalPlayer, 128);
+                foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                {
+                    if (pc == null || pc.AmOwner || pc.OwnerId < 0) continue;
+                    var writer = AmongUsClient.Instance.StartRpcImmediately(
+                        ShipStatus.Instance.NetId, (byte)RpcCalls.UpdateSystem, SendOption.Reliable, pc.OwnerId
+                    );
+                    writer.Write((byte)sys);
+                    writer.WritePacked(PlayerControl.LocalPlayer.NetId);
+                    writer.Write((byte)128);
+                    AmongUsClient.Instance.FinishRpcImmediately(writer);
+                }
+            }
+            catch (Exception e) { Plugin.Log?.LogError($"[SendCutSignal] {e.Message}"); }
+        }
+
+        private static void StopCutSignal()
+        {
+            if (ShipStatus.Instance == null || !AmongUsClient.Instance.AmHost) return;
+            try
+            {
+                var sys = CriticalSabotage();
+                ShipStatus.Instance.UpdateSystem(sys, PlayerControl.LocalPlayer, 16);
+                foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                {
+                    if (pc == null || pc.AmOwner || pc.OwnerId < 0) continue;
+                    var writer = AmongUsClient.Instance.StartRpcImmediately(
+                        ShipStatus.Instance.NetId, (byte)RpcCalls.UpdateSystem, SendOption.Reliable, pc.OwnerId
+                    );
+                    writer.Write((byte)sys);
+                    writer.WritePacked(PlayerControl.LocalPlayer.NetId);
+                    writer.Write((byte)16);
+                    AmongUsClient.Instance.FinishRpcImmediately(writer);
+                }
+            }
+            catch (Exception e) { Plugin.Log?.LogError($"[StopCutSignal] {e.Message}"); }
         }
     }
 
@@ -688,25 +707,19 @@ namespace AU_TheDirectorsCut
     {
         static bool Prefix(ChatController __instance)
         {
-            // If we are the host, allow sending messages always!
             if (AmongUsClient.Instance.AmHost)
             {
                 return true;
             }
-
-            // Check if we're in a meeting (allow sending if yes)
             if (MeetingHud.Instance != null)
             {
                 return true;
             }
-
-            // If in a game (not meeting) and not host, block sending
             if (ShipStatus.Instance != null)
             {
                 return false;
             }
-
-            return true; // Always allow in lobby
+            return true;
         }
     }
 
@@ -736,21 +749,19 @@ namespace AU_TheDirectorsCut
         static void Postfix()
         {
             if (AmongUsClient.Instance?.AmHost != true) return;
-            // Only snapshot if we haven't already (to keep existing data)
             if (DirectorCore.LastAlive.Count == 0 && DirectorCore.LastDead.Count == 0)
                 DirectorCore.SnapshotEndState();
             DirectorCore.PendingAutoGG = true;
             Plugin.Log?.LogInfo("[DirectorCore] ExitGame → snapshot (if needed) + GG pending");
         }
     }
-    
+
     [HarmonyPatch(typeof(ShipStatus), "OnDestroy")]
     static class ShipDestroy_P
     {
         static void Prefix()
         {
             if (AmongUsClient.Instance?.AmHost != true) return;
-            // Only snapshot if we haven't already
             if (DirectorCore.LastAlive.Count == 0 && DirectorCore.LastDead.Count == 0)
                 DirectorCore.SnapshotEndState();
             DirectorCore.PendingAutoGG = true;
@@ -777,6 +788,50 @@ namespace AU_TheDirectorsCut
             if (!AmongUsClient.Instance.AmHost) return true;
             AmongUsClient.Instance.StartGame();
             return false;
+        }
+    }
+
+    // ── HYDRA PROTECTIONS PATCHES ────────────────────────────────────────────────
+    [HarmonyPatch(typeof(InnerNetClient), nameof(InnerNetClient.SetEndpoint))]
+    static class HydraForceDTLS
+    {
+        static void Prefix(ref bool dtls)
+        {
+            dtls = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(CustomNetworkTransform), nameof(CustomNetworkTransform.HandleRpc))]
+    static class HydraBlockServerTeleports
+    {
+        static bool Prefix(CustomNetworkTransform __instance, byte callId)
+        {
+            if (callId != (byte)RpcCalls.SnapTo || __instance.myPlayer != PlayerControl.LocalPlayer) return true;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(VoteBanSystem), nameof(VoteBanSystem.AddVote))]
+    static class HydraVotekicks
+    {
+        static bool Prefix(int srcClient, int clientId)
+        {
+            if (clientId != PlayerControl.LocalPlayer.OwnerId) return true;
+            return !AmongUsClient.Instance.AmHost;
+        }
+    }
+
+    [HarmonyPatch(typeof(AmongUsClient), nameof(InnerNetClient.CoStartGame))]
+    static class HydraBypassShapeshiftRatelimits
+    {
+        static void Postfix()
+        {
+            if (!AmongUsClient.Instance.AmHost) return;
+            PlayerControl player = PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p != null && p != PlayerControl.LocalPlayer);
+            if (player == null) return;
+            IGameOptions options = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+            options.SetFloat(FloatOptionNames.ShapeshifterCooldown, 0.0f);
+            Hydra.GameOptions.SendGameOptionsToClient(options, player.OwnerId);
         }
     }
 }
