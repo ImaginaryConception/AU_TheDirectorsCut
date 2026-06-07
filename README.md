@@ -17,7 +17,7 @@
 
 ## 🎥 What is this? / Le concept
 
-When the **first player dies**, they don't leave — they take over as the **Director**. From beyond the grave they stop playing Among Us and start *directing* it: freezing the cast, swapping bodies, plunging the map into darkness, and running a deadly round of "Red Light, Green Light" — all through chat commands.
+When the **first player dies**, they don't leave — they take over as the **Director**. From beyond the grave they stop playing Among Us and start *directing* it.
 
 **The key point:** only the **host** installs the mod. Everyone else — including the Director — plays on a completely **unmodded (vanilla) client**. The mod intercepts chat commands on the host and replicates effects to all players using vanilla network calls.
 
@@ -80,7 +80,7 @@ Requires the **.NET 6 SDK**.
 2. Make sure you've launched the game once with BepInEx so `BepInEx/interop/` exists (the `.csproj` references those DLLs).
 3. Build:
    ```bash
-   dotnet build -c Release /p:AmongUsPath="C:\path\to\Among Us"
+   dotnet build -c Release /p:AmongUsPath="C:\chemin\vers\Among Us"
    ```
 4. On success the DLL is **auto-copied** to `BepInEx/plugins/` (see the `PostBuild` target). Output:
    ```
@@ -98,7 +98,6 @@ Requires the **.NET 6 SDK**.
 - **Public commands** work for anyone, any time.
 - **Director directives** work for the Director **only**, and **in-game only** (ignored in the lobby).
 - Every directive has a **cooldown**; if it's recharging, the remaining time is announced.
-- During **🔴 `/cut` ("Red Light, Green Light")**: stand still. **Any movement = elimination** (when kill-on-move is enabled, the default).
 
 ---
 
@@ -110,25 +109,15 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | Command | Effect |
 |---|---|
 | `/welcome` | Welcome message |
-| `/help` | Command list (3 pages) |
+| `/help` | Command list |
 | `/gg` | Previous-game stats (alive / eliminated) |
 | `/players` | List players with their number IDs |
-| `/h<cmd>` | Detailed help, e.g. `/hcut`, `/hswap`, `/hblind`… |
+| `/hrandomcolors` | Detailed help for `/randomcolors` |
 
 ### 🎬 Director directives
 | Command | Effect | Duration | Cooldown |
 |---|---|---|---|
-| `/cut` | "Red Light, Green Light" — freeze or be eliminated | ~5s window | 30s |
-| `/swap [ID] [ID]` | Swap two players' positions | instant | 15s |
-| `/blind [ID]` | Reduce vision (applies to everyone) | 8s | 25s |
-| `/darkness` | Total darkness | 10s | 35s |
-| `/freeze [ID]` | Freeze a player in place | 8s | 30s |
-| `/spin [ID]` | Spin a player in circles | 5s | 20s |
 | `/randomcolors` | Random unique color for all | instant | 20s |
-| `/shuffle` | Shuffle everyone's positions | instant | 25s |
-| `/teleportall [ID]` | Teleport everyone to a target | instant | 20s |
-
-> ℹ️ `/blind` and `/darkness` currently dim vision **globally** (the whole lobby), even when `/blind` is given an ID.
 
 ---
 
@@ -138,19 +127,17 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 |---|---|---|
 | `AnnounceInChat` | `true` | Relay actions in public chat |
 | `AntiKick` | `true` | Anti-kick chat throttle (keep on) |
-| `CutKills` | `true` | `/cut` eliminates players who move |
 | `MessageWait` | `0.6s` | Delay between chat messages |
 
 ---
 
 ## 🧩 How it works (technical)
 
-- **Host-only, vanilla-compatible:** the mod only patches the host's game (HarmonyX) and replicates effects with **vanilla RPCs** (`SendChat`, `SetName`, `MurderPlayer`, `SetColor`, `SnapTo`, `UpdateSystem`). Clients need no mod.
-- **Chat as the channel:** all communication goes through chat. A queued, rate-limited **pump** (`ChatManager`) rides the game's native chat timer to avoid the server's anti-spam kick.
-- **Colored vs plain text:** the network gets clean plain text; a local color map re-injects `<color>` tags on the host's screen.
-- **"System" announcements:** the lowest-ID living player is briefly renamed `[ The Director's Cut ]` to sign official messages.
-- **`/cut` state machine:** alert → freeze + record positions → 5s watch window (movement > 0.1 → caught) → "Soleil!".
-- **End-of-game snapshot:** alive/dead lists are captured on `ShipStatus.OnDestroy` to feed `/gg`.
+- **Host-only, vanilla-compatible**: the mod only patches the host's game (HarmonyX) and replicates effects with **vanilla RPCs** (`SendChat`, `SetName`, `SetColor`). Clients need no mod.
+- **Chat as the channel**: all communication goes through chat. A queued, rate-limited **pump** (`ChatManager`) rides the game's native chat timer to avoid the server's anti-spam kick.
+- **Colored vs plain text**: the network gets clean plain text; a local color map re-injects `<color>` tags on the host's screen.
+- **"System" announcements**: the lowest-ID living player is briefly renamed `[ The Director's Cut ]` to sign official messages.
+- **End-of-game snapshot**: alive/dead lists are captured on `ShipStatus.OnDestroy` to feed `/gg`.
 
 ---
 ---
@@ -160,7 +147,7 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 
 ## 🎥 Le concept
 
-Quand le **premier joueur meurt**, il ne quitte pas la partie — il devient le **Réalisateur**. Depuis l'au-delà, il ne joue plus à Among Us, il le *met en scène* : il fige les acteurs, échange les corps, plonge la carte dans le noir et lance un mortel « 1, 2, 3 Soleil » — le tout via des commandes de chat.
+Quand le **premier joueur meurt**, il ne quitte pas la partie — il devient le **Réalisateur**. Depuis l'au-delà, il ne joue plus à Among Us, il le *met en scène*.
 
 **Le point clé :** seul l'**hôte** installe le mod. Tous les autres — y compris le Réalisateur — jouent sur un client **totalement vanilla (non moddé)**. Le mod intercepte les commandes côté hôte et réplique les effets à tous via des appels réseau vanilla.
 
@@ -220,7 +207,7 @@ Nécessite le **SDK .NET 6**.
    setx AmongUsPath "C:\Program Files (x86)\Steam\steamapps\common\Among Us"
    ```
    …soit en ligne de commande (étape 3).
-2. Assure-toi d'avoir lancé le jeu au moins une fois avec BepInEx pour que `BepInEx/interop/` existe (le `.csproj` référence ces DLL).
+2. Assure-toi d'avoir lancé le jeu au moins une fois avec BepInEx pour que `BepInEx/interop/` existe (le `.csproj` référence ces DLLs).
 3. Compile :
    ```bash
    dotnet build -c Release /p:AmongUsPath="C:\chemin\vers\Among Us"
@@ -241,7 +228,6 @@ Nécessite le **SDK .NET 6**.
 - Les **commandes publiques** fonctionnent pour tout le monde, à tout moment.
 - Les **directives du Réalisateur** ne marchent que pour le Réalisateur et **uniquement en partie** (ignorées au lobby).
 - Chaque directive a un **cooldown** ; si elle recharge, le temps restant est annoncé.
-- Pendant **🔴 `/cut` (« 1, 2, 3 Soleil »)** : reste immobile. **Tout mouvement = élimination** (quand l'élimination est activée, par défaut).
 
 ---
 
@@ -253,25 +239,15 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | Commande | Effet |
 |---|---|
 | `/welcome` | Message de bienvenue |
-| `/help` | Liste des commandes (3 pages) |
+| `/help` | Liste des commandes |
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
 | `/players` | Liste les joueurs et leurs ID-nums |
-| `/h<cmd>` | Aide détaillée, ex. `/hcut`, `/hswap`, `/hblind`… |
+| `/hrandomcolors` | Aide détaillée pour `/randomcolors` |
 
 ### 🎬 Directives du Réalisateur
 | Commande | Effet | Durée | Cooldown |
 |---|---|---|---|
-| `/cut` | « 1, 2, 3 Soleil » — immobile ou éliminé | fenêtre ~5s | 30s |
-| `/swap [ID] [ID]` | Échange la position de deux joueurs | instantané | 15s |
-| `/blind [ID]` | Réduit la vision (s'applique à tous) | 8s | 25s |
-| `/darkness` | Obscurité totale | 10s | 35s |
-| `/freeze [ID]` | Immobilise un joueur | 8s | 30s |
-| `/spin [ID]` | Fait tourner un joueur | 5s | 20s |
-| `/randomcolors` | Couleur aléatoire unique pour tous | instantané | 20s |
-| `/shuffle` | Mélange les positions de tous | instantané | 25s |
-| `/teleportall [ID]` | Téléporte tout le monde vers une cible | instantané | 20s |
-
-> ℹ️ `/blind` et `/darkness` réduisent actuellement la vision de **toute la partie** (global), même quand un ID est donné à `/blind`.
+| `/randomcolors` | Couleurs aléatoires pour tous | instantané | 20s |
 
 ---
 
@@ -281,18 +257,16 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 |---|---|---|
 | `AnnounceInChat` | `true` | Relayer les actions dans le chat public |
 | `AntiKick` | `true` | Throttle anti-kick (garder activé) |
-| `CutKills` | `true` | `/cut` élimine les joueurs qui bougent |
 | `MessageWait` | `0.6s` | Délai entre deux messages |
 
 ---
 
 ## 🧩 Fonctionnement (technique)
 
-- **Host-only, compatible vanilla :** le mod ne patche que le jeu de l'hôte (HarmonyX) et réplique les effets via des **RPC vanilla** (`SendChat`, `SetName`, `MurderPlayer`, `SetColor`, `SnapTo`, `UpdateSystem`). Les clients n'ont besoin d'aucun mod.
+- **Host-only, compatible vanilla :** le mod ne patche que le jeu de l'hôte (HarmonyX) et réplique les effets via des **RPC vanilla** (`SendChat`, `SetName`, `SetColor`). Les clients n'ont besoin d'aucun mod.
 - **Le chat comme canal :** toute la communication passe par le chat. Une **pompe** à file d'attente limitée en débit (`ChatManager`) s'appuie sur le timer de chat natif du jeu pour éviter le kick anti-spam du serveur.
 - **Texte coloré vs brut :** le réseau reçoit du texte brut propre ; une color map locale réinjecte les balises `<color>` sur l'écran de l'hôte.
-- **Annonces « système » :** le joueur vivant au plus petit ID est temporairement renommé `[ The Director's Cut ]` pour signer les messages officiels.
-- **Machine à états de `/cut` :** alerte → figement + enregistrement des positions → fenêtre de surveillance 5s (mouvement > 0,1 → pris) → « Soleil ! ».
+- **Annonces "système" :** le joueur vivant au plus petit ID est temporairement renommé `[ The Director's Cut ]` pour signer les messages officiels.
 - **Snapshot de fin de partie :** les listes vivants/morts sont capturées sur `ShipStatus.OnDestroy` pour alimenter `/gg`.
 
 ---
