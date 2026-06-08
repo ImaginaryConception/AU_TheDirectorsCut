@@ -21,7 +21,7 @@ namespace AU_TheDirectorsCut
         // /cut state
         private static bool _cutActive = false;
         private static float _cutTimer = 0f;
-        private static int _cutPhase = 0; // 0: not active, 1: reactor alert (2s), 2: no-movement phase (5s)
+        private static int _cutPhase = 0; // 0: not active, 1: reactor alert (2s), 2: no-movement phase (5s), 3: reactor end alert (2s)
         private static Dictionary<byte, Vector2> _cutInitialPositions = new();
         private static List<byte> _cutKilledPlayers = new();
         private static Vector3? _savedHostPosition = null;
@@ -429,7 +429,7 @@ namespace AU_TheDirectorsCut
 
         private static void HydraKillPlayer(PlayerControl target)
         {
-            // Use Hydra's method to kill the player, exactly like in PlayersSection.AttemptMurder
+            // Use Hydra's method to kill the player, exactly like in PlayersSection.AttemptMurder and HostSection
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
                 // Save host's position before killing
@@ -611,7 +611,7 @@ namespace AU_TheDirectorsCut
                         {
                             Vector2 currentPos = (Vector2)pc.transform.position;
                             float distance = Vector2.Distance(initialPos, currentPos);
-                            if (distance > 1.5f) // Increased threshold to make detection less sensitive
+                            if (distance > 0.5f) // Lower threshold for better movement detection
                             {
                                 someoneMoved = true;
                                 _cutKilledPlayers.Add(pc.PlayerId);
@@ -640,7 +640,18 @@ namespace AU_TheDirectorsCut
                     }
                     else if (_cutTimer <= 0f)
                     {
+                        // Start end alert phase
+                        _cutPhase = 3;
+                        _cutTimer = 2f;
+                        TriggerReactorSabotage(true);
+                    }
+                }
+                else if (_cutPhase == 3) // Reactor end alert (2s)
+                {
+                    if (_cutTimer <= 0f)
+                    {
                         // End sequence
+                        TriggerReactorSabotage(false);
                         _cutActive = false;
                         _cutPhase = 0;
                     }
