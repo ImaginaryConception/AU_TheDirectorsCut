@@ -65,8 +65,8 @@ namespace AU_TheDirectorsCut
         // /helpaction messages
         public const string HelpActionTitle = "<color=#ffd23f>/helpaction - Liste des scripts détaillée</color>";
         public const string HelpActionTitlePlain = "/helpaction - Liste des scripts détaillée";
-        public const string HelpActionA = "<color=#ffd23f>A / NoReport</color>: Tu ne dois pas rapporter de corps ce round !";
-        public const string HelpActionAPlain = "A / NoReport: Tu ne dois pas rapporter de corps ce round !";
+        public const string HelpActionA = "<color=#ffd23f>A / NoReport</color>: Tu ne dois pas report de corps ce round !";
+        public const string HelpActionAPlain = "A / NoReport: Tu ne dois pas report de corps ce round !";
         public const string HelpActionB = "<color=#ffd23f>B / SkipVote</color>: Tu dois passer ton vote ce round !";
         public const string HelpActionBPlain = "B / SkipVote: Tu dois passer ton vote ce round !";
         public const string HelpActionC = "<color=#ffd23f>C / NoVents</color>: Tu ne dois pas utiliser les vents ce round !";

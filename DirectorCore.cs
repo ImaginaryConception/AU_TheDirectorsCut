@@ -561,7 +561,7 @@ namespace AU_TheDirectorsCut
                     ScriptManager.AssignScript(actionTarget.PlayerId, order);
                     
                     // Send public message to everyone
-                    var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order);
+                    var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order, actionTarget.Data.PlayerName);
                     ChatManager.QueueSlow(coloredMsg, plainMsg);
                     
                     // Now set cooldown
@@ -616,7 +616,7 @@ namespace AU_TheDirectorsCut
                     ScriptManager.AssignStayOutScript(locTarget.PlayerId, location);
                     
                     // Send public message to everyone
-                    var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location);
+                    var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
                     ChatManager.QueueSlow(locColored, locPlain);
                     
                     // Set cooldown
@@ -660,7 +660,7 @@ namespace AU_TheDirectorsCut
                     ScriptManager.AssignVoteForPlayerScript(voteTarget.PlayerId, voteForId);
                     
                     // Send public message to everyone
-                    var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName);
+                    var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
                     ChatManager.QueueSlow(voteColored, votePlain);
                     
                     // Set cooldown

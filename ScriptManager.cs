@@ -295,7 +295,7 @@ namespace AU_TheDirectorsCut
         {
             return order switch
             {
-                ScriptOrder.NoReport => "Ne pas rapporter de corps",
+                ScriptOrder.NoReport => "Ne pas report de corps",
                 ScriptOrder.SkipVote => "Skip le prochain vote",
                 ScriptOrder.DontUseVents => "Ne pas utiliser les vents",
                 ScriptOrder.SayPlayerIsSafe => "Dire que quelqu'un est safe",
@@ -305,41 +305,41 @@ namespace AU_TheDirectorsCut
             };
         }
 
-        public static (string plain, string colored) GetOrderPrivateMessages(ScriptOrder order)
+        public static (string plain, string colored) GetOrderPrivateMessages(ScriptOrder order, string playerName)
         {
             return order switch
             {
                 ScriptOrder.NoReport => (
-                    "ORDRE : Ne rapporte pas de corps ce round !",
-                    "<color=#ffd23f>ORDRE</color>: Ne rapporte pas de corps ce round !"
+                    $"ORDRE POUR {playerName} : Ne rapporte pas de corps ce round !",
+                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne rapporte pas de corps ce round !"
                 ),
                 ScriptOrder.SkipVote => (
-                    "ORDRE : Passe ton vote ce round !",
-                    "<color=#ffd23f>ORDRE</color>: Passe ton vote ce round !"
+                    $"ORDRE POUR {playerName} : Passe ton vote ce round !",
+                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Passe ton vote ce round !"
                 ),
                 ScriptOrder.DontUseVents => (
-                    "ORDRE : Ne pas utiliser les vents ce round !",
-                    "<color=#ffd23f>ORDRE</color>: Ne pas utiliser les vents ce round !"
+                    $"ORDRE POUR {playerName} : Ne pas utiliser les vents ce round !",
+                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne pas utiliser les vents ce round !"
                 ),
                 ScriptOrder.SayPlayerIsSafe => (
-                    "ORDRE : Dis que quelqu'un est innocent ce round !",
-                    "<color=#ffd23f>ORDRE</color>: Dis que quelqu'un est innocent ce round !"
+                    $"ORDRE POUR {playerName} : Dis que quelqu'un est innocent ce round !",
+                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Dis que quelqu'un est innocent ce round !"
                 ),
-                _ => ("ORDRE : Suivre un ordre !", "<color=#ffd23f>ORDRE</color>: Suivre un ordre !")
+                _ => ($"ORDRE POUR {playerName} : Suivre un ordre !", $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Suivre un ordre !")
             };
         }
         
-        public static (string plain, string colored) GetStayOutPrivateMessages(MapLocation location)
+        public static (string plain, string colored) GetStayOutPrivateMessages(MapLocation location, string playerName)
         {
-            string plain = $"ORDRE : Ne vas pas dans {GetLocationName(location)} ce round !";
-            string colored = $"<color=#ffd23f>ORDRE</color>: Ne vas pas dans {GetLocationName(location)} ce round !";
+            string plain = $"ORDRE POUR {playerName} : Ne vas pas dans {GetLocationName(location)} ce round !";
+            string colored = $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne vas pas dans {GetLocationName(location)} ce round !";
             return (plain, colored);
         }
         
-        public static (string plain, string colored) GetVoteForPlayerPrivateMessages(string targetPlayerName)
+        public static (string plain, string colored) GetVoteForPlayerPrivateMessages(string targetVoteName, string playerName)
         {
-            string plain = $"ORDRE : Vote pour {targetPlayerName} ce round !";
-            string colored = $"<color=#ffd23f>ORDRE</color>: Vote pour {targetPlayerName} ce round !";
+            string plain = $"ORDRE POUR {playerName} : Vote pour {targetVoteName} ce round !";
+            string colored = $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Vote pour {targetVoteName} ce round !";
             return (plain, colored);
         }
     }
