@@ -75,46 +75,7 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        // --- MÉTHODE SUPPLÉMENTAIRE POUR LES ORDRES DE SCRIPT ---
-        public static void SendPrivateScript(PlayerControl target, string plainMessage, string coloredMessage)
-        {
-            if (target == null || target.OwnerId < 0) return;
-            
-            var speaker = PlayerControl.LocalPlayer;
-            if (speaker == null) return;
-            
-            try
-            {
-                // Enregistre la correspondance plain → colored
-                _colorMap[plainMessage] = coloredMessage;
-                
-                // First show it on host's chat locally
-                try
-                {
-                    IsSending = true;
-                    HudManager.Instance.Chat.AddChat(speaker, coloredMessage);
-                    IsSending = false;
-                }
-                catch { IsSending = false; }
-                
-                // ONLY send network message if we're in a meeting or lobby! (to avoid host kick)
-                if (MeetingHud.Instance != null || ShipStatus.Instance == null)
-                {
-                    Plugin.Log?.LogInfo($"[ChatManager] Envoi du message de script en lobby/meeting à {target.Data.PlayerName}");
-                    
-                    var writer = AmongUsClient.Instance.StartRpcImmediately(
-                        speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
-                    writer.Write(SafeChat(plainMessage));
-                    AmongUsClient.Instance.FinishRpcImmediately(writer);
-                }
-                
-                Plugin.Log?.LogInfo($"[ChatManager] Message de script traité pour {target.Data.PlayerName}: {plainMessage}");
-            }
-            catch (Exception e)
-            {
-                Plugin.Log?.LogError($"[ChatManager] Erreur envoi message de script: {e.Message}");
-            }
-        }
+
 
         // --- MÉTHODE PRIVÉE D'ORIGINE POUR ProcessPendingWelcome et ProcessPendingGG --- (NE PAS TOUCHER)
         private static void SendPrivate(PlayerControl target, string plainMsg, string coloredMsg)
@@ -135,6 +96,56 @@ namespace AU_TheDirectorsCut
                 Plugin.Log?.LogInfo($"[ChatManager] Message envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");
             }
             catch (Exception e) { Plugin.Log?.LogError($"[SendPrivate] {e.Message}"); }
+        }
+
+        // --- MÉTHODE PUBLIQUE POUR LES ORDRES DE SCRIPT (/action, /loc, /vote) ---
+        public static void SendPrivateScript(PlayerControl target, string plainMsg, string coloredMsg)
+        {
+            var speaker = PlayerControl.LocalPlayer;
+            if (speaker == null || target == null) return;
+            bool inLobby = ShipStatus.Instance == null;
+            bool inMeeting = MeetingHud.Instance != null;
+            
+            try
+            {
+                // Show colored message LOCALLY on host
+                try
+                {
+                    IsSending = true;
+                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                    IsSending = false;
+                }
+                catch { IsSending = false; }
+                
+                // Enregistre la correspondance plain → colored
+                _colorMap[plainMsg] = coloredMsg;
+                
+                if (inLobby || inMeeting)
+                {
+                    // In lobby or meeting: Use the original method (it's safe!)
+                    SendPrivate(target, plainMsg, coloredMsg);
+                }
+                else
+                {
+                    // IN GAME: use GameDataTo message (StartMessage(6)) with SetName, SendChat, SetName, targeted to the specific player!
+                    const string sysName = "The Director's Cut";
+                    string orig = speaker.Data.PlayerName;
+
+                    var w = MessageWriter.Get(SendOption.Reliable);
+                    w.StartMessage(6); // Tags.GameDataTo
+                    w.Write(AmongUsClient.Instance.GameId);
+                    w.WritePacked(target.OwnerId); // Target player's owner id
+                    WSetName(w, speaker, sysName);
+                    WSendChat(w, speaker, SafeChat(plainMsg));
+                    WSetName(w, speaker, orig);
+                    w.EndMessage();
+                    AmongUsClient.Instance.SendOrDisconnect(w);
+                    w.Recycle();
+                }
+                
+                Plugin.Log?.LogInfo($"[ChatManager] Message de script envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");
+            }
+            catch (Exception e) { Plugin.Log?.LogError($"[SendPrivateScript] {e.Message}"); }
         }
 
         public static void Queue(string coloredMsg, string plainMsg)
@@ -293,6 +304,64 @@ namespace AU_TheDirectorsCut
                 AmongUsClient.Instance.SendOrDisconnect(w);
                 w.Recycle();
             }
+        }
+
+        // Send a private message to a specific player using the same method as public messages (no kick!)
+        public static void SendPrivateTargeted(PlayerControl speaker, PlayerControl target, string plainMsg, string coloredMsg)
+        {
+            if (target == null || target.OwnerId < 0) return;
+            if (speaker == null) return;
+            bool inLobby = ShipStatus.Instance == null;
+
+            // Show it on host's chat locally
+            try
+            {
+                IsSending = true;
+                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                IsSending = false;
+            }
+            catch { IsSending = false; }
+
+            // Register color map
+            _colorMap[plainMsg] = coloredMsg;
+
+            if (inLobby)
+            {
+                // In lobby: targeted SendChat RPC
+                if (target != PlayerControl.LocalPlayer)
+                {
+                    try
+                    {
+                        var writer = AmongUsClient.Instance.StartRpcImmediately(
+                            speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                        writer.Write(SafeChat(plainMsg));
+                        AmongUsClient.Instance.FinishRpcImmediately(writer);
+                    }
+                    catch (Exception e)
+                    {
+                        Plugin.Log?.LogError($"[ChatManager/PrivateLobby] Error sending to {target.Data.PlayerName}: {e.Message}");
+                    }
+                }
+            }
+            else
+            {
+                // IN GAME: targeted GameDataTo (message type 6)
+                const string sysName = "The Director's Cut";
+                string orig = speaker.Data.PlayerName;
+
+                var w = MessageWriter.Get(SendOption.Reliable);
+                w.StartMessage(6); // Tags.GameDataTo
+                w.Write(AmongUsClient.Instance.GameId);
+                w.WritePacked(target.OwnerId); // Target only this player
+                WSetName(w, speaker, sysName);
+                WSendChat(w, speaker, SafeChat(plainMsg));
+                WSetName(w, speaker, orig);
+                w.EndMessage();
+                AmongUsClient.Instance.SendOrDisconnect(w);
+                w.Recycle();
+            }
+
+            Plugin.Log?.LogInfo($"[ChatManager] Private targeted message to {target.Data.PlayerName}: {plainMsg}");
         }
 
         private static PlayerControl LowestAlive()

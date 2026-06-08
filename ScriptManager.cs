@@ -310,36 +310,36 @@ namespace AU_TheDirectorsCut
             return order switch
             {
                 ScriptOrder.NoReport => (
-                    "Tu ne dois pas rapporter de corps ce round !",
-                    "<color=#ff6b6b>ORDRE</color>: Tu ne dois pas rapporter de corps ce round !"
+                    "ORDRE : Ne rapporte pas de corps ce round !",
+                    "<color=#ffd23f>ORDRE</color>: Ne rapporte pas de corps ce round !"
                 ),
                 ScriptOrder.SkipVote => (
-                    "Tu dois passer ton vote ce round !",
-                    "<color=#ff6b6b>ORDRE</color>: Tu dois passer ton vote ce round !"
+                    "ORDRE : Passe ton vote ce round !",
+                    "<color=#ffd23f>ORDRE</color>: Passe ton vote ce round !"
                 ),
                 ScriptOrder.DontUseVents => (
-                    "Tu ne dois pas utiliser les vents ce round !",
-                    "<color=#ff6b6b>ORDRE</color>: Tu ne dois pas utiliser les vents ce round !"
+                    "ORDRE : Ne pas utiliser les vents ce round !",
+                    "<color=#ffd23f>ORDRE</color>: Ne pas utiliser les vents ce round !"
                 ),
                 ScriptOrder.SayPlayerIsSafe => (
-                    "Tu dois dire que quelqu'un est innocent !",
-                    "<color=#ff6b6b>ORDRE</color>: Tu dois dire que quelqu'un est innocent !"
+                    "ORDRE : Dis que quelqu'un est innocent ce round !",
+                    "<color=#ffd23f>ORDRE</color>: Dis que quelqu'un est innocent ce round !"
                 ),
-                _ => ("Tu dois suivre un ordre !", "<color=#ff6b6b>ORDRE</color>: Tu dois suivre un ordre !")
+                _ => ("ORDRE : Suivre un ordre !", "<color=#ffd23f>ORDRE</color>: Suivre un ordre !")
             };
         }
         
         public static (string plain, string colored) GetStayOutPrivateMessages(MapLocation location)
         {
-            string plain = $"Tu ne dois pas aller dans {GetLocationName(location)} ce round !";
-            string colored = $"<color=#ff6b6b>ORDRE</color>: Tu ne dois pas aller dans {GetLocationName(location)} ce round !";
+            string plain = $"ORDRE : Ne vas pas dans {GetLocationName(location)} ce round !";
+            string colored = $"<color=#ffd23f>ORDRE</color>: Ne vas pas dans {GetLocationName(location)} ce round !";
             return (plain, colored);
         }
         
         public static (string plain, string colored) GetVoteForPlayerPrivateMessages(string targetPlayerName)
         {
-            string plain = $"Tu dois voter pour {targetPlayerName} ce round !";
-            string colored = $"<color=#ff6b6b>ORDRE</color>: Tu dois voter pour {targetPlayerName} ce round !";
+            string plain = $"ORDRE : Vote pour {targetPlayerName} ce round !";
+            string colored = $"<color=#ffd23f>ORDRE</color>: Vote pour {targetPlayerName} ce round !";
             return (plain, colored);
         }
     }

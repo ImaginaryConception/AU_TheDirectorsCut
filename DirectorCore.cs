@@ -510,12 +510,6 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/action":
-                    // Check if we're in a meeting (or devMode is true)
-                    if (!DevModeManager.devMode && MeetingHud.Instance == null)
-                    {
-                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
-                        return true;
-                    }
                     if (!TryCheckCooldown("/action")) return true;
                     if (parts.Length < 2)
                     {
@@ -566,24 +560,15 @@ namespace AU_TheDirectorsCut
                     // Assign the script
                     ScriptManager.AssignScript(actionTarget.PlayerId, order);
                     
-                    // Send private message to the target
+                    // Send public message to everyone
                     var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order);
-                    ChatManager.SendPrivateScript(actionTarget, plainMsg, coloredMsg);
-                    
-                    // Announce to director
-                    SendHostMessage(string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName), string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName));
+                    ChatManager.QueueSlow(coloredMsg, plainMsg);
                     
                     // Now set cooldown
                     SetCooldown("/action");
                     return true;
                     
                 case "/loc":
-                    // Check if we're in a meeting (or devMode is true)
-                    if (!DevModeManager.devMode && MeetingHud.Instance == null)
-                    {
-                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
-                        return true;
-                    }
                     if (!TryCheckCooldown("/loc")) return true;
                     if (parts.Length < 2)
                     {
@@ -630,24 +615,15 @@ namespace AU_TheDirectorsCut
                     // Assign the script
                     ScriptManager.AssignStayOutScript(locTarget.PlayerId, location);
                     
-                    // Send private message to the target
+                    // Send public message to everyone
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location);
-                    ChatManager.SendPrivateScript(locTarget, locPlain, locColored);
-                    
-                    // Announce to director
-                    SendHostMessage(string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName), string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName));
+                    ChatManager.QueueSlow(locColored, locPlain);
                     
                     // Set cooldown
                     SetCooldown("/loc");
                     return true;
                     
                 case "/vote":
-                    // Check if we're in a meeting (or devMode is true)
-                    if (!DevModeManager.devMode && MeetingHud.Instance == null)
-                    {
-                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
-                        return true;
-                    }
                     if (!TryCheckCooldown("/vote")) return true;
                     if (parts.Length < 3)
                     {
@@ -683,12 +659,9 @@ namespace AU_TheDirectorsCut
                     // Assign the script
                     ScriptManager.AssignVoteForPlayerScript(voteTarget.PlayerId, voteForId);
                     
-                    // Send private message to the target
+                    // Send public message to everyone
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName);
-                    ChatManager.SendPrivateScript(voteTarget, votePlain, voteColored);
-                    
-                    // Announce to director
-                    SendHostMessage(string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName), string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName));
+                    ChatManager.QueueSlow(voteColored, votePlain);
                     
                     // Set cooldown
                     SetCooldown("/vote");
