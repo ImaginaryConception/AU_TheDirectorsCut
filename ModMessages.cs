@@ -5,27 +5,44 @@ namespace AU_TheDirectorsCut
 {
     public static class ModMessages
     {
-        // ================================================
-        // 📝 MESSAGES DU MOD - MODIFIEZ ICI !
-        // ================================================
-
-        // ────────────────────────────────────────────────
-        // MESSAGE DE BIENVENUE
-        // ────────────────────────────────────────────────
         public const string Welcome = "<color=#ff6b6b>THE DIRECTOR'S CUT</color> - Le premier mort devient RÉALISATEUR. Tapez /help pour voir les commandes !";
         public const string WelcomePlain = "THE DIRECTOR'S CUT - Le premier mort devient RÉALISATEUR. Tapez /help pour voir les commandes !";
 
-        // ────────────────────────────────────────────────
-        // MESSAGES D'AIDE (CHAQUE <120 CARACTÈRES !)
-        // ────────────────────────────────────────────────
-        
         public const string Help1 = "<color=#ffd23f>HELP</color>: /help, /welcome, /gg, /players, /join";
         public const string Help1Plain = "HELP: /help, /welcome, /gg, /players, /join";
 
-        public const string Help2 = "<color=#ffd23f>DIRECTOR</color>: /randomcolors, /cut, /darkness, /freeze, /action";
-        public const string Help2Plain = "DIRECTOR: /randomcolors, /cut, /darkness, /freeze, /action";
-        public const string Help3 = "<color=#ffd23f>INFO</color>: Utilise /h et la commande pour détails (ex: /hcut)";
-        public const string Help3Plain = "INFO: Utilise /h et la commande pour détails (ex: /hcut)";
+        public const string Help2 = "<color=#ffd23f>DIRECTOR</color>: /randomcolors, /cut, /darkness, /freeze, /action, /loc, /vote";
+        public const string Help2Plain = "DIRECTOR: /randomcolors, /cut, /darkness, /freeze, /action, /loc, /vote";
+        public const string Help3 = "<color=#ffd23f>INFO</color>: Utilise /h et la commande pour détails (/hcut, /hloc)";
+        public const string Help3Plain = "INFO: Utilise /h et la commande pour détails (/hcut, /hloc)";
+        
+        public const string HelpLoc = "<color=#ffd23f>/loc ID_joueur ID_zone</color> - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
+        public const string HelpLocPlain = "/loc ID_joueur ID_zone - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
+        public const string LocList1 = "<color=#ffd23f>Zones (A-I):</color> A=Cafétéria, B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
+        public const string LocList1Plain = "Zones (A-I): A=Cafétéria, B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
+        public const string LocList2 = "<color=#ffd23f>Zones (J-N):</color> J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons, H=LowerEngine, I=Medbay";
+        public const string LocList2Plain = "Zones (J-N): J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons, H=LowerEngine, I=Medbay";
+        public const string LocList = LocList1; // Keep for compatibility
+        public const string LocListPlain = LocList1Plain;
+        
+        public const string HelpVote = "<color=#ffd23f>/vote ID_joueur ID_cible</color> - Force un joueur à voter pour une cible spécifique. Cooldown:20s";
+        public const string HelpVotePlain = "/vote ID_joueur ID_cible - Force un joueur à voter pour une cible spécifique. Cooldown:20s";
+        
+        public const string UsageLoc = "Usage: /loc ID_joueur ID_zone (sans ID_zone pour voir la liste des zones)";
+        public const string UsageLocPlain = "Usage: /loc ID_joueur ID_zone (sans ID_zone pour voir la liste des zones)";
+        
+        public const string UsageVote = "Usage: /vote ID_joueur ID_cible";
+        public const string UsageVotePlain = "Usage: /vote ID_joueur ID_cible";
+        
+
+        
+        public const string LocAssigned = "<color=#ffd23f>/loc</color>: Ordre envoyé à {0} !";
+        public const string LocAssignedPlain = "/loc: Ordre envoyé à {0} !";
+        
+        public const string VoteAssigned = "<color=#ffd23f>/vote</color>: Ordre envoyé à {0} !";
+        public const string VoteAssignedPlain = "/vote: Ordre envoyé à {0} !";
+        public const string OnlyInMeeting = "Cette commande ne peut être utilisée qu'en réunion !";
+        public const string OnlyInMeetingPlain = "Cette commande ne peut être utilisée qu'en réunion !";
 
         public const string HelpRandomColors = "<color=#ffd23f>/randomcolors</color> - Couleurs aléatoires pour TOUS! Cooldown 20s";
         public const string HelpRandomColorsPlain = "/randomcolors - Couleurs aléatoires pour TOUS! Cooldown 20s";
@@ -39,11 +56,23 @@ namespace AU_TheDirectorsCut
         public const string HelpFreeze = "<color=#ffd23f>/freeze ID</color> - Bloque un joueur 8s ! Cooldown 30s";
         public const string HelpFreezePlain = "/freeze ID - Bloque un joueur 8s ! Cooldown 30s";
 
-        public const string HelpAction = "<color=#ffd23f>/action ID 1-10</color> - Donne un script secret à un joueur ! Cooldown 20s";
-        public const string HelpActionPlain = "/action ID 1-10 - Donne un script secret à un joueur ! Cooldown 20s";
+        public const string HelpAction = "<color=#ffd23f>/action ID A-D</color> - Donne un script secret à un joueur ! Cooldown 20s";
+        public const string HelpActionPlain = "/action ID A-D - Donne un script secret à un joueur ! Cooldown 20s";
 
-        public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: 1=NoReport, 2=StayStill, 3=SkipVote, 4=GoToAdmin, 5=GoToElec, 6=FixLights,7=VoteBlue,8=VoteRed,9=NoVents,10=SaySafe";
-        public const string ActionListPlain = "SCRIPTS: 1=NoReport,2=StayStill,3=SkipVote,4=GoToAdmin,5=GoToElec,6=FixLights,7=VoteBlue,8=VoteRed,9=NoVents,10=SaySafe";
+        public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: A=NoReport, B=SkipVote, C=NoVents, D=SaySafe (utilise /helpaction)";
+        public const string ActionListPlain = "SCRIPTS:A=NoReport,B=SkipVote,C=NoVents,D=SaySafe (utilise /helpaction)";
+
+        // /helpaction messages
+        public const string HelpActionTitle = "<color=#ffd23f>/helpaction - Liste des scripts détaillée</color>";
+        public const string HelpActionTitlePlain = "/helpaction - Liste des scripts détaillée";
+        public const string HelpActionA = "<color=#ffd23f>A / NoReport</color>: Tu ne dois pas rapporter de corps ce round !";
+        public const string HelpActionAPlain = "A / NoReport: Tu ne dois pas rapporter de corps ce round !";
+        public const string HelpActionB = "<color=#ffd23f>B / SkipVote</color>: Tu dois passer ton vote ce round !";
+        public const string HelpActionBPlain = "B / SkipVote: Tu dois passer ton vote ce round !";
+        public const string HelpActionC = "<color=#ffd23f>C / NoVents</color>: Tu ne dois pas utiliser les vents ce round !";
+        public const string HelpActionCPlain = "C / NoVents: Tu ne dois pas utiliser les vents ce round !";
+        public const string HelpActionD = "<color=#ffd23f>D / SaySafe</color>: Tu dois dire dans le chat que quelqu'un est innocent !";
+        public const string HelpActionDPlain = "D / SaySafe: Tu dois dire dans le chat que quelqu'un est innocent !";
 
         public const string ActionAssigned = "<color=#ffd23f>SCRIPT</color>: Ordre envoyé à {0} !";
         public const string ActionAssignedPlain = "SCRIPT: Ordre envoyé à {0} !";
@@ -54,9 +83,6 @@ namespace AU_TheDirectorsCut
         public const string UsageAction = "Usage: /action ID 1/2/3 (sans numéro pour voir la liste)";
         public const string UsageActionPlain = "Usage: /action ID 1/2/3 (sans numéro pour voir la liste)";
 
-        // ────────────────────────────────────────────────
-        // MESSAGES DE FIN DE PARTIE (GG)
-        // ────────────────────────────────────────────────
         public const string GgNoGame = "<color=#ffd23f>FIN</color> - Aucune partie précédente";
         public const string GgNoGamePlain = "FIN - Aucune partie précédente";
 
@@ -66,9 +92,6 @@ namespace AU_TheDirectorsCut
         public const string GgFormat = "<color=#ffd23f>FIN</color> - Réalisateur : {2} - Vivants : {0} - Éliminés : {1} - GG !";
         public const string GgFormatPlain = "FIN - Réalisateur : {2} - Vivants : {0} - Éliminés : {1} - GG !";
 
-        // ────────────────────────────────────────────────
-        // AUTRES MESSAGES
-        // ────────────────────────────────────────────────
         public const string DirectorSet = "<color=#ffd23f>{0}</color> est le Réalisateur !";
         public const string DirectorSetPlain = "{0} est le Réalisateur !";
 
@@ -89,12 +112,9 @@ namespace AU_TheDirectorsCut
 
         public const string FirstDirector = "<color=#ff6b6b>{0}</color> est le RÉALISATEUR ! (/help)";
         public const string FirstDirectorPlain = "{0} est le RÉALISATEUR ! (/help)";
-        public const string Discord = "<color=#ffd23f>DISCORD</color> : imaginaryconception ou kalinina_sn";
-        public const string DiscordPlain = "DISCORD : imaginaryconception ou kalinina_sn";
+        public const string Discord = "<color=#ffd23f>Add us on Dxiscord</color> : imaginaryconception or kalinina_sn";
+        public const string DiscordPlain = "Add us Dxiscord : imaginaryconception or kalinina_sn";
 
-        // ────────────────────────────────────────────────
-        // COMMANDES DEV (utilisables uniquement si devMode == true)
-        // ────────────────────────────────────────────────
         public const string SetImpostorSuccess = "<color=#ff6b6b>{0}</color> est désormais Imposteur !";
         public const string SetImpostorSuccessPlain = "{0} est désormais Imposteur !";
 

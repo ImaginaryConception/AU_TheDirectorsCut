@@ -18,10 +18,9 @@ namespace AU_TheDirectorsCut
         private static float pendingAutoGGDelay = 0f;
         private static float _snapshotTimer = 0f;
 
-        // /cut state
         private static bool _cutActive = false;
         private static float _cutTimer = 0f;
-        private static int _cutPhase = 0; // 0: not active, 1: reactor alert (2s), 2: no-movement phase (5s), 3: reactor end alert (2s)
+        private static int _cutPhase = 0;
         private static Dictionary<byte, Vector2> _cutInitialPositions = new();
         private static List<byte> _cutKilledPlayers = new();
         private static Vector3? _savedHostPosition = null;
@@ -35,18 +34,17 @@ namespace AU_TheDirectorsCut
             ["/darkness"] = 35f,
             ["/freeze"] = 30f,
             ["/action"] = 20f,
+            ["/loc"] = 20f,
+            ["/vote"] = 20f,
         };
 
-        // /freeze state: key = PlayerId, value = (timerLeft, frozenPosition, originalSpeedMod)
         private static Dictionary<byte, (float timer, Vector2 position, float originalSpeed)> _frozenPlayers = new();
 
-        // /darkness state
         private static bool _darknessActive = false;
         private static float _darknessTimer = 0f;
         private static float _originalCrewLightMod = 1f;
         private static float _originalImpostorLightMod = 1f;
 
-        // Données de la partie précédente
         public static IReadOnlyList<string> LastAlive => _lastAlive;
         public static IReadOnlyList<string> LastDead => _lastDead;
         private static List<string> _lastAlive = new();
@@ -134,6 +132,52 @@ namespace AU_TheDirectorsCut
 
         private static string NumberToFrench(int number) => number.ToString();
 
+        private static bool TryParseZoneLetter(string letter, out MapLocation location)
+        {
+            location = MapLocation.Skeld_Cafeteria;
+            if (string.IsNullOrEmpty(letter) || letter.Length != 1)
+                return false;
+
+            char c = char.ToUpperInvariant(letter[0]);
+            switch (c)
+            {
+                case 'A': location = MapLocation.Skeld_Cafeteria; break;
+                case 'B': location = MapLocation.Skeld_Admin; break;
+                case 'C': location = MapLocation.Skeld_Electrical; break;
+                case 'D': location = MapLocation.Skeld_Storage; break;
+                case 'E': location = MapLocation.Skeld_Security; break;
+                case 'F': location = MapLocation.Skeld_Reactor; break;
+                case 'G': location = MapLocation.Skeld_UpperEngine; break;
+                case 'H': location = MapLocation.Skeld_LowerEngine; break;
+                case 'I': location = MapLocation.Skeld_Medbay; break;
+                case 'J': location = MapLocation.Skeld_Communications; break;
+                case 'K': location = MapLocation.Skeld_Shields; break;
+                case 'L': location = MapLocation.Skeld_O2; break;
+                case 'M': location = MapLocation.Skeld_Navigation; break;
+                case 'N': location = MapLocation.Skeld_Weapons; break;
+                default: return false;
+            }
+            return true;
+        }
+
+        private static bool TryParseScriptLetter(string letter, out ScriptOrder order)
+        {
+            order = ScriptOrder.NoReport;
+            if (string.IsNullOrEmpty(letter) || letter.Length != 1)
+                return false;
+
+            char c = char.ToUpperInvariant(letter[0]);
+            switch (c)
+            {
+                case 'A': order = ScriptOrder.NoReport; break;
+                case 'B': order = ScriptOrder.SkipVote; break;
+                case 'C': order = ScriptOrder.DontUseVents; break;
+                case 'D': order = ScriptOrder.SayPlayerIsSafe; break;
+                default: return false;
+            }
+            return true;
+        }
+
         private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
         private static void SendPrivateMessage(PlayerControl target, string message)
@@ -158,7 +202,7 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        private static bool TryCooldown(string cmd)
+        private static bool TryCheckCooldown(string cmd)
         {
             if (IsOnCooldown(cmd))
             {
@@ -167,8 +211,12 @@ namespace AU_TheDirectorsCut
                 SendHostMessage(string.Format(ModMessages.CooldownMsg, cmd, remainingStr));
                 return false;
             }
-            if (_cdMax.TryGetValue(cmd, out float max)) _cd[cmd] = max;
             return true;
+        }
+
+        private static void SetCooldown(string cmd)
+        {
+            if (_cdMax.TryGetValue(cmd, out float max)) _cd[cmd] = max;
         }
 
         public static bool TryProcessCommand(PlayerControl sender, string raw)
@@ -349,7 +397,55 @@ namespace AU_TheDirectorsCut
                     ChatManager.Queue(ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
                     return true;
                 case "/haction":
-                    ChatManager.Queue(ModMessages.HelpAction, ModMessages.HelpActionPlain);
+                    ChatManager.QueueSlow(ModMessages.HelpAction, ModMessages.HelpActionPlain);
+                    ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
+                    return true;
+                case "/helpaction":
+                    if (parts.Length == 2)
+                    {
+                        // Specific script help requested
+                        if (TryParseScriptLetter(parts[1], out ScriptOrder order))
+                        {
+                            switch (order)
+                            {
+                                case ScriptOrder.NoReport:
+                                    ChatManager.QueueSlow(ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
+                                    break;
+                                case ScriptOrder.SkipVote:
+                                    ChatManager.QueueSlow(ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
+                                    break;
+                                case ScriptOrder.DontUseVents:
+                                    ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
+                                    break;
+                                case ScriptOrder.SayPlayerIsSafe:
+                                    ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                            ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        }
+                    }
+                    else
+                    {
+                        // Full help
+                        ChatManager.QueueSlow(ModMessages.HelpActionTitle, ModMessages.HelpActionTitlePlain);
+                        ChatManager.QueueSlow(ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
+                        ChatManager.QueueSlow(ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
+                        ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
+                        ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
+                    }
+                    return true;
+                case "/hloc":
+                case "/hollow":
+                    ChatManager.QueueSlow(ModMessages.HelpLoc, ModMessages.HelpLocPlain);
+                    ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
+                    ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                    return true;
+                case "/hvote":
+                    ChatManager.Queue(ModMessages.HelpVote, ModMessages.HelpVotePlain);
                     return true;
             }
 
@@ -368,23 +464,26 @@ namespace AU_TheDirectorsCut
             switch (cmd)
             {
                 case "/randomcolors":
-                    if (!TryCooldown("/randomcolors")) return true;
+                    if (!TryCheckCooldown("/randomcolors")) return true;
                     SendHostMessage(ModMessages.RandomColorsStart, ModMessages.RandomColorsStartPlain);
                     NetworkManager.RandomizeColors();
+                    SetCooldown("/randomcolors");
                     return true;
 
                 case "/cut":
-                    if (!TryCooldown("/cut")) return true;
+                    if (!TryCheckCooldown("/cut")) return true;
                     StartCutSequence();
+                    SetCooldown("/cut");
                     return true;
 
                 case "/darkness":
-                    if (!TryCooldown("/darkness")) return true;
+                    if (!TryCheckCooldown("/darkness")) return true;
                     StartDarkness();
+                    SetCooldown("/darkness");
                     return true;
 
                 case "/freeze":
-                    if (!TryCooldown("/freeze")) return true;
+                    if (!TryCheckCooldown("/freeze")) return true;
                     if (parts.Length < 2)
                     {
                         SendHostMessage("Usage : /freeze ID");
@@ -407,13 +506,21 @@ namespace AU_TheDirectorsCut
                         return true;
                     }
                     StartFreeze(freezeTarget);
+                    SetCooldown("/freeze");
                     return true;
 
                 case "/action":
-                    if (!TryCooldown("/action")) return true;
+                    // Check if we're in a meeting (or devMode is true)
+                    if (!DevModeManager.devMode && MeetingHud.Instance == null)
+                    {
+                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/action")) return true;
                     if (parts.Length < 2)
                     {
-                        SendHostMessage(ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
                         return true;
                     }
                     if (!byte.TryParse(parts[1], out byte actionTargetId))
@@ -431,17 +538,24 @@ namespace AU_TheDirectorsCut
                     if (parts.Length < 3)
                     {
                         // Just show the script list to the director
-                        SendHostMessage(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
                         return true;
                     }
                     
-                    if (!int.TryParse(parts[2], out int orderInt) || !Enum.IsDefined(typeof(ScriptOrder), orderInt))
+                    if (!TryParseScriptLetter(parts[2], out ScriptOrder order))
                     {
-                        SendHostMessage(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
                         return true;
                     }
                     
-                    ScriptOrder order = (ScriptOrder)orderInt;
+                    // Only allow the basic scripts here
+                    if (order == ScriptOrder.StayOut || order == ScriptOrder.VoteForPlayer)
+                    {
+                        SendHostMessage("Utilisez /loc ou /vote pour ces ordres !", "Utilisez /loc ou /vote pour ces ordres !");
+                        return true;
+                    }
                     
                     if (ScriptManager.HasScript(actionTarget.PlayerId))
                     {
@@ -453,11 +567,131 @@ namespace AU_TheDirectorsCut
                     ScriptManager.AssignScript(actionTarget.PlayerId, order);
                     
                     // Send private message to the target
-                    string privateMessage = ScriptManager.GetOrderPrivateMessage(order);
-                    ChatManager.SendPrivate(actionTarget, privateMessage);
+                    var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order);
+                    ChatManager.SendPrivateScript(actionTarget, plainMsg, coloredMsg);
                     
                     // Announce to director
                     SendHostMessage(string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName), string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName));
+                    
+                    // Now set cooldown
+                    SetCooldown("/action");
+                    return true;
+                    
+                case "/loc":
+                    // Check if we're in a meeting (or devMode is true)
+                    if (!DevModeManager.devMode && MeetingHud.Instance == null)
+                    {
+                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/loc")) return true;
+                    if (parts.Length < 2)
+                    {
+                        ChatManager.QueueSlow(ModMessages.UsageLoc, ModMessages.UsageLocPlain);
+                        ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
+                        ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                        return true;
+                    }
+                    if (!byte.TryParse(parts[1], out byte locTargetId))
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    PlayerControl? locTarget = FindById(locTargetId);
+                    if (locTarget?.Data == null)
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    
+                    if (parts.Length < 3)
+                    {
+                        // Show location list
+                        ChatManager.QueueSlow(ModMessages.UsageLoc, ModMessages.UsageLocPlain);
+                        ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
+                        ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                        return true;
+                    }
+                    
+                    if (!TryParseZoneLetter(parts[2], out MapLocation location))
+                    {
+                        ChatManager.QueueSlow(ModMessages.UsageLoc, ModMessages.UsageLocPlain);
+                        ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
+                        ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                        return true;
+                    }
+                    
+                    if (ScriptManager.HasScript(locTarget.PlayerId))
+                    {
+                        SendHostMessage(string.Format(ModMessages.ActionAlreadyActive, locTarget.Data.PlayerName), string.Format(ModMessages.ActionAlreadyActivePlain, locTarget.Data.PlayerName));
+                        return true;
+                    }
+                    
+                    // Assign the script
+                    ScriptManager.AssignStayOutScript(locTarget.PlayerId, location);
+                    
+                    // Send private message to the target
+                    var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location);
+                    ChatManager.SendPrivateScript(locTarget, locPlain, locColored);
+                    
+                    // Announce to director
+                    SendHostMessage(string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName), string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName));
+                    
+                    // Set cooldown
+                    SetCooldown("/loc");
+                    return true;
+                    
+                case "/vote":
+                    // Check if we're in a meeting (or devMode is true)
+                    if (!DevModeManager.devMode && MeetingHud.Instance == null)
+                    {
+                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/vote")) return true;
+                    if (parts.Length < 3)
+                    {
+                        SendHostMessage(ModMessages.UsageVote, ModMessages.UsageVotePlain);
+                        return true;
+                    }
+                    if (!byte.TryParse(parts[1], out byte voteTargetId))
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    if (!byte.TryParse(parts[2], out byte voteForId))
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    
+                    PlayerControl? voteTarget = FindById(voteTargetId);
+                    PlayerControl? voteForTarget = FindById(voteForId);
+                    
+                    if (voteTarget?.Data == null || voteForTarget?.Data == null)
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    
+                    if (ScriptManager.HasScript(voteTarget.PlayerId))
+                    {
+                        SendHostMessage(string.Format(ModMessages.ActionAlreadyActive, voteTarget.Data.PlayerName), string.Format(ModMessages.ActionAlreadyActivePlain, voteTarget.Data.PlayerName));
+                        return true;
+                    }
+                    
+                    // Assign the script
+                    ScriptManager.AssignVoteForPlayerScript(voteTarget.PlayerId, voteForId);
+                    
+                    // Send private message to the target
+                    var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName);
+                    ChatManager.SendPrivateScript(voteTarget, votePlain, voteColored);
+                    
+                    // Announce to director
+                    SendHostMessage(string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName), string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName));
+                    
+                    // Set cooldown
+                    SetCooldown("/vote");
                     return true;
 
                 default:
@@ -1027,22 +1261,16 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
             
-            // Clean up all active scripts when meeting ends (except maybe StayStill, but better to reset)
-            // Actually, let's just let the ScriptManager handle it, but maybe we want to clear NoReport and SkipVote
+            // Clean up all active scripts when meeting ends (they only last one round)
             foreach (var kvp in ScriptManager.GetAllActiveScripts())
             {
-                if (kvp.Value.Order == ScriptOrder.NoReport || kvp.Value.Order == ScriptOrder.SkipVote || 
-                    kvp.Value.Order == ScriptOrder.VoteBlue || kvp.Value.Order == ScriptOrder.VoteRed ||
-                    kvp.Value.Order == ScriptOrder.SayPlayerIsSafe)
-                {
-                    ScriptManager.RemoveScript(kvp.Key);
-                }
+                ScriptManager.RemoveScript(kvp.Key);
             }
         }
     }
     
     [HarmonyPatch(typeof(VoteBanSystem), nameof(VoteBanSystem.AddVote))]
-    static class ScriptVoteColor_P
+    static class ScriptVoteForPlayer_P
     {
         static void Postfix(int srcClient, int clientId)
         {
@@ -1061,35 +1289,25 @@ namespace AU_TheDirectorsCut
             
             if (voter != null)
             {
-                // Check VoteBlue order (color 0 is Blue)
-                if (ScriptManager.HasScript(voter.PlayerId, ScriptOrder.VoteBlue))
+                // Check VoteForPlayer script
+                if (ScriptManager.HasScript(voter.PlayerId))
                 {
-                    PlayerControl? targetPlayer = FindTargetPlayer(clientId);
-                    if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId == 0)
+                    // We need to get the active script for the player to check the target
+                    var allScripts = ScriptManager.GetAllActiveScripts();
+                    var voterScript = allScripts.FirstOrDefault(s => s.Key == voter.PlayerId);
+                    if (voterScript.Value != null && voterScript.Value.Order == ScriptOrder.VoteForPlayer && voterScript.Value.TargetVotePlayerId.HasValue)
                     {
-                        // Success!
-                        ScriptManager.RemoveScript(voter.PlayerId);
-                    }
-                    else if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId != 0)
-                    {
-                        // Punish!
-                        ScriptManager.PunishPlayer(voter);
-                    }
-                }
-                
-                // Check VoteRed order (color 1 is Red)
-                if (ScriptManager.HasScript(voter.PlayerId, ScriptOrder.VoteRed))
-                {
-                    PlayerControl? targetPlayer = FindTargetPlayer(clientId);
-                    if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId == 1)
-                    {
-                        // Success!
-                        ScriptManager.RemoveScript(voter.PlayerId);
-                    }
-                    else if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId != 1)
-                    {
-                        // Punish!
-                        ScriptManager.PunishPlayer(voter);
+                        byte targetId = voterScript.Value.TargetVotePlayerId.Value;
+                        if (clientId == targetId)
+                        {
+                            // Success!
+                            ScriptManager.RemoveScript(voter.PlayerId);
+                        }
+                        else if (clientId != 0) // If they didn't skip and didn't vote for target
+                        {
+                            // Punish!
+                            ScriptManager.PunishPlayer(voter);
+                        }
                     }
                 }
             }

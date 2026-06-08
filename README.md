@@ -113,6 +113,12 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | `/gg` | Previous-game stats (alive / eliminated) |
 | `/players` | List players with their number IDs |
 | `/hrandomcolors` | Detailed help for `/randomcolors` |
+| `/hcut` | Detailed help for `/cut` |
+| `/hdarkness` | Detailed help for `/darkness` |
+| `/hfreeze` | Detailed help for `/freeze` |
+| `/haction` | Detailed help for `/action` |
+| `/hloc` | Detailed help for `/loc` |
+| `/hvote` | Detailed help for `/vote` |
 
 ### 🎬 Director directives
 | Command | Effect | Duration | Cooldown |
@@ -121,7 +127,9 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — anyone who moves dies! | 7s total | 30s |
 | `/darkness` | Total darkness across the entire map | 10s | 35s |
 | `/freeze ID` | Freezes the target player in place | 8s | 30s |
-| `/action ID [1-4]` | Assign a secret script to a player! Use `/action ID` to see the list of scripts. Scripts: 1 = Don't report bodies, 2 = Stay still for 10s, 3 = Skip the next vote, 4 = Be in Admin after 15s. Players who disobey get eliminated! | Varies | 20s |
+| `/action ID [1-4]` | Assign a basic secret script to a player! Scripts: 1 = Don't report bodies, 2 = Skip the next vote, 3 = Don't use vents, 4 = Say someone is safe. Players who disobey get eliminated! | Varies | 20s |
+| `/loc ID_player ID_zone` | Forbid a player from entering a specific zone (The Skeld only). Zone IDs: 1=Cafeteria, 2=Admin, 3=Electrical,4=Storage,5=Security,6=Reactor,7=UpperEngine,8=LowerEngine,9=Medbay,10=ElectricalHallway,11=Communications,12=Shields,13=O2,14=Navigation,15=Weapons | Until round end | 20s |
+| `/vote ID_player ID_target` | Force a player to vote for a specific target. | Until next meeting | 20s |
 
 ---
 
@@ -247,6 +255,12 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
 | `/players` | Liste les joueurs et leurs ID-nums |
 | `/hrandomcolors` | Aide détaillée pour `/randomcolors` |
+| `/hcut` | Aide détaillée pour `/cut` |
+| `/hdarkness` | Aide détaillée pour `/darkness` |
+| `/hfreeze` | Aide détaillée pour `/freeze` |
+| `/haction` | Aide détaillée pour `/action` |
+| `/hloc` | Aide détaillée pour `/loc` |
+| `/hvote` | Aide détaillée pour `/vote` |
 
 ### 🎬 Directives du Réalisateur
 | Commande | Effet | Durée | Cooldown |
@@ -255,7 +269,9 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — qui bouge meurt ! | 7s total | 30s |
 | `/darkness` | Noir TOTAL sur toute la map | 10s | 35s |
 | `/freeze ID` | Bloque le joueur ciblé sur place | 8s | 30s |
-| `/action ID [1-4]` | Donne un script secret à un joueur ! Utilise `/action ID` pour voir la liste des scripts. Scripts : 1 = Ne rapporte pas de corps, 2 = Reste immobile 10s, 3 = Passe le prochain vote, 4 = Etre dans Admin au bout de 15s. Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
+| `/action ID [1-4]` | Donne un script secret à un joueur ! Utilise `/action ID` pour voir la liste des scripts. Scripts : 1 = Ne rapporte pas de corps, 2 = Passe le prochain vote, 3 = Ne pas utiliser les vents, 4 = Dire que quelqu'un est innocent. Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
+| `/loc ID_joueur ID_zone` | Interdit à un joueur d'entrer dans une zone spécifique (The Skeld seulement). IDs de zone : 1=Cafétéria, 2=Admin, 3=Electrical,4=Storage,5=Security,6=Réacteur,7=UpperEngine,8=LowerEngine,9=Medbay,10=CouloirElectrical,11=Communications,12=Shields,13=O2,14=Navigation,15=Weapons | Jusqu'à la fin du round | 20s |
+| `/vote ID_joueur ID_cible` | Force un joueur à voter pour une cible spécifique. | Jusqu'à la prochaine réunion | 20s |
 
 ---
 

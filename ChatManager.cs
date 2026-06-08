@@ -19,6 +19,7 @@ namespace AU_TheDirectorsCut
         // ────────────────────────────────────────────────
         // Chaque message porte son propre délai minimum. wait < 0 => délai par défaut (cadence normale).
         private static readonly Queue<(string plain, string colored, float wait)> _queue = new();
+        private const int MaxQueueSize = 20; // Prevent queue from getting too large
 
         // Limite DURE d'Among Us vanilla : 100 caractères par message (texte réseau, sans balises <color>).
         private const int MaxChatChars = 100;
@@ -35,6 +36,7 @@ namespace AU_TheDirectorsCut
             return s;
         }
 
+        // --- MÉTHODE ORIGINALE POUR /WELCOME ET /GG --- (NE PAS TOUCHER)
         public static void SendPrivate(PlayerControl target, string plainMessage)
         {
             if (target == null || target.OwnerId < 0) return;
@@ -73,10 +75,73 @@ namespace AU_TheDirectorsCut
             }
         }
 
+        // --- MÉTHODE SUPPLÉMENTAIRE POUR LES ORDRES DE SCRIPT ---
+        public static void SendPrivateScript(PlayerControl target, string plainMessage, string coloredMessage)
+        {
+            if (target == null || target.OwnerId < 0) return;
+            
+            var speaker = PlayerControl.LocalPlayer;
+            if (speaker == null) return;
+            
+            try
+            {
+                // Enregistre la correspondance plain → colored
+                _colorMap[plainMessage] = coloredMessage;
+                
+                // First show it on host's chat locally
+                try
+                {
+                    IsSending = true;
+                    HudManager.Instance.Chat.AddChat(speaker, coloredMessage);
+                    IsSending = false;
+                }
+                catch { IsSending = false; }
+                
+                // ONLY send network message if we're in a meeting or lobby! (to avoid host kick)
+                if (MeetingHud.Instance != null || ShipStatus.Instance == null)
+                {
+                    Plugin.Log?.LogInfo($"[ChatManager] Envoi du message de script en lobby/meeting à {target.Data.PlayerName}");
+                    
+                    var writer = AmongUsClient.Instance.StartRpcImmediately(
+                        speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                    writer.Write(SafeChat(plainMessage));
+                    AmongUsClient.Instance.FinishRpcImmediately(writer);
+                }
+                
+                Plugin.Log?.LogInfo($"[ChatManager] Message de script traité pour {target.Data.PlayerName}: {plainMessage}");
+            }
+            catch (Exception e)
+            {
+                Plugin.Log?.LogError($"[ChatManager] Erreur envoi message de script: {e.Message}");
+            }
+        }
+
+        // --- MÉTHODE PRIVÉE D'ORIGINE POUR ProcessPendingWelcome et ProcessPendingGG --- (NE PAS TOUCHER)
+        private static void SendPrivate(PlayerControl target, string plainMsg, string coloredMsg)
+        {
+            var speaker = PlayerControl.LocalPlayer;
+            if (speaker == null || target == null) return;
+            try
+            {
+                // Enregistre la correspondance plain → colored
+                _colorMap[plainMsg] = coloredMsg;
+                
+                // Envoie la version plain text via RPC (pas de couleurs !)
+                var writer = AmongUsClient.Instance.StartRpcImmediately(
+                    speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                writer.Write(SafeChat(plainMsg));
+                AmongUsClient.Instance.FinishRpcImmediately(writer);
+                
+                Plugin.Log?.LogInfo($"[ChatManager] Message envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");
+            }
+            catch (Exception e) { Plugin.Log?.LogError($"[SendPrivate] {e.Message}"); }
+        }
+
         public static void Queue(string coloredMsg, string plainMsg)
         {
             if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
             {
+                if (_queue.Count >= MaxQueueSize) return; // Prevent queue overflow
                 _colorMap[plainMsg] = coloredMsg;
                 _queue.Enqueue((plainMsg, coloredMsg, -1f)); // -1 = cadence par défaut
             }
@@ -94,6 +159,7 @@ namespace AU_TheDirectorsCut
         {
             if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
             {
+                if (_queue.Count >= MaxQueueSize) return; // Prevent queue overflow
                 _colorMap[plainMsg] = coloredMsg;
                 _queue.Enqueue((plainMsg, coloredMsg, 3.5f));
             }
@@ -421,25 +487,7 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        private static void SendPrivate(PlayerControl target, string plainMsg, string coloredMsg)
-        {
-            var speaker = PlayerControl.LocalPlayer;
-            if (speaker == null || target == null) return;
-            try
-            {
-                // Enregistre la correspondance plain → colored
-                _colorMap[plainMsg] = coloredMsg;
-                
-                // Envoie la version plain text via RPC (pas de couleurs !)
-                var writer = AmongUsClient.Instance.StartRpcImmediately(
-                    speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
-                writer.Write(SafeChat(plainMsg));
-                AmongUsClient.Instance.FinishRpcImmediately(writer);
-                
-                Plugin.Log?.LogInfo($"[ChatManager] Message envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");
-            }
-            catch (Exception e) { Plugin.Log?.LogError($"[SendPrivate] {e.Message}"); }
-        }
+
 
         private static void WSetName(MessageWriter w, PlayerControl p, string n)
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }

@@ -40,6 +40,10 @@
     <Reference Include="UnityEngine.IMGUIModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll')">
       <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.IMGUIModule.dll</HintPath><Private>False</Private>
     </Reference>
+    <!-- Physics 2D -->
+    <Reference Include="UnityEngine.Physics2DModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.Physics2DModule.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.Physics2DModule.dll</HintPath><Private>False</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp"       Condition="Exists('$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll')">
       <HintPath>$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll</HintPath><Private>False</Private>
     </Reference>
