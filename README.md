@@ -121,6 +121,7 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — anyone who moves dies! | 7s total | 30s |
 | `/darkness` | Total darkness across the entire map | 10s | 35s |
 | `/freeze ID` | Freezes the target player in place | 8s | 30s |
+| `/action ID [1-4]` | Assign a secret script to a player! Use `/action ID` to see the list of scripts. Scripts: 1 = Don't report bodies, 2 = Stay still for 10s, 3 = Skip the next vote, 4 = Be in Admin after 15s. Players who disobey get eliminated! | Varies | 20s |
 
 ---
 
@@ -254,6 +255,7 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — qui bouge meurt ! | 7s total | 30s |
 | `/darkness` | Noir TOTAL sur toute la map | 10s | 35s |
 | `/freeze ID` | Bloque le joueur ciblé sur place | 8s | 30s |
+| `/action ID [1-4]` | Donne un script secret à un joueur ! Utilise `/action ID` pour voir la liste des scripts. Scripts : 1 = Ne rapporte pas de corps, 2 = Reste immobile 10s, 3 = Passe le prochain vote, 4 = Etre dans Admin au bout de 15s. Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
 
 ---
 

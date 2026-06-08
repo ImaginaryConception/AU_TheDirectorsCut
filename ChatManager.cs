@@ -23,7 +23,7 @@ namespace AU_TheDirectorsCut
         // Limite DURE d'Among Us vanilla : 100 caractères par message (texte réseau, sans balises <color>).
         private const int MaxChatChars = 100;
         private const int MaxChatBytes = 100;
-        private static string SafeChat(string s)
+        public static string SafeChat(string s)
         {
             if (string.IsNullOrEmpty(s)) return s;
             if (s.Length > MaxChatChars) s = s.Substring(0, MaxChatChars - 3) + "...";
@@ -33,6 +33,44 @@ namespace AU_TheDirectorsCut
             while (System.Text.Encoding.UTF8.GetByteCount(s) > MaxChatBytes && s.Length > 1)
                 s = s.Substring(0, s.Length - 1);
             return s;
+        }
+
+        public static void SendPrivate(PlayerControl target, string plainMessage)
+        {
+            if (target == null || target.OwnerId < 0) return;
+            
+            var speaker = PlayerControl.LocalPlayer;
+            if (speaker == null) return;
+            
+            try
+            {
+                // First show it on host's chat locally
+                try
+                {
+                    IsSending = true;
+                    HudManager.Instance.Chat.AddChat(speaker, plainMessage);
+                    IsSending = false;
+                }
+                catch { IsSending = false; }
+                
+                // ONLY send network message if we're in a meeting!
+                if (MeetingHud.Instance != null)
+                {
+                    Plugin.Log?.LogInfo($"[ChatManager] Envoi du message en meeting à {target.Data.PlayerName}");
+                    
+                    // In meetings, normal SendChat RPC is safe and won't kick the host!
+                    var writer = AmongUsClient.Instance.StartRpcImmediately(
+                        speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                    writer.Write(SafeChat(plainMessage));
+                    AmongUsClient.Instance.FinishRpcImmediately(writer);
+                }
+                
+                Plugin.Log?.LogInfo($"[ChatManager] Message traité pour {target.Data.PlayerName}: {plainMessage}");
+            }
+            catch (Exception e)
+            {
+                Plugin.Log?.LogError($"[ChatManager] Erreur envoi message: {e.Message}");
+            }
         }
 
         public static void Queue(string coloredMsg, string plainMsg)

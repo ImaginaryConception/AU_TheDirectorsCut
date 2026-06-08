@@ -34,6 +34,7 @@ namespace AU_TheDirectorsCut
             ["/cut"] = 30f,
             ["/darkness"] = 35f,
             ["/freeze"] = 30f,
+            ["/action"] = 20f,
         };
 
         // /freeze state: key = PlayerId, value = (timerLeft, frozenPosition, originalSpeedMod)
@@ -79,7 +80,12 @@ namespace AU_TheDirectorsCut
         public static float CooldownRemaining(string cmd) => _cd.TryGetValue(cmd, out float r) ? r : 0f;
         public static bool IsOnCooldown(string cmd) => _cd.TryGetValue(cmd, out float r) && r > 0f;
 
-        public static void Initialize() { Reset(); Plugin.Log?.LogInfo("[DirectorCore] Initialisé."); }
+        public static void Initialize()
+        {
+            Reset();
+            ScriptManager.Initialize();
+            Plugin.Log?.LogInfo("[DirectorCore] Initialisé.");
+        }
 
         public static void Reset()
         {
@@ -100,6 +106,7 @@ namespace AU_TheDirectorsCut
             _originalCrewLightMod = 1f;
             _originalImpostorLightMod = 1f;
             _frozenPlayers.Clear();
+            ScriptManager.Reset();
             ChatManager.ClearWelcomeSent();
         }
 
@@ -128,6 +135,28 @@ namespace AU_TheDirectorsCut
         private static string NumberToFrench(int number) => number.ToString();
 
         private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
+
+        private static void SendPrivateMessage(PlayerControl target, string message)
+        {
+            if (target == null || target.OwnerId < 0) return;
+            
+            var speaker = PlayerControl.LocalPlayer;
+            if (speaker == null) return;
+            
+            try
+            {
+                var writer = AmongUsClient.Instance.StartRpcImmediately(
+                    speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                writer.Write(ChatManager.SafeChat(message));
+                AmongUsClient.Instance.FinishRpcImmediately(writer);
+                
+                Plugin.Log?.LogInfo($"[DirectorCore] Message privé envoyé à {target.Data.PlayerName}: {message}");
+            }
+            catch (Exception e)
+            {
+                Plugin.Log?.LogError($"[DirectorCore] Erreur envoi message privé: {e.Message}");
+            }
+        }
 
         private static bool TryCooldown(string cmd)
         {
@@ -234,6 +263,7 @@ namespace AU_TheDirectorsCut
                     ChatManager.QueueSlow(ModMessages.HelpCut, ModMessages.HelpCutPlain);
                     ChatManager.QueueSlow(ModMessages.HelpDarkness, ModMessages.HelpDarknessPlain);
                     ChatManager.QueueSlow(ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
+                    ChatManager.QueueSlow(ModMessages.HelpAction, ModMessages.HelpActionPlain);
                     return true;
 
                 case "/gg":
@@ -347,23 +377,74 @@ namespace AU_TheDirectorsCut
                         SendHostMessage("Usage : /freeze ID");
                         return true;
                     }
-                    if (!byte.TryParse(parts[1], out byte targetId))
+                    if (!byte.TryParse(parts[1], out byte freezeTargetId))
                     {
                         SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
-                    PlayerControl? target = FindById(targetId);
-                    if (target?.Data == null)
+                    PlayerControl? freezeTarget = FindById(freezeTargetId);
+                    if (freezeTarget?.Data == null)
                     {
                         SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
-                    if (_frozenPlayers.ContainsKey(target.PlayerId))
+                    if (_frozenPlayers.ContainsKey(freezeTarget.PlayerId))
                     {
-                        SendHostMessage($"{target.Data.PlayerName} est déjà bloqué !");
+                        SendHostMessage($"{freezeTarget.Data.PlayerName} est déjà bloqué !");
                         return true;
                     }
-                    StartFreeze(target);
+                    StartFreeze(freezeTarget);
+                    return true;
+
+                case "/action":
+                    if (!TryCooldown("/action")) return true;
+                    if (parts.Length < 2)
+                    {
+                        SendHostMessage(ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        return true;
+                    }
+                    if (!byte.TryParse(parts[1], out byte actionTargetId))
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    PlayerControl? actionTarget = FindById(actionTargetId);
+                    if (actionTarget?.Data == null)
+                    {
+                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    
+                    if (parts.Length < 3)
+                    {
+                        // Just show the script list to the director
+                        SendHostMessage(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        return true;
+                    }
+                    
+                    if (!int.TryParse(parts[2], out int orderInt) || !Enum.IsDefined(typeof(ScriptOrder), orderInt))
+                    {
+                        SendHostMessage(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        return true;
+                    }
+                    
+                    ScriptOrder order = (ScriptOrder)orderInt;
+                    
+                    if (ScriptManager.HasScript(actionTarget.PlayerId))
+                    {
+                        SendHostMessage(string.Format(ModMessages.ActionAlreadyActive, actionTarget.Data.PlayerName), string.Format(ModMessages.ActionAlreadyActivePlain, actionTarget.Data.PlayerName));
+                        return true;
+                    }
+                    
+                    // Assign the script
+                    ScriptManager.AssignScript(actionTarget.PlayerId, order);
+                    
+                    // Send private message to the target
+                    string privateMessage = ScriptManager.GetOrderPrivateMessage(order);
+                    ChatManager.SendPrivate(actionTarget, privateMessage);
+                    
+                    // Announce to director
+                    SendHostMessage(string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName), string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName));
                     return true;
 
                 default:
@@ -536,6 +617,9 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
             float dt = Time.deltaTime;
+
+            // Handle ScriptManager updates (StayStill order)
+            ScriptManager.Update();
 
             // Handle host position lock
             if (_hostPositionLockTimer > 0f && _savedHostPosition.HasValue && PlayerControl.LocalPlayer != null)
@@ -863,6 +947,82 @@ namespace AU_TheDirectorsCut
             IGameOptions options = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
             options.SetFloat(FloatOptionNames.ShapeshifterCooldown, 0.0f);
             Hydra.GameOptions.SendGameOptionsToClient(options, player.OwnerId);
+        }
+    }
+
+    // ── SCRIPT MANAGER PATCHES ────────────────────────────────────────────────────
+    
+    [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.ReportDeadBody))]
+    static class ReportDeadBody_P
+    {
+        static bool Prefix(PlayerControl __instance)
+        {
+            if (!AmongUsClient.Instance.AmHost) return true;
+            
+            if (ScriptManager.HasScript(__instance.PlayerId, ScriptOrder.NoReport))
+            {
+                // Player disobeyed - kill them!
+                ScriptManager.PunishPlayer(__instance);
+                return false; // Prevent the report
+            }
+            
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(VoteBanSystem), nameof(VoteBanSystem.AddVote))]
+    static class ScriptVote_P
+    {
+        static bool Prefix(int srcClient, int clientId)
+        {
+            if (!AmongUsClient.Instance.AmHost) return true;
+            
+            // Find the player who voted
+            PlayerControl? voter = null;
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.OwnerId == srcClient)
+                {
+                    voter = pc;
+                    break;
+                }
+            }
+            
+            if (voter != null && ScriptManager.HasScript(voter.PlayerId, ScriptOrder.SkipVote))
+            {
+                // Check if they voted for someone other than skip
+                // clientId == 0 is skip vote
+                if (clientId != 0)
+                {
+                    ScriptManager.PunishPlayer(voter);
+                }
+                else
+                {
+                    // They obeyed - remove the script
+                    ScriptManager.RemoveScript(voter.PlayerId);
+                }
+            }
+            
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(MeetingHud), nameof(MeetingHud.Close))]
+    static class MeetingClose_P
+    {
+        static void Postfix()
+        {
+            if (!AmongUsClient.Instance.AmHost) return;
+            
+            // Clean up all active scripts when meeting ends (except maybe StayStill, but better to reset)
+            // Actually, let's just let the ScriptManager handle it, but maybe we want to clear NoReport and SkipVote
+            foreach (var kvp in ScriptManager.GetAllActiveScripts())
+            {
+                if (kvp.Value.Order == ScriptOrder.NoReport || kvp.Value.Order == ScriptOrder.SkipVote)
+                {
+                    ScriptManager.RemoveScript(kvp.Key);
+                }
+            }
         }
     }
 }
