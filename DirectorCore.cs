@@ -259,17 +259,14 @@ namespace AU_TheDirectorsCut
                 case "/help":
                     ChatManager.QueueSlow(ModMessages.Help1, ModMessages.Help1Plain);
                     ChatManager.QueueSlow(ModMessages.Help2, ModMessages.Help2Plain);
-                    ChatManager.QueueSlow(ModMessages.HelpRandomColors, ModMessages.HelpRandomColorsPlain);
-                    ChatManager.QueueSlow(ModMessages.HelpCut, ModMessages.HelpCutPlain);
-                    ChatManager.QueueSlow(ModMessages.HelpDarkness, ModMessages.HelpDarknessPlain);
-                    ChatManager.QueueSlow(ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
-                    ChatManager.QueueSlow(ModMessages.HelpAction, ModMessages.HelpActionPlain);
+                    ChatManager.QueueSlow(ModMessages.Help3, ModMessages.Help3Plain);
                     return true;
 
                 case "/gg":
                     ChatManager.SendPrivateGGToAll();
                     return true;
 
+                case "/join":
                 case "/discord":
                     ChatManager.QueueSlow(ModMessages.Discord, ModMessages.DiscordPlain);
                     return true;
@@ -336,7 +333,23 @@ namespace AU_TheDirectorsCut
                     }
 
                 case "/hrandomcolors":
+                case "/hrandomcolor":
+                case "/handomcolors":
+                case "/hrandom":
                     ChatManager.Queue(ModMessages.HelpRandomColors, ModMessages.HelpRandomColorsPlain);
+                    return true;
+                case "/hcut":
+                    ChatManager.Queue(ModMessages.HelpCut, ModMessages.HelpCutPlain);
+                    return true;
+                case "/hdarkness":
+                case "/hdark":
+                    ChatManager.Queue(ModMessages.HelpDarkness, ModMessages.HelpDarknessPlain);
+                    return true;
+                case "/hfreeze":
+                    ChatManager.Queue(ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
+                    return true;
+                case "/haction":
+                    ChatManager.Queue(ModMessages.HelpAction, ModMessages.HelpActionPlain);
                     return true;
             }
 

@@ -19,11 +19,13 @@ namespace AU_TheDirectorsCut
         // MESSAGES D'AIDE (CHAQUE <120 CARACTÈRES !)
         // ────────────────────────────────────────────────
         
-        public const string Help1 = "<color=#ffd23f>HELP</color>: /help, /welcome, /gg, /players, /discord";
-        public const string Help1Plain = "HELP: /help, /welcome, /gg, /players, /discord";
+        public const string Help1 = "<color=#ffd23f>HELP</color>: /help, /welcome, /gg, /players, /join";
+        public const string Help1Plain = "HELP: /help, /welcome, /gg, /players, /join";
 
         public const string Help2 = "<color=#ffd23f>DIRECTOR</color>: /randomcolors, /cut, /darkness, /freeze, /action";
         public const string Help2Plain = "DIRECTOR: /randomcolors, /cut, /darkness, /freeze, /action";
+        public const string Help3 = "<color=#ffd23f>INFO</color>: Utilise /h et la commande pour détails (ex: /hcut)";
+        public const string Help3Plain = "INFO: Utilise /h et la commande pour détails (ex: /hcut)";
 
         public const string HelpRandomColors = "<color=#ffd23f>/randomcolors</color> - Couleurs aléatoires pour TOUS! Cooldown 20s";
         public const string HelpRandomColorsPlain = "/randomcolors - Couleurs aléatoires pour TOUS! Cooldown 20s";
