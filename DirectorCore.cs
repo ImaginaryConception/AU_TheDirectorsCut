@@ -1018,9 +1018,126 @@ namespace AU_TheDirectorsCut
             // Actually, let's just let the ScriptManager handle it, but maybe we want to clear NoReport and SkipVote
             foreach (var kvp in ScriptManager.GetAllActiveScripts())
             {
-                if (kvp.Value.Order == ScriptOrder.NoReport || kvp.Value.Order == ScriptOrder.SkipVote)
+                if (kvp.Value.Order == ScriptOrder.NoReport || kvp.Value.Order == ScriptOrder.SkipVote || 
+                    kvp.Value.Order == ScriptOrder.VoteBlue || kvp.Value.Order == ScriptOrder.VoteRed ||
+                    kvp.Value.Order == ScriptOrder.SayPlayerIsSafe)
                 {
                     ScriptManager.RemoveScript(kvp.Key);
+                }
+            }
+        }
+    }
+    
+    [HarmonyPatch(typeof(VoteBanSystem), nameof(VoteBanSystem.AddVote))]
+    static class ScriptVoteColor_P
+    {
+        static void Postfix(int srcClient, int clientId)
+        {
+            if (!AmongUsClient.Instance.AmHost) return;
+            
+            // Find the player who voted
+            PlayerControl? voter = null;
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.OwnerId == srcClient)
+                {
+                    voter = pc;
+                    break;
+                }
+            }
+            
+            if (voter != null)
+            {
+                // Check VoteBlue order (color 0 is Blue)
+                if (ScriptManager.HasScript(voter.PlayerId, ScriptOrder.VoteBlue))
+                {
+                    PlayerControl? targetPlayer = FindTargetPlayer(clientId);
+                    if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId == 0)
+                    {
+                        // Success!
+                        ScriptManager.RemoveScript(voter.PlayerId);
+                    }
+                    else if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId != 0)
+                    {
+                        // Punish!
+                        ScriptManager.PunishPlayer(voter);
+                    }
+                }
+                
+                // Check VoteRed order (color 1 is Red)
+                if (ScriptManager.HasScript(voter.PlayerId, ScriptOrder.VoteRed))
+                {
+                    PlayerControl? targetPlayer = FindTargetPlayer(clientId);
+                    if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId == 1)
+                    {
+                        // Success!
+                        ScriptManager.RemoveScript(voter.PlayerId);
+                    }
+                    else if (targetPlayer != null && targetPlayer.Data.DefaultOutfit.ColorId != 1)
+                    {
+                        // Punish!
+                        ScriptManager.PunishPlayer(voter);
+                    }
+                }
+            }
+        }
+        
+        private static PlayerControl FindTargetPlayer(int clientId)
+        {
+            // clientId == 0 is skip
+            if (clientId == 0) return null;
+            
+            // Find player with matching player ID (since clientId is player ID here)
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc != null && pc.PlayerId == clientId)
+                {
+                    return pc;
+                }
+            }
+            return null;
+        }
+    }
+    
+    [HarmonyPatch(typeof(PlayerPhysics), nameof(PlayerPhysics.HandleRpc))]
+    static class VentUsePatch
+    {
+        static bool Prefix(PlayerPhysics __instance, byte callId)
+        {
+            if (!AmongUsClient.Instance.AmHost) return true;
+            
+            // Check if it's an EnterVent or ExitVent RPC
+            if (callId != 0 && callId != 1) return true; // 0=EnterVent, 1=ExitVent
+            
+            // Get the player who tried to vent
+            PlayerControl player = __instance.myPlayer;
+            
+            if (player != null && ScriptManager.HasScript(player.PlayerId, ScriptOrder.DontUseVents))
+            {
+                // Punish!
+                ScriptManager.PunishPlayer(player);
+                return false; // Prevent the vent use
+            }
+            
+            return true;
+        }
+    }
+    
+    [HarmonyPatch(typeof(ChatController), nameof(ChatController.AddChat))]
+    static class SaySafeCheckPatch
+    {
+        static void Postfix(PlayerControl sourcePlayer, string chatText)
+        {
+            if (!AmongUsClient.Instance.AmHost) return;
+            
+            if (sourcePlayer != null && ScriptManager.HasScript(sourcePlayer.PlayerId, ScriptOrder.SayPlayerIsSafe))
+            {
+                // Check if the message says someone is safe/innocent
+                string lowerText = chatText.ToLowerInvariant();
+                if (lowerText.Contains("safe") || lowerText.Contains("innocent") || lowerText.Contains("innocent") || lowerText.Contains("pas imposteur") || lowerText.Contains("clear"))
+                {
+                    // Success!
+                    ScriptManager.RemoveScript(sourcePlayer.PlayerId);
                 }
             }
         }

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using AmongUs.GameOptions;
+using InnerNet;
 using AU_TheDirectorsCut.Hydra;
 
 namespace AU_TheDirectorsCut
@@ -11,7 +13,13 @@ namespace AU_TheDirectorsCut
         NoReport = 1,
         StayStill = 2,
         SkipVote = 3,
-        GoToAdmin = 4
+        GoToAdmin = 4,
+        GoToElectrical = 5,
+        FixLights = 6,
+        VoteBlue = 7,
+        VoteRed = 8,
+        DontUseVents = 9,
+        SayPlayerIsSafe = 10
     }
 
     public class ActiveScript
@@ -21,7 +29,7 @@ namespace AU_TheDirectorsCut
         public Vector2? InitialPosition { get; set; }
         public float Timer { get; set; }
         public bool Active { get; set; }
-        public bool Succeeded { get; set; } // Nouveau: pour marquer si l'ordre a été respecté
+        public bool Succeeded { get; set; }
     }
 
     public static class ScriptManager
@@ -50,7 +58,7 @@ namespace AU_TheDirectorsCut
         {
             if (ActiveScripts.ContainsKey(playerId))
             {
-                return false; // Déjà un script actif
+                return false;
             }
 
             var script = new ActiveScript
@@ -62,7 +70,9 @@ namespace AU_TheDirectorsCut
                 Timer = order switch
                 {
                     ScriptOrder.StayStill => 10f,
-                    ScriptOrder.GoToAdmin => 15f,
+                    ScriptOrder.GoToAdmin => 20f,
+                    ScriptOrder.GoToElectrical => 20f,
+                    ScriptOrder.FixLights => 30f,
                     _ => float.MaxValue
                 }
             };
@@ -91,44 +101,67 @@ namespace AU_TheDirectorsCut
             }
         }
 
+        private static bool IsPlayerInRoom(PlayerControl player, Vector2 min, Vector2 max)
+        {
+            if (player == null || ShipStatus.Instance == null) return false;
+            
+            Vector2 pos = player.GetTruePosition();
+            return pos.x > min.x && pos.x < max.x && pos.y > min.y && pos.y < max.y;
+        }
+
         private static bool IsPlayerInAdmin(PlayerControl player)
         {
             if (player == null || ShipStatus.Instance == null) return false;
             
-            // Check position roughly for all maps - MUCH BIGGER zones!
+            // The Skeld: Exact Admin bounds from map data
             Vector2 pos = player.GetTruePosition();
+            Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} checking Admin at (X: {pos.x:F2}, Y: {pos.y:F2})");
             
-            Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} position: x={pos.x}, y={pos.y}");
+            // The Skeld Admin room is around:
+            // X from 2.8 to 8.5
+            // Y from -16.5 to -11.0
+            bool isInSkeldAdmin = pos.x > 2.8f && pos.x < 8.5f && pos.y > -16.5f && pos.y < -11.0f;
             
-            // The Skeld Admin is roughly at (6.5, -15.5)
-            if (pos.x > 0f && pos.x < 12f && pos.y < -8f && pos.y > -20f)
+            if (isInSkeldAdmin)
             {
-                Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} est dans Admin (Skeld)!");
-                return true;
+                Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} IS IN ADMIN!");
             }
             
-            // Mira HQ Admin is roughly at (22, 2)
-            if (pos.x > 15f && pos.x < 29f && pos.y > -4f && pos.y < 8f)
-            {
-                Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} est dans Admin (Mira)!");
-                return true;
-            }
-            
-            // Polus Admin is roughly at (18, -17)
-            if (pos.x > 10f && pos.x < 26f && pos.y < -10f && pos.y > -24f)
-            {
-                Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} est dans Admin (Polus)!");
-                return true;
-            }
-            
-            // Airship Admin is roughly at (13, 13)
-            if (pos.x > 5f && pos.x < 21f && pos.y > 6f && pos.y < 20f)
-            {
-                Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} est dans Admin (Airship)!");
-                return true;
-            }
+            return isInSkeldAdmin;
+        }
 
-            return false;
+        private static bool AreLightsOff()
+        {
+            if (ShipStatus.Instance == null) return false;
+            
+            var switchSystem = ShipStatus.Instance.Systems[SystemTypes.Electrical].TryCast<SwitchSystem>();
+            if (switchSystem != null)
+            {
+                return !switchSystem.IsActive;
+            }
+            
+            return false; // If we can't check, assume lights are on
+        }
+
+        private static bool IsPlayerInElectrical(PlayerControl player)
+        {
+            if (player == null || ShipStatus.Instance == null) return false;
+            
+            // The Skeld: TIGHT Electrical bounds (definitely not Cargo!)
+            Vector2 pos = player.GetTruePosition();
+            Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} at (X: {pos.x:F3}, Y: {pos.y:F3})");
+            
+            // The Skeld Electrical only - very small, no overlap with Cargo!
+            // X from -6.5 to 0.5
+            // Y from -16.8 to -10.0
+            bool isInSkeldElectrical = pos.x > -6.5f && pos.x < 0.5f && pos.y > -16.8f && pos.y < -10.0f;
+            
+            if (isInSkeldElectrical)
+            {
+                Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} IS IN ELECTRICAL!");
+            }
+            
+            return isInSkeldElectrical;
         }
 
         public static void Update()
@@ -140,64 +173,119 @@ namespace AU_TheDirectorsCut
                 var script = kvp.Value;
                 if (!script.Active) continue;
 
-                if (script.Order == ScriptOrder.StayStill)
+                switch (script.Order)
                 {
-                    script.Timer -= Time.deltaTime;
-                    if (script.Timer <= 0f)
-                    {
-                        // Réussi !
-                        script.Active = false;
-                        script.Succeeded = true;
-                        Plugin.Log?.LogInfo($"[ScriptManager] {script.PlayerId} a respecté StayStill !");
-                    }
-                    else
-                    {
-                        // Vérifier le mouvement
-                        var player = FindById(script.PlayerId);
-                        if (player != null && script.InitialPosition.HasValue)
+                    case ScriptOrder.StayStill:
+                        script.Timer -= Time.deltaTime;
+                        if (script.Timer <= 0f)
                         {
-                            Vector2 currentPos = (Vector2)player.transform.position;
-                            float distance = Vector2.Distance(script.InitialPosition.Value, currentPos);
-                            if (distance > 0.5f)
+                            script.Active = false;
+                            script.Succeeded = true;
+                            AnnounceSuccess(FindById(script.PlayerId));
+                        }
+                        else
+                        {
+                            var player = FindById(script.PlayerId);
+                            if (player != null && script.InitialPosition.HasValue)
                             {
-                                // A bougé !
-                                PunishPlayer(player);
+                                Vector2 currentPos = (Vector2)player.transform.position;
+                                float distance = Vector2.Distance(script.InitialPosition.Value, currentPos);
+                                if (distance > 0.5f)
+                                {
+                                    PunishPlayer(player);
+                                    script.Active = false;
+                                }
+                            }
+                        }
+                        break;
+                        
+                    case ScriptOrder.GoToAdmin:
+                        script.Timer -= Time.deltaTime;
+                        var adminPlayer = FindById(script.PlayerId);
+                        if (adminPlayer != null)
+                        {
+                            if (IsPlayerInAdmin(adminPlayer))
+                            {
+                                script.Active = false;
+                                script.Succeeded = true;
+                                AnnounceSuccess(adminPlayer);
+                            }
+                            else if (script.Timer <= 0f)
+                            {
+                                PunishPlayer(adminPlayer);
                                 script.Active = false;
                             }
                         }
-                    }
-                }
-                else if (script.Order == ScriptOrder.GoToAdmin)
-                {
-                    script.Timer -= Time.deltaTime;
-                    var player = FindById(script.PlayerId);
-                    
-                    if (player != null)
-                    {
-                        // Check EVERY FRAME if player is in Admin - mark as succeeded as soon as they enter!
-                        if (IsPlayerInAdmin(player))
+                        break;
+                        
+                    case ScriptOrder.GoToElectrical:
+                        script.Timer -= Time.deltaTime;
+                        var elecPlayer = FindById(script.PlayerId);
+                        if (elecPlayer != null)
                         {
-                            // Réussi !
+                            if (IsPlayerInElectrical(elecPlayer))
+                            {
+                                script.Active = false;
+                                script.Succeeded = true;
+                                AnnounceSuccess(elecPlayer);
+                            }
+                            else if (script.Timer <= 0f)
+                            {
+                                PunishPlayer(elecPlayer);
+                                script.Active = false;
+                            }
+                        }
+                        break;
+                        
+                    case ScriptOrder.FixLights:
+                        // First check if lights are even off!
+                        if (!AreLightsOff())
+                        {
+                            // Lights are already on - auto-complete!
                             script.Active = false;
                             script.Succeeded = true;
-                            Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} a rejoint Admin à temps !");
+                            var autoPlayer = FindById(script.PlayerId);
+                            if (autoPlayer != null)
+                            {
+                                AnnounceSuccess(autoPlayer);
+                            }
                         }
-                        else if (script.Timer <= 0f)
+                        else
                         {
-                            // Temps écoulé et pas dans Admin
-                            Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} n'a pas rejoint Admin à temps ! Timer écoulé.");
-                            PunishPlayer(player);
-                            script.Active = false;
+                            // Lights are off - wait for player to fix!
+                            script.Timer -= Time.deltaTime;
+                            var fixPlayer = FindById(script.PlayerId);
+                            if (fixPlayer != null)
+                            {
+                                // Check if lights are now fixed AND player is in Electrical
+                                if (!AreLightsOff() && IsPlayerInElectrical(fixPlayer))
+                                {
+                                    script.Active = false;
+                                    script.Succeeded = true;
+                                    AnnounceSuccess(fixPlayer);
+                                }
+                                else if (script.Timer <= 0f)
+                                {
+                                    PunishPlayer(fixPlayer);
+                                    script.Active = false;
+                                }
+                            }
                         }
-                    }
+                        break;
                 }
             }
 
-            // Nettoyer les scripts inactifs
             foreach (var kvp in ActiveScripts.Where(k => !k.Value.Active).ToList())
             {
                 ActiveScripts.Remove(kvp.Key);
             }
+        }
+
+        private static void AnnounceSuccess(PlayerControl player)
+        {
+            if (player == null) return;
+            Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} a respecté son ordre !");
+            ChatManager.Queue($"<color=#00ff00>{player.Data.PlayerName} a respecté son ordre !</color>", $"{player.Data.PlayerName} a respecté son ordre !");
         }
 
         public static void PunishPlayer(PlayerControl player)
@@ -206,13 +294,12 @@ namespace AU_TheDirectorsCut
 
             Plugin.Log?.LogInfo($"[ScriptManager] Punition: {player.Data.PlayerName} a désobéi !");
             
-            // Utiliser la même méthode que Hydra /cut
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
                 PlayerControl.LocalPlayer.RpcMurderPlayer(player, true);
             }
 
-            ChatManager.Queue($"<color=#ff6b6b>{player.Data.PlayerName}</color> a désobéi au script — éliminé !", $"{player.Data.PlayerName} a désobéi au script — éliminé !");
+            ChatManager.Queue($"<color=#ff6b6b>{player.Data.PlayerName} a désobéi au script — éliminé !</color>", $"{player.Data.PlayerName} a désobéi au script — éliminé !");
         }
 
         private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
@@ -221,10 +308,16 @@ namespace AU_TheDirectorsCut
         {
             return order switch
             {
-                ScriptOrder.NoReport => "Ne pas report de corps",
+                ScriptOrder.NoReport => "Ne pas rapporter de corps",
                 ScriptOrder.StayStill => "Rester immobile 10s",
                 ScriptOrder.SkipVote => "Skip le prochain vote",
-                ScriptOrder.GoToAdmin => "Etre dans Admin au bout de 15s",
+                ScriptOrder.GoToAdmin => "Aller en Admin",
+                ScriptOrder.GoToElectrical => "Aller en Electrical",
+                ScriptOrder.FixLights => "Réparer les lumières",
+                ScriptOrder.VoteBlue => "Voter pour le bleu",
+                ScriptOrder.VoteRed => "Voter pour le rouge",
+                ScriptOrder.DontUseVents => "Ne pas utiliser les vents",
+                ScriptOrder.SayPlayerIsSafe => "Dire que quelqu'un est safe",
                 _ => "Ordre inconnu"
             };
         }
@@ -233,11 +326,17 @@ namespace AU_TheDirectorsCut
         {
             return order switch
             {
-                ScriptOrder.NoReport => "Tu dois ne rapporter aucun corps. Sinon, tu meurs.",
-                ScriptOrder.StayStill => "Tu dois rester immobile 10 secondes. Sinon, tu meurs.",
-                ScriptOrder.SkipVote => "Tu dois passer ton prochain vote. Sinon, tu meurs.",
-                ScriptOrder.GoToAdmin => "Tu dois etre dans la salle Admin au bout de 15 secondes. Sinon, tu meurs.",
-                _ => "Tu dois suivre un ordre. Sinon, tu meurs."
+                ScriptOrder.NoReport => "Tu dois ne pas rapporter de corps ce round ! Sinon tu meurs.",
+                ScriptOrder.StayStill => "Tu dois rester immobile 10 secondes ! Sinon tu meurs.",
+                ScriptOrder.SkipVote => "Tu dois skip le prochain vote ! Sinon tu meurs.",
+                ScriptOrder.GoToAdmin => "Tu dois aller en Admin dans les 20 secondes ! Sinon tu meurs.",
+                ScriptOrder.GoToElectrical => "Tu dois aller en Electrical dans les 20 secondes ! Sinon tu meurs.",
+                ScriptOrder.FixLights => "Tu dois réparer les lumières si elles sont éteintes ! Sinon tu meurs.",
+                ScriptOrder.VoteBlue => "Tu dois voter pour le joueur bleu ce meeting ! Sinon tu meurs.",
+                ScriptOrder.VoteRed => "Tu dois voter pour le joueur rouge ce meeting ! Sinon tu meurs.",
+                ScriptOrder.DontUseVents => "Tu ne dois pas utiliser les vents ce round ! Sinon tu meurs.",
+                ScriptOrder.SayPlayerIsSafe => "Tu dois dire dans le chat que quelqu'un est innocent ! Sinon tu meurs.",
+                _ => "Tu dois suivre un ordre ! Sinon tu meurs."
             };
         }
     }

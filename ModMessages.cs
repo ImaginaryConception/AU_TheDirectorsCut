@@ -34,14 +34,14 @@ namespace AU_TheDirectorsCut
         public const string HelpDarkness = "<color=#ffd23f>/darkness</color> - NOIR TOTAL pendant 10s! Cooldown 35s";
         public const string HelpDarknessPlain = "/darkness - NOIR TOTAL pendant 10s! Cooldown 35s";
 
-        public const string HelpFreeze = "<color=#ffd23f>/freeze ID</color> - Bloque un joueur 8s! Cooldown 30s";
-        public const string HelpFreezePlain = "/freeze ID - Bloque un joueur 8s! Cooldown 30s";
+        public const string HelpFreeze = "<color=#ffd23f>/freeze ID</color> - Bloque un joueur 8s ! Cooldown 30s";
+        public const string HelpFreezePlain = "/freeze ID - Bloque un joueur 8s ! Cooldown 30s";
 
-        public const string HelpAction = "<color=#ffd23f>/action ID</color> - Donne un script secret à un joueur (voir la liste) ! Cooldown 20s";
-        public const string HelpActionPlain = "/action ID - Donne un script secret à un joueur (voir la liste) ! Cooldown 20s";
+        public const string HelpAction = "<color=#ffd23f>/action ID 1-10</color> - Donne un script secret à un joueur ! Cooldown 20s";
+        public const string HelpActionPlain = "/action ID 1-10 - Donne un script secret à un joueur ! Cooldown 20s";
 
-        public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: 1=Ne pas report, 2=Rester immobile 10s, 3=Skip vote, 4=Aller en Admin en 15s";
-        public const string ActionListPlain = "SCRIPTS: 1=Ne pas report, 2=Rester immobile 10s, 3=Skip vote, 4=Aller en Admin en 15s";
+        public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: 1=NoReport, 2=StayStill, 3=SkipVote, 4=GoToAdmin, 5=GoToElec, 6=FixLights,7=VoteBlue,8=VoteRed,9=NoVents,10=SaySafe";
+        public const string ActionListPlain = "SCRIPTS: 1=NoReport,2=StayStill,3=SkipVote,4=GoToAdmin,5=GoToElec,6=FixLights,7=VoteBlue,8=VoteRed,9=NoVents,10=SaySafe";
 
         public const string ActionAssigned = "<color=#ffd23f>SCRIPT</color>: Ordre envoyé à {0} !";
         public const string ActionAssignedPlain = "SCRIPT: Ordre envoyé à {0} !";
