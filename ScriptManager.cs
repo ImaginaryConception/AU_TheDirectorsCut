@@ -13,7 +13,6 @@ namespace AU_TheDirectorsCut
         NoReport = 1,
         SkipVote = 2,
         DontUseVents = 3,
-        SayPlayerIsSafe = 4,
         StayOut = 5,
         VoteForPlayer = 6
     }
@@ -298,7 +297,6 @@ namespace AU_TheDirectorsCut
                 ScriptOrder.NoReport => "Ne pas report de corps",
                 ScriptOrder.SkipVote => "Skip le prochain vote",
                 ScriptOrder.DontUseVents => "Ne pas utiliser les vents",
-                ScriptOrder.SayPlayerIsSafe => "Dire que quelqu'un est safe",
                 ScriptOrder.StayOut => "Ne pas aller dans une zone",
                 ScriptOrder.VoteForPlayer => "Voter pour un joueur spécifique",
                 _ => "Ordre inconnu"
@@ -320,10 +318,6 @@ namespace AU_TheDirectorsCut
                 ScriptOrder.DontUseVents => (
                     $"ORDRE POUR {playerName} : Ne pas utiliser les vents ce round !",
                     $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne pas utiliser les vents ce round !"
-                ),
-                ScriptOrder.SayPlayerIsSafe => (
-                    $"ORDRE POUR {playerName} : Dis que quelqu'un est innocent ce round !",
-                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Dis que quelqu'un est innocent ce round !"
                 ),
                 _ => ($"ORDRE POUR {playerName} : Suivre un ordre !", $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Suivre un ordre !")
             };

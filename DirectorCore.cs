@@ -172,7 +172,6 @@ namespace AU_TheDirectorsCut
                 case 'A': order = ScriptOrder.NoReport; break;
                 case 'B': order = ScriptOrder.SkipVote; break;
                 case 'C': order = ScriptOrder.DontUseVents; break;
-                case 'D': order = ScriptOrder.SayPlayerIsSafe; break;
                 default: return false;
             }
             return true;
@@ -417,9 +416,6 @@ namespace AU_TheDirectorsCut
                                 case ScriptOrder.DontUseVents:
                                     ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
                                     break;
-                                case ScriptOrder.SayPlayerIsSafe:
-                                    ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
-                                    break;
                             }
                         }
                         else
@@ -435,7 +431,6 @@ namespace AU_TheDirectorsCut
                         ChatManager.QueueSlow(ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
                         ChatManager.QueueSlow(ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
                         ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
-                        ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
                     }
                     return true;
                 case "/hloc":
@@ -464,6 +459,11 @@ namespace AU_TheDirectorsCut
             switch (cmd)
             {
                 case "/randomcolors":
+                    if (MeetingHud.Instance != null)
+                    {
+                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
                     if (!TryCheckCooldown("/randomcolors")) return true;
                     SendHostMessage(ModMessages.RandomColorsStart, ModMessages.RandomColorsStartPlain);
                     NetworkManager.RandomizeColors();
@@ -471,18 +471,33 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/cut":
+                    if (MeetingHud.Instance != null)
+                    {
+                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
                     if (!TryCheckCooldown("/cut")) return true;
                     StartCutSequence();
                     SetCooldown("/cut");
                     return true;
 
                 case "/darkness":
+                    if (MeetingHud.Instance != null)
+                    {
+                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
                     if (!TryCheckCooldown("/darkness")) return true;
                     StartDarkness();
                     SetCooldown("/darkness");
                     return true;
 
                 case "/freeze":
+                    if (MeetingHud.Instance != null)
+                    {
+                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
                     if (!TryCheckCooldown("/freeze")) return true;
                     if (parts.Length < 2)
                     {
@@ -510,6 +525,11 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/action":
+                    if (MeetingHud.Instance == null)
+                    {
+                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        return true;
+                    }
                     if (!TryCheckCooldown("/action")) return true;
                     if (parts.Length < 2)
                     {
@@ -569,6 +589,11 @@ namespace AU_TheDirectorsCut
                     return true;
                     
                 case "/loc":
+                    if (MeetingHud.Instance == null)
+                    {
+                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        return true;
+                    }
                     if (!TryCheckCooldown("/loc")) return true;
                     if (parts.Length < 2)
                     {
@@ -624,6 +649,11 @@ namespace AU_TheDirectorsCut
                     return true;
                     
                 case "/vote":
+                    if (MeetingHud.Instance == null)
+                    {
+                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        return true;
+                    }
                     if (!TryCheckCooldown("/vote")) return true;
                     if (parts.Length < 3)
                     {
@@ -1239,6 +1269,63 @@ namespace AU_TheDirectorsCut
             {
                 ScriptManager.RemoveScript(kvp.Key);
             }
+
+            // Fix for black screen after meeting with <3 players in dev mode
+            try
+            {
+                if (DevModeManager.devMode && !DevModeManager.endGame)
+                {
+                    Plugin.Log?.LogInfo("[DirectorCore] DevMode active - ensuring game resumes properly after meeting");
+                    
+                    if (ShipStatus.Instance != null)
+                    {
+                        ShipStatus.Instance.enabled = true;
+                        ShipStatus.Instance.gameObject.SetActive(true);
+                    }
+                    
+                    if (GameManager.Instance != null)
+                    {
+                        GameManager.Instance.enabled = true;
+                        GameManager.Instance.gameObject.SetActive(true);
+                    }
+
+                    if (HudManager.Instance != null)
+                    {
+                        HudManager.Instance.gameObject.SetActive(true);
+                        HudManager.Instance.enabled = true;
+                    }
+
+                    // Also ensure all players are properly respawned/active
+                    foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                    {
+                        if (pc?.Data != null && !pc.Data.Disconnected)
+                        {
+                            pc.gameObject.SetActive(true);
+                            pc.NetTransform.enabled = true;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Log?.LogError($"[DirectorCore] Error during meeting close: {e.Message}");
+            }
+        }
+    }
+    
+    // Patch to ensure the game doesn't transition to game over after exile when in dev mode
+    [HarmonyPatch(typeof(LogicGameFlowNormal), "OnExileEnd")]
+    static class DevMode_OnExileEnd_P
+    {
+        static bool Prefix()
+        {
+            if (DevModeManager.devMode && !DevModeManager.endGame && AmongUsClient.Instance?.AmHost == true)
+            {
+                Plugin.Log?.LogInfo("[DevMode] Ensuring game continues after exile!");
+                // Just let the game resume normally without checking end criteria
+                return false;
+            }
+            return true;
         }
     }
     
@@ -1327,23 +1414,5 @@ namespace AU_TheDirectorsCut
         }
     }
     
-    [HarmonyPatch(typeof(ChatController), nameof(ChatController.AddChat))]
-    static class SaySafeCheckPatch
-    {
-        static void Postfix(PlayerControl sourcePlayer, string chatText)
-        {
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            if (sourcePlayer != null && ScriptManager.HasScript(sourcePlayer.PlayerId, ScriptOrder.SayPlayerIsSafe))
-            {
-                // Check if the message says someone is safe/innocent
-                string lowerText = chatText.ToLowerInvariant();
-                if (lowerText.Contains("safe") || lowerText.Contains("innocent") || lowerText.Contains("innocent") || lowerText.Contains("pas imposteur") || lowerText.Contains("clear"))
-                {
-                    // Success!
-                    ScriptManager.RemoveScript(sourcePlayer.PlayerId);
-                }
-            }
-        }
-    }
+
 }
