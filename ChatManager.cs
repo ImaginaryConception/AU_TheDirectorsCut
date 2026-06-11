@@ -256,8 +256,6 @@ namespace AU_TheDirectorsCut
 
         private static void Send(PlayerControl speaker, string plainMsg, string coloredMsg)
         {
-            bool inLobby = ShipStatus.Instance == null;
-
             // First show it on host's chat locally
             try
             {
@@ -267,43 +265,20 @@ namespace AU_TheDirectorsCut
             }
             catch { IsSending = false; }
 
-            if (inLobby)
-            {
-                // In lobby, send targeted SendChat RPC to each player (works fine)
-                foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-                {
-                    if (pc?.Data == null || pc.OwnerId < 0 || pc == PlayerControl.LocalPlayer) continue;
+            // Use GameData message (StartMessage(5)) for both lobby and in-game!
+            // This sends a single public message instead of multiple targeted RPCs, preventing host kick!
+            const string sysName = "The Director's Cut";
+            string orig = speaker.Data.PlayerName;
 
-                    try
-                    {
-                        var writer = AmongUsClient.Instance.StartRpcImmediately(
-                            speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, pc.OwnerId);
-                        writer.Write(SafeChat(plainMsg));
-                        AmongUsClient.Instance.FinishRpcImmediately(writer);
-                    }
-                    catch (Exception e)
-                    {
-                        Plugin.Log?.LogError($"[ChatManager/Lobby] Error sending to player {pc.Data.PlayerName}: {e.Message}");
-                    }
-                }
-            }
-            else
-            {
-                // IN GAME: use GameData message (StartMessage(5)) with SetName, SendChat, SetName, like original code!
-                // This is what vanilla clients expect during a game!
-                const string sysName = "The Director's Cut";
-                string orig = speaker.Data.PlayerName;
-
-                var w = MessageWriter.Get(SendOption.Reliable);
-                w.StartMessage(5);
-                w.Write(AmongUsClient.Instance.GameId);
-                WSetName(w, speaker, sysName);
-                WSendChat(w, speaker, SafeChat(plainMsg));
-                WSetName(w, speaker, orig);
-                w.EndMessage();
-                AmongUsClient.Instance.SendOrDisconnect(w);
-                w.Recycle();
-            }
+            var w = MessageWriter.Get(SendOption.Reliable);
+            w.StartMessage(5);
+            w.Write(AmongUsClient.Instance.GameId);
+            WSetName(w, speaker, sysName);
+            WSendChat(w, speaker, SafeChat(plainMsg));
+            WSetName(w, speaker, orig);
+            w.EndMessage();
+            AmongUsClient.Instance.SendOrDisconnect(w);
+            w.Recycle();
         }
 
         // Send a private message to a specific player using the same method as public messages (no kick!)
