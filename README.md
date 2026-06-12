@@ -1,3 +1,4 @@
+<img width="1456" height="720" alt="thedirectorscutlogo" src="https://github.com/user-attachments/assets/11fa7f71-8d82-4357-86ab-deba3fa3d4a0" />
 <div align="center">
 
 # 🎬 THE DIRECTOR'S CUT
