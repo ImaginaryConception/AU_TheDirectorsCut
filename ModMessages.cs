@@ -18,8 +18,8 @@ namespace AU_TheDirectorsCut
         
         public const string HelpLoc = "<color=#ffd23f>/loc ID_joueur ID_zone</color> - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
         public const string HelpLocPlain = "/loc ID_joueur ID_zone - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
-        public const string LocList1 = "<color=#ffd23f>Zones (A-I):</color> A=Cafétéria, B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
-        public const string LocList1Plain = "Zones (A-I): A=Cafétéria, B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
+        public const string LocList1 = "<color=#ffd23f>Zones (B-I):</color> B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
+        public const string LocList1Plain = "Zones (B-I): B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
         public const string LocList2 = "<color=#ffd23f>Zones (J-N):</color> J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons, H=LowerEngine, I=Medbay";
         public const string LocList2Plain = "Zones (J-N): J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons, H=LowerEngine, I=Medbay";
         public const string LocList = LocList1; // Keep for compatibility
@@ -56,11 +56,11 @@ namespace AU_TheDirectorsCut
         public const string HelpFreeze = "<color=#ffd23f>/freeze ID</color> - Bloque un joueur 8s ! Cooldown 30s";
         public const string HelpFreezePlain = "/freeze ID - Bloque un joueur 8s ! Cooldown 30s";
 
-        public const string HelpAction = "<color=#ffd23f>/action ID A-C</color> - Donne un script secret à un joueur ! Cooldown 20s";
-        public const string HelpActionPlain = "/action ID A-C - Donne un script secret à un joueur ! Cooldown 20s";
+        public const string HelpAction = "<color=#ffd23f>/action ID A-D</color> - Donne un script secret à un joueur ! Cooldown 20s";
+        public const string HelpActionPlain = "/action ID A-D - Donne un script secret à un joueur ! Cooldown 20s";
 
-        public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: A=NoReport, B=SkipVote, C=NoVents (utilise /helpaction)";
-        public const string ActionListPlain = "SCRIPTS:A=NoReport,B=SkipVote,C=NoVents (utilise /helpaction)";
+        public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: A=NoReport, B=SkipVote, C=NoVents, D=VoteFirst (utilise /helpaction)";
+        public const string ActionListPlain = "SCRIPTS:A=NoReport,B=SkipVote,C=NoVents,D=VoteFirst (utilise /helpaction)";
 
         // /helpaction messages
         public const string HelpActionTitle = "<color=#ffd23f>/helpaction - Liste des scripts détaillée</color>";
@@ -71,6 +71,8 @@ namespace AU_TheDirectorsCut
         public const string HelpActionBPlain = "B / SkipVote: Tu dois passer ton vote ce round !";
         public const string HelpActionC = "<color=#ffd23f>C / NoVents</color>: Tu ne dois pas utiliser les vents ce round !";
         public const string HelpActionCPlain = "C / NoVents: Tu ne dois pas utiliser les vents ce round !";
+        public const string HelpActionD = "<color=#ffd23f>D / VoteFirst</color>: Tu dois voter en PREMIER ce round !";
+        public const string HelpActionDPlain = "D / VoteFirst: Tu dois voter en PREMIER ce round !";
 
         public const string ActionAssigned = "<color=#ffd23f>SCRIPT</color>: Ordre envoyé à {0} !";
         public const string ActionAssignedPlain = "SCRIPT: Ordre envoyé à {0} !";

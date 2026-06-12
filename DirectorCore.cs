@@ -37,6 +37,7 @@ namespace AU_TheDirectorsCut
         };
 
         private static Dictionary<byte, (float timer, Vector2 position, float originalSpeed)> _frozenPlayers = new();
+        private static System.Collections.Generic.List<PlayerControl> _pendingPunishments = new();
 
         private static bool _darknessActive = false;
         private static float _darknessTimer = 0f;
@@ -76,6 +77,13 @@ namespace AU_TheDirectorsCut
         public static float CooldownRemaining(string cmd) => _cd.TryGetValue(cmd, out float r) ? r : 0f;
         public static bool IsOnCooldown(string cmd) => _cd.TryGetValue(cmd, out float r) && r > 0f;
 
+        public static void AddPendingPunishment(PlayerControl player)
+        {
+            if (player == null || player.Data.IsDead) return;
+            Plugin.Log?.LogInfo($"[DirectorCore] Adding pending punishment for {player.Data.PlayerName}");
+            _pendingPunishments.Add(player);
+        }
+
         public static void Initialize()
         {
             Reset();
@@ -100,6 +108,7 @@ namespace AU_TheDirectorsCut
             _originalCrewLightMod = 1f;
             _originalImpostorLightMod = 1f;
             _frozenPlayers.Clear();
+            _pendingPunishments.Clear();
             ScriptManager.Reset();
             ChatManager.ClearWelcomeSent();
         }
@@ -130,14 +139,13 @@ namespace AU_TheDirectorsCut
 
         private static bool TryParseZoneLetter(string letter, out MapLocation location)
         {
-            location = MapLocation.Skeld_Cafeteria;
+            location = MapLocation.Skeld_Admin;
             if (string.IsNullOrEmpty(letter) || letter.Length != 1)
                 return false;
 
             char c = char.ToUpperInvariant(letter[0]);
             switch (c)
             {
-                case 'A': location = MapLocation.Skeld_Cafeteria; break;
                 case 'B': location = MapLocation.Skeld_Admin; break;
                 case 'C': location = MapLocation.Skeld_Electrical; break;
                 case 'D': location = MapLocation.Skeld_Storage; break;
@@ -168,12 +176,13 @@ namespace AU_TheDirectorsCut
                 case 'A': order = ScriptOrder.NoReport; break;
                 case 'B': order = ScriptOrder.SkipVote; break;
                 case 'C': order = ScriptOrder.DontUseVents; break;
+                case 'D': order = ScriptOrder.VoteFirst; break;
                 default: return false;
             }
             return true;
         }
 
-        private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
+        internal static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
         private static void SendPrivateMessage(PlayerControl target, string message)
         {
@@ -412,6 +421,9 @@ namespace AU_TheDirectorsCut
                                 case ScriptOrder.DontUseVents:
                                     ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
                                     break;
+                                case ScriptOrder.VoteFirst:
+                                    ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
+                                    break;
                             }
                         }
                         else
@@ -427,6 +439,7 @@ namespace AU_TheDirectorsCut
                         ChatManager.QueueSlow(ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
                         ChatManager.QueueSlow(ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
                         ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
+                        ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
                     }
                     return true;
                 case "/hloc":
@@ -855,6 +868,25 @@ namespace AU_TheDirectorsCut
             if (!AmongUsClient.Instance.AmHost) return;
             float dt = Time.deltaTime;
 
+            // Handle pending punishments first
+            if (_pendingPunishments.Count > 0)
+            {
+                var playersToPunish = _pendingPunishments.ToArray();
+                _pendingPunishments.Clear();
+                foreach (var player in playersToPunish)
+                {
+                    if (player != null && !player.Data.IsDead)
+                    {
+                        Plugin.Log?.LogInfo($"[DirectorCore] Processing pending punishment for {player.Data.PlayerName}");
+                        if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
+                        {
+                            HydraKillPlayer(player);
+                        }
+                        ChatManager.Queue($"<color=#ff6b6b>{player.Data.PlayerName} a désobéi au script — éliminé !</color>", $"{player.Data.PlayerName} a désobéi au script — éliminé !");
+                    }
+                }
+            }
+
             // Handle ScriptManager updates (StayStill order)
             ScriptManager.Update();
 
@@ -1188,10 +1220,19 @@ namespace AU_TheDirectorsCut
     {
         static bool Prefix(PlayerControl __instance)
         {
-            if (!AmongUsClient.Instance.AmHost) return true;
-            
-            if (ScriptManager.HasScript(__instance.PlayerId, ScriptOrder.NoReport))
+            Plugin.Log?.LogInfo($"[ReportDeadBody_P] ReportDeadBody called by PlayerId: {__instance.PlayerId}, Name: {__instance.Data.PlayerName}");
+            if (!AmongUsClient.Instance.AmHost) 
             {
+                Plugin.Log?.LogInfo("[ReportDeadBody_P] Not host - returning true");
+                return true;
+            }
+            
+            bool hasScript = ScriptManager.HasScript(__instance.PlayerId, ScriptOrder.NoReport);
+            Plugin.Log?.LogInfo($"[ReportDeadBody_P] Has NoReport script: {hasScript}");
+            
+            if (hasScript)
+            {
+                Plugin.Log?.LogInfo($"[ReportDeadBody_P] Punishing player for reporting!");
                 // Player disobeyed - kill them!
                 ScriptManager.PunishPlayer(__instance);
                 return false; // Prevent the report
@@ -1208,6 +1249,8 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
             
+            Plugin.Log?.LogInfo($"[ScriptVote_P] AddVote called - srcClient: {srcClient}, clientId: {clientId}");
+            
             // Find the player who voted
             PlayerControl? voter = null;
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
@@ -1215,51 +1258,63 @@ namespace AU_TheDirectorsCut
                 if (pc?.OwnerId == srcClient)
                 {
                     voter = pc;
+                    Plugin.Log?.LogInfo($"[ScriptVote_P] Found voter: {voter.Data.PlayerName} (PlayerId: {voter.PlayerId}, OwnerId: {voter.OwnerId})");
                     break;
                 }
             }
             
             if (voter != null)
             {
-                // First check SkipVote script
-                if (ScriptManager.HasScript(voter.PlayerId, ScriptOrder.SkipVote))
+                // Only track VoteFirst logic - let MeetingClose_P handle all other checks/punishments!
+                if (ScriptManager.VoteFirstTargetPlayerId.HasValue)
                 {
-                    // Check if they voted for someone other than skip
-                    // clientId == 0 is skip vote
-                    if (clientId != 0)
+                    Plugin.Log?.LogInfo($"[ScriptVote_P] VoteFirst target is PlayerId: {ScriptManager.VoteFirstTargetPlayerId.Value}");
+                    if (voter.PlayerId == ScriptManager.VoteFirstTargetPlayerId.Value)
                     {
-                        ScriptManager.PunishPlayer(voter);
+                        // They voted! Check if someone already voted before them
+                        if (ScriptManager.SomeoneVotedBeforeVoteFirst)
+                        {
+                            Plugin.Log?.LogInfo($"[ScriptVote_P] {voter.Data.PlayerName} voted but someone already voted before them - marking as failed");
+                        }
+                        else
+                        {
+                            Plugin.Log?.LogInfo($"[ScriptVote_P] {voter.Data.PlayerName} voted first - success!");
+                            ScriptManager.VoteFirstTargetVoted = true;
+                        }
                     }
                     else
                     {
-                        // They obeyed - remove the script
-                        ScriptManager.RemoveScript(voter.PlayerId);
-                    }
-                }
-                // Then check VoteForPlayer script
-                else
-                {
-                    var allScripts = ScriptManager.GetAllActiveScripts();
-                    var voterScript = allScripts.FirstOrDefault(s => s.Key == voter.PlayerId);
-                    if (voterScript.Value != null && voterScript.Value.Order == ScriptOrder.VoteForPlayer && voterScript.Value.TargetVotePlayerId.HasValue)
-                    {
-                        byte targetId = voterScript.Value.TargetVotePlayerId.Value;
-                        if (clientId == targetId)
+                        Plugin.Log?.LogInfo($"[ScriptVote_P] {voter.Data.PlayerName} voted - not VoteFirst target");
+                        // Someone else voted!
+                        if (!ScriptManager.VoteFirstTargetVoted)
                         {
-                            // Success!
-                            ScriptManager.RemoveScript(voter.PlayerId);
-                        }
-                        else if (clientId != 0) // If they didn't skip and didn't vote for target
-                        {
-                            // Punish immediately!
-                            ScriptManager.PunishPlayer(voter);
+                            // Target hasn't voted yet - mark that someone voted before them
+                            ScriptManager.SomeoneVotedBeforeVoteFirst = true;
+                            Plugin.Log?.LogInfo($"[ScriptVote_P] Marked SomeoneVotedBeforeVoteFirst as true");
                         }
                     }
                 }
             }
+            else
+            {
+                Plugin.Log?.LogInfo($"[ScriptVote_P] Could not find voter for srcClient: {srcClient}");
+            }
         }
     }
 
+    [HarmonyPatch(typeof(MeetingHud), nameof(MeetingHud.Start))]
+    static class MeetingStart_P
+    {
+        static void Postfix()
+        {
+            if (!AmongUsClient.Instance.AmHost) return;
+            
+            // Reset VoteFirst tracking at the start of each meeting
+            ScriptManager.ResetVoteFirstTracking();
+            Plugin.Log?.LogInfo("[DirectorCore] Meeting started - VoteFirst tracking reset");
+        }
+    }
+    
     [HarmonyPatch(typeof(MeetingHud), nameof(MeetingHud.Close))]
     static class MeetingClose_P
     {
@@ -1267,15 +1322,113 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
             
-            // Clean up only MEETING-SPECIFIC active scripts when meeting ends
-            // StayOut is a round-long script, so keep it!
-            foreach (var kvp in ScriptManager.GetAllActiveScripts())
+            Plugin.Log?.LogInfo("[MeetingClose_P] Meeting closed - checking vote scripts");
+            
+            // First, check all player states from MeetingHud to verify voting orders
+            if (MeetingHud.Instance != null)
             {
-                if (kvp.Value.Order != ScriptOrder.StayOut)
+                foreach (var playerState in MeetingHud.Instance.playerStates)
                 {
+                    bool didVote = playerState.VotedFor != byte.MaxValue; // Assume byte.MaxValue means didn't vote
+                    Plugin.Log?.LogInfo($"[MeetingClose_P] PlayerState: PlayerId: {playerState.TargetPlayerId}, DidVote: {didVote}, VotedFor: {playerState.VotedFor}");
+                    
+                    // Check if this player has an active voting script
+                    var allScripts = ScriptManager.GetAllActiveScripts();
+                    var playerScript = allScripts.FirstOrDefault(s => s.Key == playerState.TargetPlayerId);
+                    if (playerScript.Value != null)
+                    {
+                        Plugin.Log?.LogInfo($"[MeetingClose_P] Found active script for PlayerId {playerState.TargetPlayerId}: {playerScript.Value.Order}");
+                        
+                        if (playerScript.Value.Order == ScriptOrder.SkipVote)
+                        {
+                            if (didVote && playerState.VotedFor != 0)
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} voted for someone - PUNISHING!");
+                                var player = DirectorCore.FindById(playerState.TargetPlayerId);
+                                if (player != null && !player.Data.IsDead)
+                                {
+                                    ScriptManager.PunishPlayer(player);
+                                }
+                            }
+                            else if (didVote && playerState.VotedFor == 0)
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} skipped - SUCCESS!");
+                            }
+                            else
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} didn't vote at all - PUNISHING!");
+                                var player = DirectorCore.FindById(playerState.TargetPlayerId);
+                                if (player != null && !player.Data.IsDead)
+                                {
+                                    ScriptManager.PunishPlayer(player);
+                                }
+                            }
+                            ScriptManager.RemoveScript(playerState.TargetPlayerId);
+                        }
+                        else if (playerScript.Value.Order == ScriptOrder.VoteFirst)
+                        {
+                            if (!ScriptManager.VoteFirstTargetVoted || ScriptManager.SomeoneVotedBeforeVoteFirst)
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target didn't vote first - PUNISHING!");
+                                var player = DirectorCore.FindById(playerState.TargetPlayerId);
+                                if (player != null && !player.Data.IsDead)
+                                {
+                                    ScriptManager.PunishPlayer(player);
+                                }
+                            }
+                            ScriptManager.RemoveScript(playerState.TargetPlayerId);
+                        }
+                        else if (playerScript.Value.Order == ScriptOrder.VoteForPlayer && playerScript.Value.TargetVotePlayerId.HasValue)
+                        {
+                            byte targetId = playerScript.Value.TargetVotePlayerId.Value;
+                            Plugin.Log?.LogInfo($"[MeetingClose_P] VoteForPlayer target: {targetId}, actual vote: {playerState.VotedFor}");
+                            if (!didVote)
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player didn't vote - PUNISHING!");
+                                var player = DirectorCore.FindById(playerState.TargetPlayerId);
+                                if (player != null && !player.Data.IsDead)
+                                {
+                                    ScriptManager.PunishPlayer(player);
+                                }
+                            }
+                            else if (playerState.VotedFor != targetId)
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player voted wrong - PUNISHING!");
+                                var player = DirectorCore.FindById(playerState.TargetPlayerId);
+                                if (player != null && !player.Data.IsDead)
+                                {
+                                    ScriptManager.PunishPlayer(player);
+                                }
+                            }
+                            else
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player voted correctly - SUCCESS!");
+                            }
+                            ScriptManager.RemoveScript(playerState.TargetPlayerId);
+                        }
+                    }
+                }
+            }
+            
+            // Clean up any remaining meeting-specific scripts (in case player state wasn't found)
+            foreach (var kvp in ScriptManager.GetAllActiveScripts().ToList())
+            {
+                if (kvp.Value.Order == ScriptOrder.SkipVote || 
+                    kvp.Value.Order == ScriptOrder.VoteFirst || 
+                    kvp.Value.Order == ScriptOrder.VoteForPlayer)
+                {
+                    Plugin.Log?.LogInfo($"[MeetingClose_P] Cleaning up remaining script for PlayerId {kvp.Key}: {kvp.Value.Order} - PUNISHING!");
+                    var player = DirectorCore.FindById(kvp.Key);
+                    if (player != null && !player.Data.IsDead)
+                    {
+                        ScriptManager.PunishPlayer(player);
+                    }
                     ScriptManager.RemoveScript(kvp.Key);
                 }
             }
+            
+            // Reset VoteFirst tracking for next meeting
+            ScriptManager.ResetVoteFirstTracking();
 
             // Fix for black screen after meeting with <3 players in dev mode
             try
@@ -1321,41 +1474,51 @@ namespace AU_TheDirectorsCut
     }
     
     // Patch to ensure the game doesn't transition to game over after exile when in dev mode
-    [HarmonyPatch(typeof(LogicGameFlowNormal), "OnExileEnd")]
-    static class DevMode_OnExileEnd_P
-    {
-        static bool Prefix()
-        {
-            if (DevModeManager.devMode && !DevModeManager.endGame && AmongUsClient.Instance?.AmHost == true)
-            {
-                Plugin.Log?.LogInfo("[DevMode] Ensuring game continues after exile!");
-                // Just let the game resume normally without checking end criteria
-                return false;
-            }
-            return true;
-        }
-    }
+    // [HarmonyPatch(typeof(LogicGameFlowNormal), "OnExileEnd")]
+    // static class DevMode_OnExileEnd_P
+    // {
+    //     static bool Prefix()
+    //     {
+    //         if (DevModeManager.devMode && !DevModeManager.endGame && AmongUsClient.Instance?.AmHost == true)
+    //         {
+    //             Plugin.Log?.LogInfo("[DevMode] Ensuring game continues after exile!");
+    //             // Just let the game resume normally without checking end criteria
+    //             return false;
+    //         }
+    //         return true;
+    //     }
+    // }
     
     [HarmonyPatch(typeof(PlayerPhysics), nameof(PlayerPhysics.HandleRpc))]
     static class VentUsePatch
     {
-        static bool Prefix(PlayerPhysics __instance, byte callId)
+        static bool Prefix(PlayerPhysics __instance, byte callId, MessageReader reader)
         {
             if (!AmongUsClient.Instance.AmHost) return true;
             
+            Plugin.Log?.LogInfo($"[VentUsePatch] HandleRpc called with callId: {callId} (RpcCalls: {(RpcCalls)callId})");
+            
             // Check if it's an EnterVent or ExitVent RPC
-            if (callId != 0 && callId != 1) return true; // 0=EnterVent, 1=ExitVent
+            if ((RpcCalls)callId != RpcCalls.EnterVent && (RpcCalls)callId != RpcCalls.ExitVent) 
+            {
+                Plugin.Log?.LogInfo($"[VentUsePatch] Not a vent RPC - returning true");
+                return true; 
+            }
             
             // Get the player who tried to vent
             PlayerControl player = __instance.myPlayer;
+            Plugin.Log?.LogInfo($"[VentUsePatch] Player attempting vent: {player?.Data.PlayerName} (PlayerId: {player?.PlayerId})");
             
             if (player != null && ScriptManager.HasScript(player.PlayerId, ScriptOrder.DontUseVents))
             {
+                Plugin.Log?.LogInfo($"[VentUsePatch] {player.Data.PlayerName} has DontUseVents script - PUNISHING!");
                 // Punish!
-                ScriptManager.PunishPlayer(player);
+                DirectorCore.AddPendingPunishment(player);
+                ScriptManager.RemoveScript(player.PlayerId);
                 return false; // Prevent the vent use
             }
             
+            Plugin.Log?.LogInfo($"[VentUsePatch] {player?.Data.PlayerName} has no DontUseVents script - allowing vent");
             return true;
         }
     }

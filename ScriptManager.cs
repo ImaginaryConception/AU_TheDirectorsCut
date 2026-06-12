@@ -13,6 +13,7 @@ namespace AU_TheDirectorsCut
         NoReport = 1,
         SkipVote = 2,
         DontUseVents = 3,
+        VoteFirst = 4,
         StayOut = 5,
         VoteForPlayer = 6
     }
@@ -53,6 +54,18 @@ namespace AU_TheDirectorsCut
         public static Dictionary<byte, ActiveScript>.KeyCollection AllPlayerIds => ActiveScripts.Keys;
         public static IReadOnlyDictionary<byte, ActiveScript> AllScripts => ActiveScripts;
         
+        // For VoteFirst script
+        public static byte? VoteFirstTargetPlayerId { get; set; }
+        public static bool SomeoneVotedBeforeVoteFirst { get; set; }
+        public static bool VoteFirstTargetVoted { get; set; }
+        
+        public static void ResetVoteFirstTracking()
+        {
+            VoteFirstTargetPlayerId = null;
+            SomeoneVotedBeforeVoteFirst = false;
+            VoteFirstTargetVoted = false;
+        }
+        
         public static List<KeyValuePair<byte, ActiveScript>> GetAllActiveScripts()
         {
             return ActiveScripts.ToList();
@@ -66,6 +79,7 @@ namespace AU_TheDirectorsCut
         public static void Reset()
         {
             ActiveScripts.Clear();
+            ResetVoteFirstTracking();
             Plugin.Log?.LogInfo("[ScriptManager] Réinitialisé.");
         }
 
@@ -73,6 +87,7 @@ namespace AU_TheDirectorsCut
         {
             if (ActiveScripts.ContainsKey(playerId))
             {
+                Plugin.Log?.LogInfo($"[ScriptManager] AssignScript failed - player {playerId} already has an active script!");
                 return false;
             }
 
@@ -86,7 +101,14 @@ namespace AU_TheDirectorsCut
             };
 
             ActiveScripts[playerId] = script;
-            Plugin.Log?.LogInfo($"[ScriptManager] Script assigné à {playerId}: {order}");
+            
+            if (order == ScriptOrder.VoteFirst)
+            {
+                VoteFirstTargetPlayerId = playerId;
+                Plugin.Log?.LogInfo($"[ScriptManager] VoteFirst script assigned to player {playerId}");
+            }
+            
+            Plugin.Log?.LogInfo($"[ScriptManager] AssignScript success - player {playerId}, order {order}");
             return true;
         }
         
@@ -94,6 +116,7 @@ namespace AU_TheDirectorsCut
         {
             if (ActiveScripts.ContainsKey(playerId))
             {
+                Plugin.Log?.LogInfo($"[ScriptManager] AssignStayOutScript failed - player {playerId} already has an active script!");
                 return false;
             }
 
@@ -108,7 +131,7 @@ namespace AU_TheDirectorsCut
             };
 
             ActiveScripts[playerId] = script;
-            Plugin.Log?.LogInfo($"[ScriptManager] StayOut script assigné à {playerId}: {location}");
+            Plugin.Log?.LogInfo($"[ScriptManager] AssignStayOutScript success - player {playerId}, location {location}");
             return true;
         }
         
@@ -116,6 +139,7 @@ namespace AU_TheDirectorsCut
         {
             if (ActiveScripts.ContainsKey(playerId))
             {
+                Plugin.Log?.LogInfo($"[ScriptManager] AssignVoteForPlayerScript failed - player {playerId} already has an active script!");
                 return false;
             }
 
@@ -130,12 +154,23 @@ namespace AU_TheDirectorsCut
             };
 
             ActiveScripts[playerId] = script;
-            Plugin.Log?.LogInfo($"[ScriptManager] VoteForPlayer script assigné à {playerId}: vote for {targetVotePlayerId}");
+            Plugin.Log?.LogInfo($"[ScriptManager] AssignVoteForPlayerScript success - player {playerId}, targetVotePlayerId {targetVotePlayerId}");
             return true;
         }
 
-        public static bool HasScript(byte playerId) => ActiveScripts.ContainsKey(playerId);
-        public static bool HasScript(byte playerId, ScriptOrder order) => ActiveScripts.TryGetValue(playerId, out var s) && s.Order == order && s.Active;
+        public static bool HasScript(byte playerId) 
+        {
+            bool has = ActiveScripts.ContainsKey(playerId);
+            Plugin.Log?.LogInfo($"[ScriptManager] HasScript({playerId}) → {has}");
+            return has;
+        }
+        
+        public static bool HasScript(byte playerId, ScriptOrder order) 
+        {
+            bool has = ActiveScripts.TryGetValue(playerId, out var s) && s.Order == order && s.Active;
+            Plugin.Log?.LogInfo($"[ScriptManager] HasScript({playerId}, {order}) → {has} (Found script: {(s != null ? $"{s.Order}, Active: {s.Active}" : "null")})");
+            return has;
+        }
         public static void RemoveScript(byte playerId)
         {
             if (ActiveScripts.Remove(playerId))
@@ -259,13 +294,7 @@ namespace AU_TheDirectorsCut
             if (player == null || player.Data.IsDead) return;
 
             Plugin.Log?.LogInfo($"[ScriptManager] Punition: {player.Data.PlayerName} a désobéi !");
-            
-            if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
-            {
-                HydraKillPlayer(player);
-            }
-
-            ChatManager.Queue($"<color=#ff6b6b>{player.Data.PlayerName} a désobéi au script — éliminé !</color>", $"{player.Data.PlayerName} a désobéi au script — éliminé !");
+            DirectorCore.AddPendingPunishment(player);
         }
 
         private static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
@@ -298,6 +327,10 @@ namespace AU_TheDirectorsCut
                 ScriptOrder.DontUseVents => (
                     $"ORDRE POUR {playerName} : Ne pas utiliser les vents ce round !",
                     $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne pas utiliser les vents ce round !"
+                ),
+                ScriptOrder.VoteFirst => (
+                    $"ORDRE POUR {playerName} : Tu dois voter EN PREMIER ce round !",
+                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Tu dois voter EN PREMIER ce round !"
                 ),
                 _ => ($"ORDRE POUR {playerName} : Suivre un ordre !", $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Suivre un ordre !")
             };
