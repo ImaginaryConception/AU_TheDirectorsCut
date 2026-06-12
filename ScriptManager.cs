@@ -58,12 +58,16 @@ namespace AU_TheDirectorsCut
         public static byte? VoteFirstTargetPlayerId { get; set; }
         public static bool SomeoneVotedBeforeVoteFirst { get; set; }
         public static bool VoteFirstTargetVoted { get; set; }
+        public static System.Collections.Generic.List<byte> VotedPlayerIdsInOrder { get; private set; } = new System.Collections.Generic.List<byte>();
+        public static System.Collections.Generic.Dictionary<byte, byte> LastKnownVotedFor { get; private set; } = new System.Collections.Generic.Dictionary<byte, byte>();
         
         public static void ResetVoteFirstTracking()
         {
             VoteFirstTargetPlayerId = null;
             SomeoneVotedBeforeVoteFirst = false;
             VoteFirstTargetVoted = false;
+            VotedPlayerIdsInOrder.Clear();
+            LastKnownVotedFor.Clear();
         }
         
         public static List<KeyValuePair<byte, ActiveScript>> GetAllActiveScripts()

@@ -1155,6 +1155,63 @@ namespace AU_TheDirectorsCut
             DirectorCore.Update();
             if (__instance?.Chat != null)
                 __instance.Chat.gameObject.SetActive(true);
+            
+            // Track votes every frame using MeetingHud.playerStates
+            if (MeetingHud.Instance != null && AmongUsClient.Instance.AmHost)
+            {
+                foreach (var playerState in MeetingHud.Instance.playerStates)
+                {
+                    byte playerId = playerState.TargetPlayerId;
+                    byte currentVotedFor = playerState.VotedFor;
+                    
+                    // Get last known value (default to byte.MaxValue if not present)
+                    if (!ScriptManager.LastKnownVotedFor.TryGetValue(playerId, out byte lastVotedFor))
+                    {
+                        lastVotedFor = byte.MaxValue;
+                    }
+                    
+                    // Check if they just voted (changed from byte.MaxValue to something else)
+                    if (lastVotedFor == byte.MaxValue && currentVotedFor != byte.MaxValue)
+                    {
+                        Plugin.Log?.LogInfo($"[VoteTracker] Player {playerId} just voted for {currentVotedFor}!");
+                        
+                        // Add to our ordered list
+                        if (!ScriptManager.VotedPlayerIdsInOrder.Contains(playerId))
+                        {
+                            ScriptManager.VotedPlayerIdsInOrder.Add(playerId);
+                            Plugin.Log?.LogInfo($"[VoteTracker] Added to ordered list, now: [{string.Join(",", ScriptManager.VotedPlayerIdsInOrder)}]");
+                        }
+                        
+                        // Update VoteFirst tracking logic
+                        if (ScriptManager.VoteFirstTargetPlayerId.HasValue)
+                        {
+                            if (playerId == ScriptManager.VoteFirstTargetPlayerId.Value)
+                            {
+                                if (!ScriptManager.SomeoneVotedBeforeVoteFirst)
+                                {
+                                    ScriptManager.VoteFirstTargetVoted = true;
+                                    Plugin.Log?.LogInfo($"[VoteTracker] VoteFirst target voted first!");
+                                }
+                                else
+                                {
+                                    Plugin.Log?.LogInfo($"[VoteTracker] VoteFirst target voted but someone already went first!");
+                                }
+                            }
+                            else
+                            {
+                                if (!ScriptManager.VoteFirstTargetVoted)
+                                {
+                                    ScriptManager.SomeoneVotedBeforeVoteFirst = true;
+                                    Plugin.Log?.LogInfo($"[VoteTracker] Someone else voted before VoteFirst target!");
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Update last known value
+                    ScriptManager.LastKnownVotedFor[playerId] = currentVotedFor;
+                }
+            }
         }
     }
 
@@ -1247,9 +1304,8 @@ namespace AU_TheDirectorsCut
     {
         static void Postfix(int srcClient, int clientId)
         {
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            Plugin.Log?.LogInfo($"[ScriptVote_P] AddVote called - srcClient: {srcClient}, clientId: {clientId}");
+            Plugin.Log?.LogInfo($"[ScriptVote_P] PATCH TRIGGERED! srcClient: {srcClient}, clientId: {clientId}, AmHost: {AmongUsClient.Instance?.AmHost}");
+            if (AmongUsClient.Instance == null || !AmongUsClient.Instance.AmHost) return;
             
             // Find the player who voted
             PlayerControl? voter = null;
@@ -1267,7 +1323,14 @@ namespace AU_TheDirectorsCut
             {
                 // Check if this is a skip vote (0, 253, or byte.MaxValue)
                 bool isSkipVote = clientId == 0 || clientId == 253 || clientId == byte.MaxValue;
-                Plugin.Log?.LogInfo($"[ScriptVote_P] Vote details - srcClient: {srcClient}, clientId: {clientId}, isSkipVote: {isSkipVote}");
+                Plugin.Log?.LogInfo($"[ScriptVote_P] Vote details - srcClient: {srcClient}, clientId: {clientId}, isSkipVote: {isSkipVote}, voterId: {voter.PlayerId}");
+
+                // Add this voter to the ordered list if not already there
+                if (!ScriptManager.VotedPlayerIdsInOrder.Contains(voter.PlayerId))
+                {
+                    ScriptManager.VotedPlayerIdsInOrder.Add(voter.PlayerId);
+                    Plugin.Log?.LogInfo($"[ScriptVote_P] Added voter {voter.PlayerId} to ordered list, current list: {string.Join(",", ScriptManager.VotedPlayerIdsInOrder)}");
+                }
 
                 // Track VoteFirst logic even for skip votes!
                 if (ScriptManager.VoteFirstTargetPlayerId.HasValue)
@@ -1372,7 +1435,62 @@ namespace AU_TheDirectorsCut
                         }
                         else if (playerScript.Value.Order == ScriptOrder.VoteFirst)
                         {
-                            if (ScriptManager.VoteFirstTargetVoted && !ScriptManager.SomeoneVotedBeforeVoteFirst)
+                            // First check our normal VoteFirst tracking
+                            bool success = ScriptManager.VoteFirstTargetVoted && !ScriptManager.SomeoneVotedBeforeVoteFirst;
+
+                            // FALLBACK: Check our manually tracked ordered list of voters
+                            if (!success && ScriptManager.VotedPlayerIdsInOrder.Count > 0)
+                            {
+                                byte firstVoterId = ScriptManager.VotedPlayerIdsInOrder[0];
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst fallback: first voter in tracked list is {firstVoterId}, target is {playerState.TargetPlayerId}");
+                                if (firstVoterId == playerState.TargetPlayerId)
+                                {
+                                    success = true;
+                                    Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target was first in tracked list - SUCCESS!");
+                                }
+                            }
+
+                            // LAST RESORT: Check if target is the ONLY one who voted (so they must be first!)
+                            if (!success)
+                            {
+                                int targetVoteCount = 0;
+                                foreach (var state in MeetingHud.Instance.playerStates)
+                                {
+                                    if (state.TargetPlayerId == playerState.TargetPlayerId && state.VotedFor != byte.MaxValue)
+                                    {
+                                        targetVoteCount++;
+                                    }
+                                }
+                                if (targetVoteCount > 0)
+                                {
+                                    int totalVoters = 0;
+                                    foreach (var state in MeetingHud.Instance.playerStates)
+                                    {
+                                        if (state.VotedFor != byte.MaxValue)
+                                        {
+                                            totalVoters++;
+                                        }
+                                    }
+                                    if (totalVoters == 1)
+                                    {
+                                        Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target was only voter - SUCCESS!");
+                                        success = true;
+                                    }
+                                }
+                            }
+                            
+                            // ABSOLUTE LAST RESORT: Only use if we have NO vote tracking data at all!
+                            if (!success && ScriptManager.VotedPlayerIdsInOrder.Count == 0)
+                            {
+                                bool targetVoted = playerState.VotedFor != byte.MaxValue;
+                                if (targetVoted)
+                                {
+                                    Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target voted & no tracking data - using absolute last resort - SUCCESS!");
+                                    success = true;
+                                }
+                            }
+
+                            if (success)
                             {
                                 Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target voted first - SUCCESS!");
                                 // Announce success!
@@ -1384,7 +1502,7 @@ namespace AU_TheDirectorsCut
                             }
                             else
                             {
-                                Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target didn't vote first - PUNISHING! (VoteFirstTargetVoted: {ScriptManager.VoteFirstTargetVoted}, SomeoneVotedBefore: {ScriptManager.SomeoneVotedBeforeVoteFirst})");
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target didn't vote first - PUNISHING! (VoteFirstTargetVoted: {ScriptManager.VoteFirstTargetVoted}, SomeoneVotedBefore: {ScriptManager.SomeoneVotedBeforeVoteFirst}, trackedList: [{string.Join(",", ScriptManager.VotedPlayerIdsInOrder)}])");
                                 var player = DirectorCore.FindById(playerState.TargetPlayerId);
                                 if (player != null && !player.Data.IsDead)
                                 {
