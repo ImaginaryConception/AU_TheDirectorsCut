@@ -42,15 +42,18 @@ namespace AU_TheDirectorsCut.Hydra
 
 		public static void SendDataFlag(uint netId, MessageWriter msg, int targetClientId = -1)
 		{
+			Plugin.Log?.LogInfo($"[Hydra.Network.SendDataFlag] Called with netId: {netId}, targetClientId: {targetClientId}");
 			MessageWriter writer = MessageWriter.Get(SendOption.Reliable);
 
 			if (targetClientId == -1)
 			{
+				Plugin.Log?.LogInfo($"[Hydra.Network.SendDataFlag] Sending to ALL clients (GameData)");
 				writer.StartMessage(InnerNet.Tags.GameData);
 				writer.Write(AmongUsClient.Instance.GameId);
 			}
 			else
 			{
+				Plugin.Log?.LogInfo($"[Hydra.Network.SendDataFlag] Sending to specific client: {targetClientId} (GameDataTo)");
 				writer.StartMessage(InnerNet.Tags.GameDataTo);
 				writer.Write(AmongUsClient.Instance.GameId);
 				writer.WritePacked(targetClientId);

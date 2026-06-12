@@ -789,14 +789,16 @@ namespace AU_TheDirectorsCut
             // Announce
             ChatManager.Queue(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
 
-            // Blind everyone using Hydra's method
+            // Blind everyone using Hydra's method with 0f instead of -1f
+            Plugin.Log?.LogInfo("[DirectorCore.StartDarkness] Starting darkness for all players:");
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
                 if (pc?.Data == null || pc.Data.Disconnected) continue;
 
+                Plugin.Log?.LogInfo($"[DirectorCore.StartDarkness] Blinding player {pc.Data.PlayerName} (OwnerId: {pc.OwnerId}, PlayerId: {pc.PlayerId})");
                 IGameOptions blindOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
-                blindOptions.SetFloat(FloatOptionNames.CrewLightMod, -1.0f);
-                blindOptions.SetFloat(FloatOptionNames.ImpostorLightMod, -1.0f);
+                blindOptions.SetFloat(FloatOptionNames.CrewLightMod, 0.0f);
+                blindOptions.SetFloat(FloatOptionNames.ImpostorLightMod, 0.0f);
                 Hydra.GameOptions.SendGameOptionsToClient(blindOptions, pc.OwnerId);
             }
         }
@@ -812,10 +814,12 @@ namespace AU_TheDirectorsCut
             ChatManager.Queue(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
 
             // Restore normal lighting using Hydra's method with original values
+            Plugin.Log?.LogInfo("[DirectorCore.EndDarkness] Restoring vision for all players:");
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
                 if (pc?.Data == null || pc.Data.Disconnected) continue;
 
+                Plugin.Log?.LogInfo($"[DirectorCore.EndDarkness] Restoring vision for {pc.Data.PlayerName} (OwnerId: {pc.OwnerId}, PlayerId: {pc.PlayerId})");
                 IGameOptions normalOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
                 normalOptions.SetFloat(FloatOptionNames.CrewLightMod, _originalCrewLightMod);
                 normalOptions.SetFloat(FloatOptionNames.ImpostorLightMod, _originalImpostorLightMod);
