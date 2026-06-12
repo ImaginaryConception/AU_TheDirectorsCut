@@ -129,7 +129,7 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — anyone who moves dies! | 7s total | 30s |
 | `/darkness` | Total darkness across the entire map | 10s | 35s |
 | `/freeze ID` | Freezes the target player in place | 8s | 30s |
-| `/action ID [1-3]` | Assign a basic secret script to a player! Scripts: 1 = Don't report bodies, 2 = Skip the next vote, 3 = Don't use vents. Players who disobey get eliminated! | Varies | 20s |
+| `/action ID [A-D]` | Assign a basic secret script to a player! Scripts: A = NoReport (don't report bodies), B = SkipVote (skip the next vote), C = NoVents (don't use vents), D = VoteFirst (vote first this round). Players who disobey get eliminated! | Varies | 20s |
 | `/loc ID_player ID_zone` | Forbid a player from entering a specific zone (The Skeld only). Zone IDs: 1=Cafeteria, 2=Admin, 3=Electrical,4=Storage,5=Security,6=Reactor,7=UpperEngine,8=LowerEngine,9=Medbay,10=ElectricalHallway,11=Communications,12=Shields,13=O2,14=Navigation,15=Weapons | Until round end | 20s |
 | `/vote ID_player ID_target` | Force a player to vote for a specific target. | Until next meeting | 20s |
 
@@ -273,7 +273,7 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — qui bouge meurt ! | 7s total | 30s |
 | `/darkness` | Noir TOTAL sur toute la map | 10s | 35s |
 | `/freeze ID` | Bloque le joueur ciblé sur place | 8s | 30s |
-| `/action ID [1-3]` | Donne un script secret à un joueur ! Utilise `/action ID` pour voir la liste des scripts. Scripts : 1 = Ne rapporte pas de corps, 2 = Passe le prochain vote, 3 = Ne pas utiliser les vents. Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
+| `/action ID [A-D]` | Donne un script secret à un joueur ! Utilise `/action ID` pour voir la liste des scripts. Scripts : A = NoReport (ne rapporte pas de corps), B = SkipVote (passe le prochain vote), C = NoVents (ne pas utiliser les vents), D = VoteFirst (vote en premier ce round). Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
 | `/loc ID_joueur ID_zone` | Interdit à un joueur d'entrer dans une zone spécifique (The Skeld seulement). IDs de zone : 1=Cafétéria, 2=Admin, 3=Electrical,4=Storage,5=Security,6=Réacteur,7=UpperEngine,8=LowerEngine,9=Medbay,10=CouloirElectrical,11=Communications,12=Shields,13=O2,14=Navigation,15=Weapons | Jusqu'à la fin du round | 20s |
 | `/vote ID_joueur ID_cible` | Force un joueur à voter pour une cible spécifique. | Jusqu'à la prochaine réunion | 20s |
 

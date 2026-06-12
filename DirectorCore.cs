@@ -1265,20 +1265,24 @@ namespace AU_TheDirectorsCut
             
             if (voter != null)
             {
-                // Only track VoteFirst logic - let MeetingClose_P handle all other checks/punishments!
+                // Check if this is a skip vote (0, 253, or byte.MaxValue)
+                bool isSkipVote = clientId == 0 || clientId == 253 || clientId == byte.MaxValue;
+                Plugin.Log?.LogInfo($"[ScriptVote_P] Vote details - srcClient: {srcClient}, clientId: {clientId}, isSkipVote: {isSkipVote}");
+
+                // Track VoteFirst logic even for skip votes!
                 if (ScriptManager.VoteFirstTargetPlayerId.HasValue)
                 {
                     Plugin.Log?.LogInfo($"[ScriptVote_P] VoteFirst target is PlayerId: {ScriptManager.VoteFirstTargetPlayerId.Value}");
                     if (voter.PlayerId == ScriptManager.VoteFirstTargetPlayerId.Value)
                     {
-                        // They voted! Check if someone already voted before them
+                        // They voted (even skip!)! Check if someone already voted before them
                         if (ScriptManager.SomeoneVotedBeforeVoteFirst)
                         {
                             Plugin.Log?.LogInfo($"[ScriptVote_P] {voter.Data.PlayerName} voted but someone already voted before them - marking as failed");
                         }
                         else
                         {
-                            Plugin.Log?.LogInfo($"[ScriptVote_P] {voter.Data.PlayerName} voted first - success!");
+                            Plugin.Log?.LogInfo($"[ScriptVote_P] {voter.Data.PlayerName} voted first (even skip!) - success!");
                             ScriptManager.VoteFirstTargetVoted = true;
                         }
                     }
@@ -1341,35 +1345,46 @@ namespace AU_TheDirectorsCut
                         
                         if (playerScript.Value.Order == ScriptOrder.SkipVote)
                         {
-                            if (didVote && playerState.VotedFor != 0)
+                            // For SkipVote: Only punish if they voted for another player (not skip, not abstain)
+                            // Skip values are 0, 253, byte.MaxValue
+                            bool isSkip = playerState.VotedFor == 0 || playerState.VotedFor == 253 || playerState.VotedFor == byte.MaxValue;
+                            bool votedForSomeone = didVote && !isSkip;
+                            if (votedForSomeone)
                             {
-                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} voted for someone - PUNISHING!");
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} voted for someone (VotedFor: {playerState.VotedFor}) - PUNISHING!");
                                 var player = DirectorCore.FindById(playerState.TargetPlayerId);
                                 if (player != null && !player.Data.IsDead)
                                 {
                                     ScriptManager.PunishPlayer(player);
                                 }
                             }
-                            else if (didVote && playerState.VotedFor == 0)
-                            {
-                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} skipped - SUCCESS!");
-                            }
                             else
                             {
-                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} didn't vote at all - PUNISHING!");
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] Player {playerState.TargetPlayerId} skipped/abstained (VotedFor: {playerState.VotedFor}) - SUCCESS!");
+                                // Announce success!
                                 var player = DirectorCore.FindById(playerState.TargetPlayerId);
-                                if (player != null && !player.Data.IsDead)
+                                if (player != null)
                                 {
-                                    ScriptManager.PunishPlayer(player);
+                                    ScriptManager.AnnounceSuccess(player);
                                 }
                             }
                             ScriptManager.RemoveScript(playerState.TargetPlayerId);
                         }
                         else if (playerScript.Value.Order == ScriptOrder.VoteFirst)
                         {
-                            if (!ScriptManager.VoteFirstTargetVoted || ScriptManager.SomeoneVotedBeforeVoteFirst)
+                            if (ScriptManager.VoteFirstTargetVoted && !ScriptManager.SomeoneVotedBeforeVoteFirst)
                             {
-                                Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target didn't vote first - PUNISHING!");
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target voted first - SUCCESS!");
+                                // Announce success!
+                                var player = DirectorCore.FindById(playerState.TargetPlayerId);
+                                if (player != null)
+                                {
+                                    ScriptManager.AnnounceSuccess(player);
+                                }
+                            }
+                            else
+                            {
+                                Plugin.Log?.LogInfo($"[MeetingClose_P] VoteFirst target didn't vote first - PUNISHING! (VoteFirstTargetVoted: {ScriptManager.VoteFirstTargetVoted}, SomeoneVotedBefore: {ScriptManager.SomeoneVotedBeforeVoteFirst})");
                                 var player = DirectorCore.FindById(playerState.TargetPlayerId);
                                 if (player != null && !player.Data.IsDead)
                                 {

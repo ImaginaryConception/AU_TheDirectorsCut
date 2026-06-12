@@ -272,7 +272,7 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        private static void AnnounceSuccess(PlayerControl player)
+        public static void AnnounceSuccess(PlayerControl player)
         {
             if (player == null) return;
             Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} a respecté son ordre !");

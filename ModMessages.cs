@@ -80,8 +80,8 @@ namespace AU_TheDirectorsCut
         public const string ActionAlreadyActive = "{0} a déjà un script actif !";
         public const string ActionAlreadyActivePlain = "{0} a déjà un script actif !";
 
-        public const string UsageAction = "Usage: /action ID 1/2/3 (sans numéro pour voir la liste)";
-        public const string UsageActionPlain = "Usage: /action ID 1/2/3 (sans numéro pour voir la liste)";
+        public const string UsageAction = "Usage: /action ID A/B/C/D (sans lettre pour voir la liste)";
+        public const string UsageActionPlain = "Usage: /action ID A/B/C/D (sans lettre pour voir la liste)";
 
         public const string GgNoGame = "<color=#ffd23f>FIN</color> - Aucune partie précédente";
         public const string GgNoGamePlain = "FIN - Aucune partie précédente";
