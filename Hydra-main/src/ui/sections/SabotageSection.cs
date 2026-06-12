@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace HydraMenu.ui.sections
@@ -90,7 +90,7 @@ namespace HydraMenu.ui.sections
 				i++;
 			}
 
-			// If the amount of door sabotages is an odd number then we won't be ending the horizontal layout, so we check if we need to end it here
+			
 			if(i % 2 != 0)
 			{
 				GUILayout.EndHorizontal();

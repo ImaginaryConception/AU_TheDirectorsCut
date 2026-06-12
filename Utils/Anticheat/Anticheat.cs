@@ -3,7 +3,7 @@ using Hazel;
 using System;
 using System.Collections.Generic;
 
-namespace AU_TheDirectorsCut.Hydra.Anticheat
+namespace AU_TheDirectorsCut.Utils.Anticheat
 {
     internal class Anticheat
     {
@@ -76,7 +76,7 @@ namespace AU_TheDirectorsCut.Hydra.Anticheat
                 return false;
             }
 
-            // Only we, the host, should be sending host-only RPCs
+            
             if (player != null && AmongUsClient.Instance.AmHost && rpcCheck.IsHostOnly())
             {
                 Flag(player, $"{player.Data.PlayerName} sent the {rpc} RPC while non-host.");
@@ -95,7 +95,7 @@ namespace AU_TheDirectorsCut.Hydra.Anticheat
 
         public static void Flag(PlayerControl player, string reason, bool shouldPunish = true)
         {
-            // Sanity check, make sure that we are not flagging ourselves
+            
             if (player == PlayerControl.LocalPlayer) return;
 
             if (sendNotification)
@@ -120,7 +120,7 @@ namespace AU_TheDirectorsCut.Hydra.Anticheat
                 case Punishments.ErrorKick:
                     Plugin.Log?.LogMessage($"{player.Data.PlayerName} was kicked by Hydra Anticheat for hacking");
 
-                    // The vanilla anticheat prevents using the ErrorKick method if the game has not started yet
+                    
                     if (punishment == Punishments.Kick || LobbyBehaviour.Instance != null)
                     {
                         AmongUsClient.Instance.KickPlayer(player.OwnerId, false);

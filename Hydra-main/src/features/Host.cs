@@ -1,4 +1,4 @@
-﻿using AmongUs.GameOptions;
+using AmongUs.GameOptions;
 using HarmonyLib;
 using Hazel;
 using Il2CppSystem.Collections.Generic;
@@ -17,10 +17,10 @@ namespace HydraMenu.features
 			{
 				if(AmongUsClient.Instance == null || isSkeldFlipped == value) return;
 
-				// ShipPrefabs is a list corresponding map IDs to their map
-				// ID 0 is Skeld, 1 is Mira, 2 is Polus, and 3 is Dleks
-				// If we want to be able to spawn in Dleks (as this is normally inaccessible) we can swap the two elements
-				// so that 0 is Dleks and 3 is Skeld, spawning in Dleks instead of Skeld
+				
+				
+				
+				
 				AssetReference temp = AmongUsClient.Instance.ShipPrefabs[3];
 				AmongUsClient.Instance.ShipPrefabs[3] = AmongUsClient.Instance.ShipPrefabs[0];
 				AmongUsClient.Instance.ShipPrefabs[0] = temp;
@@ -29,8 +29,8 @@ namespace HydraMenu.features
 			}
 		}
 
-		// When a player reports a body, their client sends a ReportDeadBody RPC to the host. The host then should validate the RPC and start a meeting
-		// To block meetings, we can simply ignore any received ReportDeadBody RPCs
+		
+		
 		[HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.ReportDeadBody))]
 		public static class DisableMeetings
 		{
@@ -64,19 +64,7 @@ namespace HydraMenu.features
 			}
 		}
 
-		/*
-		[HarmonyPatch(typeof(AprilFoolsMode), nameof(AprilFoolsMode.ShouldFlipSkeld))]
-		public static class FlippedSkeld
-		{
-			public static bool Enabled { get; set; } = false;
-
-			static bool Prefix(ref bool __result)
-			{
-				__result = Enabled;
-				return false;
-			}
-		}
-		*/
+		
 
 		[HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.SetLevel))]
 		public static class BlockLowLevels
@@ -107,8 +95,8 @@ namespace HydraMenu.features
 			}
 		}
 
-		// It is not possible to watch security cameras when the comms sabotage is active. We can abuse this to disable security cameras
-		// When a player starts to watch security cameras, sabotage comms for that player, when the player stops watching cameras, fix comms sabotage for that player
+		
+		
 		[HarmonyPatch(typeof(SecurityCameraSystemType), nameof(SecurityCameraSystemType.UpdateSystem))]
 		public static class DisableCameras
 		{
@@ -118,12 +106,12 @@ namespace HydraMenu.features
 			{
 				if(!Enabled || !AmongUsClient.Instance.AmHost || player.OwnerId == AmongUsClient.Instance.HostId) return;
 
-				// Prevent an exploit where if the comms sabotage is active, someone could enter and leave the security cameras to remove the comms effect from themselves
+				
 				if(Sabotage.IsSabotageActive(SystemTypes.Comms))
 				{
-					// There is an edge case where if someone is on the security cameras panel when comms are actively sabotaged, and the sabotage is fixed,
-					// then the player will be able to watch the security cameras
-					// I don't think it is worthwhile to fix this edge case considering this feature is unlikely to even be used by anyone
+					
+					
+					
 					Hydra.Log.LogMessage($"{player.Data.name} updated security cameras, we do not need to do anything as the Comms sabotage is already active");
 					return;
 				}
@@ -131,12 +119,12 @@ namespace HydraMenu.features
 				Hydra.Log.LogMessage($"{player.Data.PlayerName} updated security cameras, sending Comms system update");
 
 				msgReader.Position--;
-				// 1 = Player started to watch cameras, 2 (and every other value) = Player stopped watching cameras
+				
 				byte operation = msgReader.ReadByte();
 
 				MessageWriter systemUpdate = MessageWriter.Get(SendOption.Reliable);
 				systemUpdate.StartMessage((byte)SystemTypes.Comms);
-				// 1 = Comms sabotage is active, 0 = Comms sabotage is inactive
+				
 				systemUpdate.Write(operation == 1);
 				systemUpdate.EndMessage();
 
@@ -161,19 +149,19 @@ namespace HydraMenu.features
 			public static bool Enabled { get; set; } = false;
 			public static RoleTypes assignedRole = RoleTypes.Viper;
 
-			// Make sure List<T> is imported from Il2cppSystem otherwise this will not work!
+			
 			static void Prefix(ref List<NetworkedPlayerInfo> players, ref List<RoleTypes> roleList, ref int rolesAssigned)
 			{
 				if(!Enabled || !AmongUsClient.Instance.AmHost) return;
 
 				Hydra.Log.LogInfo($"Attempting to assign ourselves the {assignedRole} role");
 
-				// Stupid shenanagians to deal with il2cpp interop
+				
 				Il2CppSystem.Predicate<NetworkedPlayerInfo> predicate = (Il2CppSystem.Predicate<NetworkedPlayerInfo>)(player => player == PlayerControl.LocalPlayer.Data);
 				int playerIndex = players.FindIndex(predicate);
 
-				// The AssignRolesFromList function is called multiple times each with different list of players
-				// If our NetworkedPlayerInfo does not exist in this playerlist, then we shouldn't assign our role now
+				
+				
 				if(playerIndex == -1)
 				{
 					Hydra.Log.LogInfo("Our NetworkedPlayerInfo does not exist in this list, skipping");
@@ -188,8 +176,8 @@ namespace HydraMenu.features
 
 				Hydra.Log.LogMessage($"Player index is {roleIndex}");
 
-				// If the role we want to assign ourselvex exists in the roleList, then remove it
-				// We don't want there to be four imposters in the game when we intend for three imposters
+				
+				
 				if(roleIndex != -1)
 				{
 					Hydra.Log.LogInfo($"Found an instance of our role in the roles list at index {roleIndex}, removing from the list");

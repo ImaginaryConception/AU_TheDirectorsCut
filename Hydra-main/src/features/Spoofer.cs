@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 
 namespace HydraMenu.features
 {
@@ -14,7 +14,7 @@ namespace HydraMenu.features
 		{
 			static bool Prefix(ref int __result)
 			{
-				// Starting a local lobby or entering freeplay will bug out if we are using a spoofed version
+				
 				if(!shouldSpoofVersion || !AmongUsClient.Instance || AmongUsClient.Instance.NetworkMode != NetworkModes.OnlineGame) return true;
 
 				__result = spoofedVersion;
@@ -55,7 +55,7 @@ namespace HydraMenu.features
 						break;
 
 					case Platforms.Xbox:
-						// You can find the proper XUID for an Xbox gamertag at https://www.cxkes.me/xbox/xuid
+						
 						__instance.PlatformName = "Major Nelson";
 						__instance.XboxPlatformId = 2584878536129841;
 						break;
@@ -70,7 +70,7 @@ namespace HydraMenu.features
 						break;
 
 					default:
-						// Other platforms do not send additional platform specific data
+						
 						__instance.PlatformName = "TESTNAME";
 						__instance.XboxPlatformId = 0;
 						__instance.PsnPlatformId = 0;

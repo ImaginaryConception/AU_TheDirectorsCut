@@ -1,4 +1,4 @@
-﻿using BepInEx.Unity.IL2CPP.Utils.Collections;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using HydraMenu.features;
 using System.Collections;
 using UnityEngine;
@@ -22,7 +22,7 @@ namespace HydraMenu.ui.sections
 				GUILayout.Label($"Role: {PlayerControl.LocalPlayer.Data.RoleType}");
 			}
 
-			// Self.BypassIntentionalDisconnectionBlocks.Enabled = GUILayout.Toggle(Self.BypassIntentionalDisconnectionBlocks.Enabled, "Bypass intentional disconnection temp bans");
+			
 			Self.UpdateStatsFreeplay.Enabled = GUILayout.Toggle(Self.UpdateStatsFreeplay.Enabled, "Update Stats in Freeplay");
 			Immortality.Enabled = GUILayout.Toggle(Immortality.Enabled, "Become Immortal");
 			Self.AlwaysShowTaskAnimations = GUILayout.Toggle(Self.AlwaysShowTaskAnimations, "Always Show Task Animations");
@@ -120,8 +120,8 @@ namespace HydraMenu.ui.sections
 				Hydra.Log.LogInfo($"Sent CompleteTask RPC for task {task.Id}");
 				PlayerControl.LocalPlayer.RpcCompleteTask(task.Id);
 
-				// If we want to complete more than six tasks then a delay needs to be implemented
-				// otherwise the vanilla anticheat will kick us for violating ratelimits
+				
+				
 				yield return Effects.Wait(0.05f);
 			}
 

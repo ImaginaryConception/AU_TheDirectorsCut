@@ -1,4 +1,4 @@
-﻿using BepInEx.Unity.IL2CPP.Utils.Collections;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using HydraMenu.features;
 using InnerNet;
 using System;
@@ -55,7 +55,7 @@ namespace HydraMenu.ui.sections
 			GUILayout.BeginHorizontal();
 			if(GUILayout.Button("Force Crewmate Victory"))
 			{
-				// Just incase the user has this enabled
+				
 				Host.DisableGameEnd.Enabled = false;
 
 				GameManager.Instance.RpcEndGame(GameOverReason.CrewmatesByTask, false);
@@ -64,7 +64,7 @@ namespace HydraMenu.ui.sections
 
 			if(GUILayout.Button("Force Imposter Victory"))
 			{
-				// Just incase the user has this enabled
+				
 				Host.DisableGameEnd.Enabled = false;
 
 				GameManager.Instance.RpcEndGame(GameOverReason.ImpostorsByKill, false);
@@ -199,7 +199,7 @@ namespace HydraMenu.ui.sections
 
 				Utilities.ShapeshiftPlayer(player, target);
 
-				// This function can send up to 15 reliable messages at once, so we need to implement a delay to avoid kicks
+				
 				yield return Effects.Wait(0.05f);
 			}
 		}

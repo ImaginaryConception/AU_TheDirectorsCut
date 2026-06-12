@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -47,8 +47,8 @@ namespace HydraMenu.ui
 				{
 					notifications.RemoveAt(i);
 
-					// Since we removed an element from the notifications list, we have to decrement both the current notification index
-					// and the max notifications to avoid errors from accessing outside the list length
+					
+					
 					i--;
 					notificaions--;
 					continue;
@@ -85,7 +85,7 @@ namespace HydraMenu.ui
 			return (Screen.height / 2) / (int)BoxSize.y;
 		}
 
-		// The time to live value for a notification should be five seconds if it is a success message, and ten seconds if it is a failure message
+		
 		public void Send(string title, string message, float ttl = 10)
 		{
 			Hydra.Log.LogMessage($"[Notification] [{title}] {message}");

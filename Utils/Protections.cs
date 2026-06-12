@@ -3,7 +3,7 @@ using HarmonyLib;
 using Hazel;
 using InnerNet;
 
-namespace AU_TheDirectorsCut.Hydra
+namespace AU_TheDirectorsCut.Utils
 {
     internal class Protections
     {

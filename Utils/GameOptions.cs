@@ -2,7 +2,7 @@ using AmongUs.GameOptions;
 using Hazel;
 using System;
 
-namespace AU_TheDirectorsCut.Hydra
+namespace AU_TheDirectorsCut.Utils
 {
     internal class GameOptions
     {

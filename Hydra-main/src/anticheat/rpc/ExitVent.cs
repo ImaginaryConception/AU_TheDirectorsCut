@@ -1,11 +1,11 @@
-﻿using Hazel;
+using Hazel;
 using System;
 
 namespace HydraMenu.anticheat.rpc
 {
 	internal class ExitVent : RpcCheck
 	{
-		// Sending ExitVent RPCs can be used to make the player teleport to areas without having to send SnapTo RPCs
+		
 		public override void Validate(PlayerControl player, MessageReader reader, ref bool blockRpc)
 		{
 			if(ShipStatus.Instance == null)

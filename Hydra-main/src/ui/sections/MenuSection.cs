@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace HydraMenu.ui.sections
@@ -9,7 +9,7 @@ namespace HydraMenu.ui.sections
 
 		public override void Render()
 		{
-			// GUILayout.Label($"Texture 2D memory usage: {Texture2D.currentTextureMemory}");
+			
 			Hydra.notifications.DisableNotifications = GUILayout.Toggle(Hydra.notifications.DisableNotifications, "Disable Notifications");
 
 			GUILayout.Label($"Primary Color: {Styles.primaryColor}");

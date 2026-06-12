@@ -1,7 +1,7 @@
 using Hazel;
 using System;
 
-namespace AU_TheDirectorsCut.Hydra.Anticheat
+namespace AU_TheDirectorsCut.Utils.Anticheat
 {
     internal abstract class RpcCheck
     {

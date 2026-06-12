@@ -22,7 +22,7 @@ namespace AU_TheDirectorsCut
         public const string LocList1Plain = "Zones (B-I): B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
         public const string LocList2 = "<color=#ffd23f>Zones (J-N):</color> J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons, H=LowerEngine, I=Medbay";
         public const string LocList2Plain = "Zones (J-N): J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons, H=LowerEngine, I=Medbay";
-        public const string LocList = LocList1; // Keep for compatibility
+        public const string LocList = LocList1; 
         public const string LocListPlain = LocList1Plain;
         
         public const string HelpVote = "<color=#ffd23f>/vote ID_joueur ID_cible</color> - Force un joueur à voter pour une cible spécifique. Cooldown:20s";
@@ -62,7 +62,7 @@ namespace AU_TheDirectorsCut
         public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: A=NoReport, B=SkipVote, C=NoVents, D=VoteFirst (utilise /helpaction)";
         public const string ActionListPlain = "SCRIPTS:A=NoReport,B=SkipVote,C=NoVents,D=VoteFirst (utilise /helpaction)";
 
-        // /helpaction messages
+        
         public const string HelpActionTitle = "<color=#ffd23f>/helpaction - Liste des scripts détaillée</color>";
         public const string HelpActionTitlePlain = "/helpaction - Liste des scripts détaillée";
         public const string HelpActionA = "<color=#ffd23f>A / NoReport</color>: Tu ne dois pas report de corps ce round !";

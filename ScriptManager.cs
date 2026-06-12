@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using AmongUs.GameOptions;
 using InnerNet;
-using AU_TheDirectorsCut.Hydra;
+using AU_TheDirectorsCut.Utils;
 
 namespace AU_TheDirectorsCut
 {
@@ -20,7 +20,7 @@ namespace AU_TheDirectorsCut
     
     public enum MapLocation
     {
-        // The Skeld (mapped to SystemTypes)
+        
         Skeld_Cafeteria = SystemTypes.Cafeteria,
         Skeld_Admin = SystemTypes.Admin,
         Skeld_Electrical = SystemTypes.Electrical,
@@ -33,7 +33,7 @@ namespace AU_TheDirectorsCut
         Skeld_Communications = SystemTypes.Comms,
         Skeld_Shields = SystemTypes.Shields,
         Skeld_O2 = SystemTypes.LifeSupp,
-        Skeld_Navigation = SystemTypes.Nav, // Fixed!
+        Skeld_Navigation = SystemTypes.Nav, 
         Skeld_Weapons = SystemTypes.Weapons
     }
 
@@ -54,7 +54,7 @@ namespace AU_TheDirectorsCut
         public static Dictionary<byte, ActiveScript>.KeyCollection AllPlayerIds => ActiveScripts.Keys;
         public static IReadOnlyDictionary<byte, ActiveScript> AllScripts => ActiveScripts;
         
-        // For VoteFirst script
+        
         public static byte? VoteFirstTargetPlayerId { get; set; }
         public static bool SomeoneVotedBeforeVoteFirst { get; set; }
         public static bool VoteFirstTargetVoted { get; set; }
@@ -202,15 +202,15 @@ namespace AU_TheDirectorsCut
             Vector2 pos = player.GetTruePosition();
             Plugin.Log?.LogInfo($"[ScriptManager] IsInLocation checking {player.Data.PlayerName} at {pos} in {location}");
 
-            // Target room is our MapLocation cast to SystemTypes
+            
             SystemTypes targetRoomId = (SystemTypes)location;
 
-            // Check all rooms to find the one the player is in
+            
             foreach (PlainShipRoom room in ShipStatus.Instance.AllRooms)
             {
                 if (room == null) continue;
 
-                // Check if the player's position is inside the room's collider
+                
                 if (room.roomArea.OverlapPoint(pos))
                 {
                     if (room.RoomId == targetRoomId)
@@ -285,10 +285,10 @@ namespace AU_TheDirectorsCut
 
         private static void HydraKillPlayer(PlayerControl target)
         {
-            // Use Hydra's method to kill the player, exactly like in PlayersSection.AttemptMurder
+            
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
-                // Kill the target (no host position lock/teleport needed!)
+                
                 PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
             }
         }

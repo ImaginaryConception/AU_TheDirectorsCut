@@ -1,7 +1,7 @@
 using AmongUs.GameOptions;
 using System.Collections.Generic;
 
-namespace AU_TheDirectorsCut.Hydra
+namespace AU_TheDirectorsCut.Utils
 {
     internal class Utilities
     {

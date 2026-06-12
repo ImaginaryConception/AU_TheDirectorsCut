@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace HydraMenu
 {
 	internal class Teleporter
 	{
-		// This exists for the same reason as why the UpdateSystemsDirectly option for sabotages exist
+		
 		public static bool UseSnapToRPC { get; set; } = true;
 
 		public static Dictionary<string, Vector2> skeldTeleportLocations = new Dictionary<string, Vector2>()
@@ -74,7 +74,7 @@ namespace HydraMenu
 				case MapNames.Polus:
 					return polusTeleportLocations;
 
-				// If we don't have any teleport locations for the current map then just default to the Skeld ones
+				
 				default:
 					return skeldTeleportLocations;
 			}

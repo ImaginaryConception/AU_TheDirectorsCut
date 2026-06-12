@@ -1,4 +1,4 @@
-﻿namespace HydraMenu.routines
+namespace HydraMenu.routines
 {
 	public class PlayerFollowerRoutine : IRoutine
 	{
@@ -22,16 +22,9 @@
 		{
 			if(PlayerControl.LocalPlayer == null) return;
 
-			/*
-			float distance = Vector3.Distance(following.transform.position, PlayerControl.LocalPlayer.transform.position);
-			if(distance > 2)
-			{
-				Hydra.Log.LogInfo($"We drifted too far away from the player we are following, teleporting back to course. Distance: {distance}");
-				Teleporter.TeleportTo(following.transform.position);
-			}
-			*/
+			
 
-			// We could probably see how haunting as a ghost makes the follower walks towards a player's position so we don't have to directly teleport, but this works fine for now
+			
 			PlayerControl.LocalPlayer.transform.position = following.transform.position;
 		}
 

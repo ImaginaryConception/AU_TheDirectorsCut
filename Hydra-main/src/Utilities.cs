@@ -1,4 +1,4 @@
-﻿using AmongUs.GameOptions;
+using AmongUs.GameOptions;
 using System.Collections.Generic;
 
 namespace HydraMenu
@@ -63,7 +63,7 @@ namespace HydraMenu
 
 			bool hasAnticheat = IsAnticheatPresent();
 
-			// We cannot change the name of our player in server-authoritative lobbies, even as the host
+			
 			if(!hasAnticheat)
 			{
 				PlayerControl.LocalPlayer.RpcSetName(outfit.PlayerName);
@@ -106,15 +106,15 @@ namespace HydraMenu
 
 			Network.BatchedMessage batch = new Network.BatchedMessage();
 
-			// The vanilla anticheat will ban the host if they attempt to send the Shapeshift RPC for a player whose role is not Shapeshifter
-			// To get around this, we temporarily change the player's role to Shapeshifter, make them shapeshift, and revert them back to their previous role
+			
+			
 			if(hasAnticheat && victim.Data.RoleType != RoleTypes.Shapeshifter)
 			{
 				RoleTypes currentRole = victim.Data.RoleType;
 
-				// The client that we're attempting to frame shouldn't notice anything as during role selection the SetRole RPC is sent with the canOverrideRole option set to false
-				// meaning any future SetRole RPCs will be ignored unless the new role is a ghost role
-				// Just in case this ever gets changed in the future, we could broadcast the SetRole RPC to a junk client ID instead of everyone to avoid the client knowing they became a Shapeshifter
+				
+				
+				
 				batch.QueueSetRole(victim, RoleTypes.Shapeshifter, true);
 				batch.QueueShapeshift(victim, target, true);
 				batch.QueueSetRole(victim, currentRole, true);
@@ -141,10 +141,10 @@ namespace HydraMenu
 		{
 			if(Constants.IsVersionModded() || PlayerControl.LocalPlayer == null || PlayerControl.LocalPlayer.Data == null) return false;
 
-			// On freeplay, local, and modded lobbies, NetworkedPlayerInfo net objects are owned by the host (-2)
-			// On vanilla lobbies, NetworkedPlayerInfo net objects are owned by the backend among us servers (-4)
-			// If our NetworkedPlayerInfo net object is owned by the host, we can assume that the lobby has a lax anticheat without server authority
-			// which does not require us to use any sort of bypasses
+			
+			
+			
+			
 			return PlayerControl.LocalPlayer.Data.OwnerId == -4;
 		}
 

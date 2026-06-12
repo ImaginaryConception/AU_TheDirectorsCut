@@ -2,14 +2,14 @@ using Hazel;
 using System;
 using UnityEngine;
 
-namespace AU_TheDirectorsCut.Hydra.Anticheat
+namespace AU_TheDirectorsCut.Utils.Anticheat
 {
     internal class SnapTo : RpcCheck
     {
         public override void Validate(PlayerControl player, MessageReader reader, ref bool blockRpc)
         {
             Vector2 position = NetHelpers.ReadVector2(reader);
-            // ushort seqId = reader.ReadUInt16();
+            
 
             if (LobbyBehaviour.Instance != null)
             {
@@ -17,7 +17,7 @@ namespace AU_TheDirectorsCut.Hydra.Anticheat
                 blockRpc = true;
             }
 
-            // We are not able to send SnapTo RPCs with other player's NetTransform net ids on Vanilla servers
+            
             if (blockRpc && (AmongUsClient.Instance.AmHost && !Utilities.IsAnticheatPresent()))
             {
                 player.NetTransform.RpcSnapTo(player.transform.position);

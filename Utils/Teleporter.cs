@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace AU_TheDirectorsCut.Hydra
+namespace AU_TheDirectorsCut.Utils
 {
 	internal class Teleporter
 	{

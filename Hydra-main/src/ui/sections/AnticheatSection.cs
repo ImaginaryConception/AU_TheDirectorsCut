@@ -1,4 +1,4 @@
-﻿using HydraMenu.anticheat;
+using HydraMenu.anticheat;
 using UnityEngine;
 
 namespace HydraMenu.ui.sections

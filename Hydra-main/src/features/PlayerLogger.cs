@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using InnerNet;
 
 namespace HydraMenu.features

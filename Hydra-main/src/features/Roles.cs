@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 
 namespace HydraMenu.features
@@ -6,12 +6,12 @@ namespace HydraMenu.features
 	internal class Roles : MonoBehaviour
 	{
 		public static bool DisableShapeshiftAnimation { get; set; } = false;
-		// public static bool DisablePhantomEndAnimation { get; set; } = false;
+		
 		public static bool AllowVentingForCrewmates { get; set; } = true;
 
 		public void Update()
 		{
-			// If PlayerControl::Data isn't null, then we know the player has fully loaded into the game
+			
 			if(PlayerControl.LocalPlayer == null || PlayerControl.LocalPlayer.Data == null) return;
 
 			if(SkipSabotageChecks.SabotageAsCrewmate) HudManager.Instance.SabotageButton.gameObject.SetActive(true);
@@ -27,8 +27,8 @@ namespace HydraMenu.features
 			}
 		}
 
-		// PlayerControl::CmdCheckRevertShapeshift just runs the PlayerControl::CmdCheckShapeshift function which we patch above, however for some reason we are not able to set shouldAnimate to false
-		// My guess to why this happens is that the CmdCheckShapeshift function is getting inlined here so it doesn't actually get ran
+		
+		
 		[HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.CmdCheckRevertShapeshift))]
 		class ShapeshiftEnd
 		{
@@ -38,20 +38,10 @@ namespace HydraMenu.features
 			}
 		}
 
-		/*
-		// Buggy, kill and use buttons don't work after unvanishing
-		[HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.CmdCheckAppear))]
-		class PhantomEnd
-		{
-			static void Prefix(ref bool shouldAnimate)
-			{
-				if(DisablePhantomEndAnimation) shouldAnimate = false;
-			}
-		}
-		*/
+		
 
-		// Clicking the sabotage button has checks to make sure the current player is indeed an imposter, not in a vent, and that the current gamemode supports sabotages
-		// This means setting the GameObject's sabotage button state to active wont allow crewmates to sabotage alone, we need to override the DoClick function to not have those checks
+		
+		
 		[HarmonyPatch(typeof(SabotageButton), nameof(SabotageButton.DoClick))]
 		public static class SkipSabotageChecks
 		{
@@ -62,7 +52,7 @@ namespace HydraMenu.features
 			{
 				PlayerControl player = PlayerControl.LocalPlayer;
 
-				// We have to limit this to Imposters as the crewmate exit vent button will be on the same position as the imposter sabotage button
+				
 				if(!SabotageInVents && player.inVent && !RoleManager.IsImpostorRole(player.Data.RoleType)) return true;
 
 				HudManager.Instance.ToggleMapVisible(new MapOptions { Mode = MapOptions.Modes.Sabotage });
@@ -70,8 +60,8 @@ namespace HydraMenu.features
 			}
 		}
 
-		// Similiar to being able to use the sabotage button while crewmate, the vent button also has checks to make sure the current player can actually vent, so we have to reimplement the Vent::CanUse function
-		// The normal function also has checks to make sure the vent isn't being cleaned, however that isn't important so we don't reimplement those checks
+		
+		
 		[HarmonyPatch(typeof(Vent), nameof(Vent.CanUse))]
 		class SkipVentChecks
 		{

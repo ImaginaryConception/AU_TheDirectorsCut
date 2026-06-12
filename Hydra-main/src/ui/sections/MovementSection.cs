@@ -1,4 +1,4 @@
-﻿using HydraMenu.features;
+using HydraMenu.features;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,12 +14,12 @@ namespace HydraMenu.ui.sections
 			{
 				GUILayout.Label("You are not currently in a game, these options will not work.");
 
-				// Having all possible options shown at once (even if the player isn't in a game) is nice user experience
+				
 				GUILayout.Toggle(false, "Noclip");
 			}
 			else
 			{
-				// We don't want the position that includes the player's collider from PlayerControl::GetTruePosition()
+				
 				Vector2 position = PlayerControl.LocalPlayer.transform.position;
 
 				GUILayout.Label($"Current Map: {Utilities.GetCurrentMap()}\nCurrent Position:\nX: {position.x:F2}\nY: {position.y:F2}");
@@ -56,7 +56,7 @@ namespace HydraMenu.ui.sections
 				i++;
 			}
 
-			// If the amount of teleport locations is an odd number then we won't be ending the horizontal layout, so we check if we need to end it here
+			
 			if(i % 2 != 0)
 			{
 				GUILayout.EndHorizontal();

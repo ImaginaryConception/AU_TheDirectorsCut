@@ -1,15 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace HydraMenu
 {
 	internal class Sabotage
 	{
-		/*
-		When you sabotage as imposter, your game updates SystemTypes.Sabotage with the amount field being the system ID of the sabotage and sends it to the host
-		Upon receiving the system update by the host, the host checks if the game is currently in a meeting or if sabotages are on cooldown, and blocks the sabotage if either of the conditiions are met
-		If all checks go well, then the host updates the systems directly (so if you sabotaged Reactor, the host would update SystemTypes.Reactor) and broadcast the update to all online clients
-		To get around the meeting and cooldown checks, we can just update the systems ourselves, which the host will relay to all online clients
-		*/
+		
 		public static bool UpdateSystemsDirectly { get; set; } = true;
 
 		public static Dictionary<string, SystemTypes> skeldSabotages = new Dictionary<string, SystemTypes>()
@@ -102,7 +97,7 @@ namespace HydraMenu
 				case MapNames.Fungle:
 					return fungleSabotages;
 
-				// If we don't have any sabotages for the current map then just default to the Skeld ones
+				
 				default:
 					return skeldSabotages;
 			}
@@ -117,7 +112,7 @@ namespace HydraMenu
 				case MapNames.Dleks:
 					return skeldDoors;
 
-				// Mira has no closable doors
+				
 				case MapNames.MiraHQ:
 					return [];
 
@@ -127,14 +122,14 @@ namespace HydraMenu
 				case MapNames.Airship:
 					return airshipDoors;
 
-				// If we don't have any doors for the current map then just default to the Skeld ones
+				
 				default:
 					return skeldDoors;
 			}
 		}
 
-		// I thought that maybe we could check if ShipStatus::Systems included an entry for the doors system type
-		// however it turns out that Skeld has the doors system type even when it doesn't have unlockable doors
+		
+		
 		public static bool CanUnlockDoors()
 		{
 			MapNames map = Utilities.GetCurrentMap();
@@ -159,8 +154,8 @@ namespace HydraMenu
 					ShipStatus.Instance.RpcUpdateSystem(system, 128);
 					break;
 
-				// Eletrical sabotage requires us to update each individual light switch
-				// The following code comes from SabotageSystemType::UpdateSystem
+				
+				
 				case SystemTypes.Electrical:
 					byte amount = 4;
 
@@ -185,15 +180,15 @@ namespace HydraMenu
 		{
 			switch(system)
 			{
-				// ShipStatus::RepairCriticalSabotages uses amount value of 16 to insta fix sabotages
-				// This amount value should only be sent by the host, so this can be detected by anticheats
+				
+				
 				case SystemTypes.Reactor:
 				case SystemTypes.Laboratory:
 				case SystemTypes.LifeSupp:
 					ShipStatus.Instance.RpcUpdateSystem(system, 16);
 					break;
 
-				// Comms in Mira HQ and HeliSabotage require two different updates in order to complete
+				
 				case SystemTypes.Comms:
 				case SystemTypes.HeliSabotage:
 					ShipStatus.Instance.RpcUpdateSystem(system, 16);
@@ -203,7 +198,7 @@ namespace HydraMenu
 				case SystemTypes.Electrical:
 					SwitchSystem switches = ShipStatus.Instance.Systems[SystemTypes.Electrical].Cast<SwitchSystem>();
 
-					// Hydra.Log.LogMessage($"Actual: {switches.ActualSwitches}, expected: {switches.ExpectedSwitches}");
+					
 					int amount = switches.ActualSwitches ^ switches.ExpectedSwitches;
 
 					if(amount == 0)
@@ -212,10 +207,10 @@ namespace HydraMenu
 						break;
 					}
 
-					// If the 8th bit is off, then the amount value is the index of the light switch (so 0, 1, 2, 3, or 4, and potentially 5 or 6 if those were to ever get added) that should get toggled
-					// If it is on, then the amount value is a binary representation of what switches should be toggled
-					// So if we had an amount value of 172 (which in binary is 1000 1101), that would mean light switches 0, 2, and 3 would be toggled
-					// I don't think the 8th bit is actually ever used outside of SabotageSystemType, so anticheats can detect this
+					
+					
+					
+					
 					ShipStatus.Instance.RpcUpdateSystem(SystemTypes.Electrical, (byte)(amount | 128));
 					break;
 
@@ -268,7 +263,7 @@ namespace HydraMenu
 			{
 				MapNames currentMap = Utilities.GetCurrentMap();
 
-				// On Skeld, all doors have an id of 0, so unfourtunately getting a door by its ID by using ShipStatus.Instance.AllDoors[id] wont work
+				
 				for(byte i = 0; i < ShipStatus.Instance.AllDoors.Count; i++)
 				{
 					OpenableDoor door = ShipStatus.Instance.AllDoors[i];
@@ -321,7 +316,7 @@ namespace HydraMenu
 
 		public static void UnlockAll()
 		{
-			// 'AllDoors' also includes entries for Polus' decontamination doors, funnily enough
+			
 			foreach(OpenableDoor door in ShipStatus.Instance.AllDoors)
 			{
 				UnlockDoor((byte)door.Id);

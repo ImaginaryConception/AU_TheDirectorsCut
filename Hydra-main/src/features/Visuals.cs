@@ -1,11 +1,11 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 
 namespace HydraMenu.features
 {
     internal class Visuals
     {
-        // Is there a better way of implenting fullbright?
-        // This current method does not allow you to see through walls due to shadows
+        
+        
         [HarmonyPatch(typeof(ShipStatus), nameof(ShipStatus.CalculateLightRadius))]
         public static class Fullbright
         {
@@ -31,8 +31,8 @@ namespace HydraMenu.features
             }
         }
 
-        // The GameData::ShowNotification function by default only handles disconnect reasons of ExitGame, Kicked, or Banned
-        // Any other disconnection reasons automatically default to the error disconnection message
+        
+        
 		[HarmonyPatch(typeof(GameData), nameof(GameData.ShowNotification))]
 		public static class AccurateDisconnectReasons
 		{
@@ -45,7 +45,7 @@ namespace HydraMenu.features
 				Hydra.Log.LogInfo($"[Disconnect Logger] {playerName} was disconnected with reason {reason}");
 
 				switch(reason) {
-                    // GameData::ShowNotification already handles these disconnect messages
+                    
                     case DisconnectReasons.ExitGame:
                     case DisconnectReasons.Kicked:
                     case DisconnectReasons.Banned:
@@ -60,7 +60,7 @@ namespace HydraMenu.features
 						HudManager.Instance.Notifier.AddDisconnectMessage($"{playerName} was kicked due to duplicate login.");
 						return false;
 
-                    // This disconnect reason happens when a player does not send the ClientReady message after the game starts in time
+                    
                     case DisconnectReasons.ClientTimeout:
 						HudManager.Instance.Notifier.AddDisconnectMessage($"{playerName} was kicked due to timeout.");
                         return false;
@@ -91,9 +91,9 @@ namespace HydraMenu.features
 			}
 		}
 
-		// PlayerControl::FixedUpdate sets PlayerControl::set_Visable to false if the player is dead, or true if the player is alive
-		// The set_Visible function runs CosmeticsLayer::set_Visible in order to hide or show the player's cosmetics
-		// If we want to show ghosts even if we are alive, then we can reimplement PlayerControl::set_Visible and make it so player cosmetics are always visible
+		
+		
+		
 		[HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.Visible), MethodType.Setter)]
 		public static class ShowGhosts
 		{

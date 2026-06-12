@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace HydraMenu.ui
@@ -18,13 +18,13 @@ namespace HydraMenu.ui
 
 		public static Dictionary<UIColors, Color> ColorValues = new Dictionary<UIColors, Color>()
 		{
-			{ UIColors.Azure, new Color(0.0f, 0.50f, 1f) }, // #007FFF
-			{ UIColors.Carbon, new Color(0.07f, 0.07f, 0.07f) }, // #222222
-			{ UIColors.Cardinal, new Color(0.77f, 0.12f, 0.23f) }, // #C41E3A
-			{ UIColors.Pesto, new Color(0.05f, 0.5f, 0.13f) }, // #119922
-			{ UIColors.Pumpkin, new Color(1.0f, 0.18f, 0.04f) }, // #FF7518
-			{ UIColors.White, new Color(0.95f, 0.95f, 0.97f) }, // #F0EFDF
-			{ UIColors.Violet, new Color(0.5f, 0f, 1f) } // #7F00FF
+			{ UIColors.Azure, new Color(0.0f, 0.50f, 1f) }, 
+			{ UIColors.Carbon, new Color(0.07f, 0.07f, 0.07f) }, 
+			{ UIColors.Cardinal, new Color(0.77f, 0.12f, 0.23f) }, 
+			{ UIColors.Pesto, new Color(0.05f, 0.5f, 0.13f) }, 
+			{ UIColors.Pumpkin, new Color(1.0f, 0.18f, 0.04f) }, 
+			{ UIColors.White, new Color(0.95f, 0.95f, 0.97f) }, 
+			{ UIColors.Violet, new Color(0.5f, 0f, 1f) } 
 		};
 
 		public static float menuOpacity = 0.85f;
@@ -44,9 +44,9 @@ namespace HydraMenu.ui
 				style.normal.textColor = Color.white;
 				style.alignment = TextAnchor.UpperCenter;
 				style.padding.top = 5;
-				// The product of the font size and the UI scale will result in a float value with decimal values
-				// which would get truncuated if we cast this into an int
-				// however this is rather insignificant as the font size would be at most one unit off
+				
+				
+				
 				style.fontSize = (int)(13 * MainUI.scale);
 
 				return style;

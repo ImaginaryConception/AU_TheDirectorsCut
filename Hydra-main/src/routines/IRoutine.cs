@@ -1,4 +1,4 @@
-﻿namespace HydraMenu.routines
+namespace HydraMenu.routines
 {
 	public abstract class IRoutine
 	{

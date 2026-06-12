@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Hazel;
 using HydraMenu.anticheat.rpc;
 using System;
@@ -12,7 +12,7 @@ namespace HydraMenu.anticheat
 
 		public static Dictionary<RpcCalls, RpcCheck> RpcHandlers = new Dictionary<RpcCalls, RpcCheck>()
 		{
-			// RPC handlers in this dictionary should be sorted by their RPC ID
+			
 			{ RpcCalls.PlayAnimation, new PlayAnimation() },
 			{ RpcCalls.CompleteTask, new CompleteTask() },
 			{ RpcCalls.Exiled, new Exiled() },
@@ -90,11 +90,11 @@ namespace HydraMenu.anticheat
 
 			if(sourceNetObj != rpcCheck.GetExpectedNetObject())
 			{
-				// Recieved a RPC that should've been sent for a different net object, some sort of exploit attempt?
+				
 				return false;
 			}
 
-			// Only we, the host, should be sending host-only RPCs
+			
 			if(player != null && AmongUsClient.Instance.AmHost && rpcCheck.IsHostOnly())
 			{
 				Flag(player, $"{player.Data.PlayerName} sent the {rpc} RPC while non-host.");
@@ -107,16 +107,16 @@ namespace HydraMenu.anticheat
 			rpcCheck.Validate(player, reader, ref blockRpc);
 			if(discardRpc && blockRpc) return false;
 
-			// Put the read position back to its previous spot to not mess up the HandleRpc function
+			
 			reader.Position = oldReadPosition;
 			return true;
 		}
 
 		public static void Flag(PlayerControl player, string reason, bool shouldPunish = true)
 		{
-			// Sanity check, make sure that we are not flagging ourselves
-			// On servers without net object impersonation checks, it may be possible to send an invalid RPC on the behalf of the host
-			// which would result in Hydra Anticheat flagging ourselves and banning us from our own lobby
+			
+			
+			
 			if(player == PlayerControl.LocalPlayer) return;
 
 			if(sendNotification)
@@ -141,18 +141,18 @@ namespace HydraMenu.anticheat
 				case Punishments.ErrorKick:
 					Hydra.Log.LogMessage($"{player.Data.PlayerName} was kicked by Hydra Anticheat for hacking");
 
-					// The vanilla anticheat prevents using the ErrorKick method if the game has not started yet
+					
 					if(punishment == Punishments.Kick || LobbyBehaviour.Instance != null)
 					{
 						AmongUsClient.Instance.KickPlayer(player.OwnerId, false);
 					}
 					else
 					{
-						// When a game starts, the host waits around ten seconds to wait for all clients to send the ClientReady game message
-						// If the ten second timer is reached without a ClientReady game message being received by the host, the host will kick the player due to timeout
-						// The kick message shown to the player will explain that the player has a poor internet connection or that their device is too old
-						// and in-game, players will be shown that the player left due to an error instead of being kicked
-						// Any other disconnection messages other than ClientTimeout will result in the vanilla anticheat kicking us from the lobby
+						
+						
+						
+						
+						
 						AmongUsClient.Instance.SendLateRejection(player.OwnerId, DisconnectReasons.ClientTimeout);
 					}
 					break;

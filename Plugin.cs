@@ -23,7 +23,7 @@ namespace AU_TheDirectorsCut
             DirectorCore.Initialize();
             NetworkManager.Initialize();
             
-            // Schedule welcome check after a short delay to ensure everything is loaded!
+            
             Log.LogInfo($"[{PluginInfo.PLUGIN_NAME}] Loaded!");
         }
 

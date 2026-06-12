@@ -1,4 +1,4 @@
-﻿using AmongUs.Data;
+using AmongUs.Data;
 using AmongUs.GameOptions;
 using HydraMenu.features;
 using InnerNet;
@@ -59,7 +59,7 @@ namespace HydraMenu.ui.sections
 			for(byte i = 0; i < PlayerControl.AllPlayerControls.Count; i++)
 			{
 				PlayerControl player = PlayerControl.AllPlayerControls[i];
-				// Wait for player data to fully load
+				
 				if(player.Data == null) continue;
 
 				RenderPlayerSelection(i, player);
@@ -88,7 +88,7 @@ namespace HydraMenu.ui.sections
 
 			if(player.OwnerId == AmongUsClient.Instance.HostId)
 			{
-				style.normal.textColor = new Color(1.0f, 0.84f, 0.0f); // #FFD700
+				style.normal.textColor = new Color(1.0f, 0.84f, 0.0f); 
 			}
 
 			if(GUI.Button(playerInfo, playerName, style))
@@ -121,8 +121,8 @@ namespace HydraMenu.ui.sections
 				bool streamerMode = DataManager.Settings.Gameplay.StreamerMode;
 
 				GUILayout.Label(
-					// If we want to get a player's name, we have to use NetworkedPlayerInfo::PlayerName instead of PlayerControl::name to avoid
-					// getting the incorrect name if the player is shapeshifted to another player
+					
+					
 					$"Name: {target.Data.PlayerName} ({Utilities.GetPlayerColor(target.Data)})" +
 					$"\nRole: {target.Data.RoleType}" +
 					$"\nState: " + (target.Data.IsDead ? "Dead" : "Alive") +
@@ -147,7 +147,7 @@ namespace HydraMenu.ui.sections
 
 			if(GUILayout.Button("Teleport"))
 			{
-				// We do not want to use PlayerControl::GetTruePosition() here as it would teleport us to the player's feet
+				
 				Teleporter.TeleportTo(target.transform.position);
 			}
 
@@ -205,10 +205,10 @@ namespace HydraMenu.ui.sections
 					AmongUsClient.Instance.Spawn(MeetingHud.Instance, -2, SpawnFlags.None);
 				}
 
-				// Show the Exile screen with the player being ejected
+				
 				MeetingHud.VoterState[] votes = Array.Empty<MeetingHud.VoterState>();
 				MeetingHud.Instance.RpcVotingComplete(votes, target.Data, false);
-				// If we created a MeetingHud object then it will be destroyed by the RpcClose function
+				
 				MeetingHud.Instance.RpcClose();
 			}
 			GUILayout.EndHorizontal();
@@ -272,7 +272,7 @@ namespace HydraMenu.ui.sections
 
 			if(GUILayout.Button("Super Speed"))
 			{
-				// The vanilla anticheat prevents us from being able to exceed speeds greater than 3.0f
+				
 				float maxSpeed = Utilities.IsAnticheatPresent() ? 3.0f : 5.0f;
 
 				IGameOptions gameOptions = GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
@@ -282,26 +282,7 @@ namespace HydraMenu.ui.sections
 			}
 			GUILayout.EndHorizontal();
 
-			/*
-			// The problem with changing the TaskBarMode is that if we remove the task bar, we are not able to bring it back
-			GUILayout.BeginHorizontal();
-			if(GUILayout.Button("Hide Task Bar"))
-			{
-				IGameOptions gameOptions = GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
-				gameOptions.SetInt(Int32OptionNames.TaskBarMode, (int)TaskBarMode.Invisible);
-
-				GameOptions.SendGameOptionsToClient(gameOptions, target.OwnerId);
-			}
-
-			if(GUILayout.Button("Show Task Bar"))
-			{
-				IGameOptions gameOptions = GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
-				gameOptions.SetInt(Int32OptionNames.TaskBarMode, (int)TaskBarMode.Normal);
-
-				GameOptions.SendGameOptionsToClient(gameOptions, target.OwnerId);
-			}
-			GUILayout.EndHorizontal();
-			*/
+			
 
 			if(GUILayout.Button("Reset to Defaults"))
 			{
@@ -347,8 +328,8 @@ namespace HydraMenu.ui.sections
 
 			Hydra.Log.LogInfo($"Attempting to kill {target.Data.PlayerName}, we are not the host so we have to use the CheckMurder RPC");
 
-			// The CheckMurder RPC handler will not authorize kills if you are not the imposter or you are inside of a meeting
-			// There are more checks, but I do not think it is worth adding them all here
+			
+			
 			if(!RoleManager.IsImpostorRole(PlayerControl.LocalPlayer.Data.RoleType))
 			{
 				Hydra.notifications.Send("Murder Player", "You can only murder players when you are an Impostor, unless you are the host of the lobby.");
@@ -378,8 +359,8 @@ namespace HydraMenu.ui.sections
 
 			if(Utilities.IsAnticheatPresent())
 			{
-				// It may seem like this check is redundant as there should be no way for a player to be dead inside the lobby
-				// however there are ways that players can use to mark themselves as dead in the lobby
+				
+				
 				if(LobbyBehaviour.Instance != null)
 				{
 					Hydra.notifications.Send("Report Body", "The game must have started for this option to work.");
@@ -393,8 +374,8 @@ namespace HydraMenu.ui.sections
 				}
 
 				bool bodyExists = false;
-				// Loop over every single dead body that exists and check if it matches our target's player id
-				// From PlayerControl::ReportClosest
+				
+				
 				foreach(Collider2D collider in Physics2D.OverlapCircleAll(new Vector2(0, 0), 99999f, Constants.PlayersOnlyMask))
 				{
 					if(collider.tag != "DeadBody") continue;

@@ -1,4 +1,4 @@
-﻿using HydraMenu.features;
+using HydraMenu.features;
 using UnityEngine;
 
 namespace HydraMenu.ui.sections

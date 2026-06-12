@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using UnityEngine;
-using AU_TheDirectorsCut.Hydra;
+using AU_TheDirectorsCut.Utils;
 
 namespace AU_TheDirectorsCut
 {
@@ -12,7 +12,7 @@ namespace AU_TheDirectorsCut
         public static void Initialize() =>
             Plugin.Log?.LogInfo("[NetworkManager] Initialisé.");
 
-        // ── HELPERS ────────────────────────────────────────────────────────
+        
 
         public static List<PlayerControl> Alive() =>
             PlayerControl.AllPlayerControls.ToArray()
@@ -29,17 +29,17 @@ namespace AU_TheDirectorsCut
             Plugin.Log?.LogError($"[{fn}] {e.Message}");
 
 
-        // ── BLIND / VISION (HYDRA) ─────────────────────────────────────────
+        
 
         public static void BlindPlayer(PlayerControl target)
         {
             if (!IsHost() || target == null) return;
             try
             {
-                var gameOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+                var gameOptions = Utils.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
                 gameOptions.SetFloat(AmongUs.GameOptions.FloatOptionNames.CrewLightMod, -1.0f);
                 gameOptions.SetFloat(AmongUs.GameOptions.FloatOptionNames.ImpostorLightMod, -1.0f);
-                Hydra.GameOptions.SendGameOptionsToClient(gameOptions, target.OwnerId);
+                Utils.GameOptions.SendGameOptionsToClient(gameOptions, target.OwnerId);
             }
             catch (Exception e) { Log(nameof(BlindPlayer), e); }
         }
@@ -49,8 +49,8 @@ namespace AU_TheDirectorsCut
             if (!IsHost() || target == null) return;
             try
             {
-                var gameOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
-                Hydra.GameOptions.SendGameOptionsToClient(gameOptions, target.OwnerId);
+                var gameOptions = Utils.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+                Utils.GameOptions.SendGameOptionsToClient(gameOptions, target.OwnerId);
             }
             catch (Exception e) { Log(nameof(ResetPlayerVision), e); }
         }
@@ -63,12 +63,12 @@ namespace AU_TheDirectorsCut
                 foreach (var player in PlayerControl.AllPlayerControls.ToArray())
                 {
                     if (player?.Data == null || player.OwnerId < 0) continue;
-                    var gameOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+                    var gameOptions = Utils.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
                     gameOptions.SetFloat(AmongUs.GameOptions.FloatOptionNames.CrewLightMod,
                         gameOptions.GetFloat(AmongUs.GameOptions.FloatOptionNames.CrewLightMod) * factor);
                     gameOptions.SetFloat(AmongUs.GameOptions.FloatOptionNames.ImpostorLightMod,
                         gameOptions.GetFloat(AmongUs.GameOptions.FloatOptionNames.ImpostorLightMod) * factor);
-                    Hydra.GameOptions.SendGameOptionsToClient(gameOptions, player.OwnerId);
+                    Utils.GameOptions.SendGameOptionsToClient(gameOptions, player.OwnerId);
                 }
             }
             catch (Exception e) { Log(nameof(SetGlobalVision), e); }
@@ -82,22 +82,22 @@ namespace AU_TheDirectorsCut
                 foreach (var player in PlayerControl.AllPlayerControls.ToArray())
                 {
                     if (player?.Data == null || player.OwnerId < 0) continue;
-                    var gameOptions = Hydra.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
-                    Hydra.GameOptions.SendGameOptionsToClient(gameOptions, player.OwnerId);
+                    var gameOptions = Utils.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+                    Utils.GameOptions.SendGameOptionsToClient(gameOptions, player.OwnerId);
                 }
             }
             catch (Exception e) { Log(nameof(ResetGlobalVision), e); }
         }
 
 
-        // ── TELEPORT (HYDRA) ───────────────────────────────────────────────
+        
 
         public static void Teleport(PlayerControl player, Vector2 pos)
         {
             if (!IsHost() || player?.NetTransform == null) return;
             try
             {
-                Hydra.Teleporter.TeleportTo(player, pos);
+                Utils.Teleporter.TeleportTo(player, pos);
             }
             catch (Exception e) { Log(nameof(Teleport), e); }
         }
@@ -109,8 +109,8 @@ namespace AU_TheDirectorsCut
             {
                 var a = p1.GetTruePosition();
                 var b = p2.GetTruePosition();
-                Hydra.Teleporter.TeleportTo(p1, b);
-                Hydra.Teleporter.TeleportTo(p2, a);
+                Utils.Teleporter.TeleportTo(p1, b);
+                Utils.Teleporter.TeleportTo(p2, a);
             }
             catch (Exception e) { Log(nameof(SwapPlayers), e); }
         }
@@ -122,7 +122,7 @@ namespace AU_TheDirectorsCut
             foreach (var p in Alive())
             {
                 if (p.PlayerId == target.PlayerId) continue;
-                Hydra.Teleporter.TeleportTo(p, dest + new Vector2(
+                Utils.Teleporter.TeleportTo(p, dest + new Vector2(
                     UnityEngine.Random.Range(-1f, 1f),
                     UnityEngine.Random.Range(-1f, 1f)
                 ));
@@ -137,11 +137,11 @@ namespace AU_TheDirectorsCut
             var rnd = new System.Random();
             int n = positions.Count;
             while (n > 1) { n--; int k = rnd.Next(n + 1); (positions[k], positions[n]) = (positions[n], positions[k]); }
-            for (int i = 0; i < players.Count; i++) Hydra.Teleporter.TeleportTo(players[i], positions[i]);
+            for (int i = 0; i < players.Count; i++) Utils.Teleporter.TeleportTo(players[i], positions[i]);
         }
 
 
-        // ── MURDER (HYDRA) ─────────────────────────────────────────────────
+        
 
         public static void MurderPlayer(PlayerControl target)
         {
@@ -154,7 +154,7 @@ namespace AU_TheDirectorsCut
         }
 
 
-        // ── RANDOM COLORS (HYDRA) ──────────────────────────────────────────
+        
 
         public static void RandomizeColors()
         {

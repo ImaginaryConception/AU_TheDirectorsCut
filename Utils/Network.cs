@@ -3,7 +3,7 @@ using AmongUs.InnerNet.GameDataMessages;
 using Hazel;
 using InnerNet;
 
-namespace AU_TheDirectorsCut.Hydra
+namespace AU_TheDirectorsCut.Utils
 {
 	internal class Network
 	{

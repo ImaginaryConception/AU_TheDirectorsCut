@@ -1,4 +1,4 @@
-﻿using Hazel;
+using Hazel;
 
 namespace HydraMenu.anticheat.rpc
 {
@@ -14,7 +14,7 @@ namespace HydraMenu.anticheat.rpc
 			uint netId = reader.ReadUInt32();
 			byte color = reader.ReadByte();
 
-			// This net id field written in the RPC is seemingly useless as the client RPC handler does not do anything with this value
+			
 			if(netId != player.Data.NetId)
 			{
 				blockRpc = true;

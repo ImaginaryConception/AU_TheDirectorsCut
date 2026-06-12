@@ -1,4 +1,4 @@
-﻿using HydraMenu.ui.sections;
+using HydraMenu.ui.sections;
 using System;
 using UnityEngine;
 
@@ -6,7 +6,7 @@ namespace HydraMenu.ui
 {
 	public class MainUI : MonoBehaviour
 	{
-		// Current window
+		
 		public bool visible = false;
 		public static float scale = 1.0f;
 
@@ -19,7 +19,7 @@ namespace HydraMenu.ui
 			get { return new Vector2(500, 470) * scale; }
 		}
 
-		// UI Header
+		
 		public static Vector2 HeaderSize
 		{
 			get { return new Vector2(WindowSize.x, 20 * scale); }
@@ -30,7 +30,7 @@ namespace HydraMenu.ui
 			get { return new Vector2(windowPosition.x, windowPosition.y); }
 		}
 
-		// UI Section Pane
+		
 		private readonly ISection[] sections = { new GeneralSection(), new SelfSection(), new TrollSection(), new SabotageSection(), new HostSection(), new RolesSection(), new PlayersSection(), new MovementSection(), new VisualSection(), new ProtectionsSection(), new AnticheatSection(), new SpooferSection(), new MenuSection() };
 		public byte activeTab = 0;
 
@@ -49,7 +49,7 @@ namespace HydraMenu.ui
 			get { return new Vector2(SectionListSize.x, 25 * scale); }
 		}
 
-		// Feature Pane
+		
 		public static Vector2 FeaturePaneSize
 		{
 			get { return new Vector2(WindowSize.x - SectionListSize.x, WindowSize.y - HeaderSize.y); }
@@ -64,7 +64,7 @@ namespace HydraMenu.ui
 		{
 			if(Input.GetKeyDown(KeyCode.Insert)) visible = !visible;
 
-			// Tool to test the notifications system
+			
 			if(Input.GetKeyDown(KeyCode.F6))
 			{
 				System.Random random = new System.Random();
@@ -73,7 +73,7 @@ namespace HydraMenu.ui
 
 			if(!visible) return;
 
-			// Allow changing the selected section by using the up and down arrow keys
+			
 			if(Input.GetKeyDown(KeyCode.UpArrow))
 			{
 				activeTab = (byte)Math.Max(activeTab - 1, 0);
@@ -88,19 +88,19 @@ namespace HydraMenu.ui
 
 		public void OnGUI()
 		{
-			// https://docs.unity3d.com/6000.3/Documentation/Manual/GUIScriptingGuide.html
+			
 			if(!visible) return;
 
 			GUI.skin.label.fontSize = (int)(13 * scale);
 
-			// Render UI box
+			
 			GUI.Box(new Rect(windowPosition.x, windowPosition.y, WindowSize.x, WindowSize.y), $"{MyPluginInfo.PLUGIN_NAME} - {MyPluginInfo.PLUGIN_VERSION}", Styles.MainBox);
 
 			for(byte i = 0; i < sections.Length; i++)
 			{
 				ISection section = sections[i];
 
-				// Add the tab to the left-pane
+				
 				RenderTab(i, section);
 
 				if(i == activeTab)
@@ -118,14 +118,14 @@ namespace HydraMenu.ui
 
 		private void HandleBoxMovement()
 		{
-			// https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Event.html
+			
 			Event currentEvent = Event.current;
 			Vector2 mousePos = currentEvent.mousePosition;
 
 			switch(currentEvent.type)
 			{
-				// I tried using currentEvent.delta to get the delta between the last mouse position and the current one,
-				// however I noticed it would 'skip' quite frequently resulting in the window box not properly lining up where it should actually be dragged
+				
+				
 				case EventType.MouseDown:
 					if(!IsInBox(mousePos)) break;
 

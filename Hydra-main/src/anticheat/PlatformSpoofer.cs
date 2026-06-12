@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using InnerNet;
 
 namespace HydraMenu.anticheat
@@ -46,10 +46,10 @@ namespace HydraMenu.anticheat
 					break;
 
 				case Platforms.Xbox:
-					// Xbox Gamertags must be in the range of 3 to 16 characters
-					// Other rules for gamertags: https://learn.microsoft.com/en-us/gaming/gdk/docs/store/policies/xr/xr046?view=gdk-2510
-					// We could potentially resolve XUIDs into gamertags and see if it matches, but the Xbox live API endpoint for XUID->gamertag is
-					// authentication locked
+					
+					
+					
+					
 					if(!IsGenericPlatformName(platformName) && platformName.Length >= 3 && platformName.Length <= 16 && xuid != 0 && psid == 0) return true;
 					break;
 
@@ -61,13 +61,13 @@ namespace HydraMenu.anticheat
 					if(!IsGenericPlatformName(platformName) && xuid == 0 && psid == 0) return true;
 					break;
 
-				// On Local lobbies, all players have a platform ID of 255
+				
 				case (Platforms)255:
 					if(AmongUsClient.Instance.NetworkMode == NetworkModes.LocalGame) return true;
 					break;
 			}
 
-			// If the Platform ID is invalid, or the platform specific data for each platform is invalid, then we know that the player's device is spoofed
+			
 			return false;
 		}
 

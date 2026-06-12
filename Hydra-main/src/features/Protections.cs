@@ -1,4 +1,4 @@
-﻿using AmongUs.GameOptions;
+using AmongUs.GameOptions;
 using HarmonyLib;
 using Hazel;
 using InnerNet;
@@ -32,33 +32,9 @@ namespace HydraMenu.features
 			}
 		}
 
-		// Among Us had this bug where if you reported the body of a player who has left, the anticheat would incorrectly ban you from the lobby
-		// To prevent incorrect lobby bans, we block reporting bodies of players who left
-		/*
-		[HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.CmdReportDeadBody))]
-		public static class PreventReportBan
-		{
-			public static bool Enabled { get; set; } = true;
-
-			static bool Prefix(PlayerControl __instance, NetworkedPlayerInfo target)
-			{
-				if(
-					// Only make it so only our body reports run
-					__instance.NetId == PlayerControl.LocalPlayer.NetId &&
-					// Make sure its not an emergency meeting
-					target != null &&
-					target.Disconnected &&
-					// Hosts are exempt from the anticheat detection
-					!AmongUsClient.Instance.AmHost
-				)
-				{
-					Hydra.notifications.Send("Protections Alert", $"Saved you from getting banned by {target.PlayerName}'s glitched body.");
-					return false;
-				}
-				return true;
-			}
-		}
-		*/
+		
+		
+		
 
 		[HarmonyPatch(typeof(MessageReader), nameof(MessageReader.ReadPackedUInt32))]
 		public static class HardenedReadPackedUInt
@@ -111,7 +87,7 @@ namespace HydraMenu.features
 
 				Hydra.notifications.Send("Votekick Logger", $"{player.PlayerName} has voted to kick you out.");
 
-				// Prevent players from being able to votekick you as host
+				
 				return !(Enabled && AmongUsClient.Instance.AmHost);
 			}
 		}
@@ -128,12 +104,12 @@ namespace HydraMenu.features
 				PlayerControl player = Utilities.GetRandomPlayer();
 				if(player == null) return;
 
-				// Shapeshifting and reverting shapeshifts have strict ratelimits for the host, which can impact the Mass Shapeshift feature in Host options
-				// We can bypass these ratelimits by sending a game options update and setting the shapeshift cooldown to zero seconds
+				
+				
 				IGameOptions options = GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
 				options.SetFloat(FloatOptionNames.ShapeshifterCooldown, 0.0f);
 
-				// Send the settings update to a random player, we don't want to mess up our saved lobby settings
+				
 				GameOptions.SendGameOptionsToClient(options, player.OwnerId);
 			}
 		}
