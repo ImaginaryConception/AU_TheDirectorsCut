@@ -23,8 +23,6 @@ namespace AU_TheDirectorsCut
         private static int _cutPhase = 0;
         private static Dictionary<byte, Vector2> _cutInitialPositions = new();
         private static List<byte> _cutKilledPlayers = new();
-        private static Vector3? _savedHostPosition = null;
-        private static float _hostPositionLockTimer = 0f;
 
         private static readonly Dictionary<string, float> _cd = new();
         private static readonly Dictionary<string, float> _cdMax = new()
@@ -97,8 +95,6 @@ namespace AU_TheDirectorsCut
             _cutTimer = 0f;
             _cutInitialPositions.Clear();
             _cutKilledPlayers.Clear();
-            _savedHostPosition = null;
-            _hostPositionLockTimer = 0f;
             _darknessActive = false;
             _darknessTimer = 0f;
             _originalCrewLightMod = 1f;
@@ -710,16 +706,14 @@ namespace AU_TheDirectorsCut
             _cutTimer = 2f;
             _cutInitialPositions.Clear();
             _cutKilledPlayers.Clear();
-            _savedHostPosition = null;
-            _hostPositionLockTimer = 0f;
 
             // Announce /cut in chat
             ChatManager.Queue(ModMessages.CutStart, ModMessages.CutStartPlain);
 
-            // Record initial positions of all alive players
+            // Record initial positions of all alive players (except host)
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
-                if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected)
+                if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected && pc != PlayerControl.LocalPlayer)
                 {
                     _cutInitialPositions[pc.PlayerId] = (Vector2)pc.transform.position;
                 }
@@ -763,15 +757,8 @@ namespace AU_TheDirectorsCut
             // Use Hydra's method to kill the player, exactly like in PlayersSection.AttemptMurder and HostSection
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
-                // Save host's position before killing
-                _savedHostPosition = PlayerControl.LocalPlayer.transform.position;
-                _hostPositionLockTimer = 0.3f; // Lock position for 0.3 seconds
-
-                // Kill the target
+                // Kill the target (no host position lock/teleport needed!)
                 PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
-
-                // Immediately teleport host back to saved position
-                PlayerControl.LocalPlayer.transform.position = _savedHostPosition.Value;
             }
         }
 
@@ -871,13 +858,6 @@ namespace AU_TheDirectorsCut
             // Handle ScriptManager updates (StayStill order)
             ScriptManager.Update();
 
-            // Handle host position lock
-            if (_hostPositionLockTimer > 0f && _savedHostPosition.HasValue && PlayerControl.LocalPlayer != null)
-            {
-                _hostPositionLockTimer -= dt;
-                PlayerControl.LocalPlayer.transform.position = _savedHostPosition.Value;
-            }
-
             // Handle /darkness timer
             if (_darknessActive)
             {
@@ -940,6 +920,7 @@ namespace AU_TheDirectorsCut
                     {
                         if (pc?.Data == null || pc.Data.IsDead || pc.Data.Disconnected) continue;
                         if (_cutKilledPlayers.Contains(pc.PlayerId)) continue;
+                        if (pc == PlayerControl.LocalPlayer) continue; // Skip host!
 
                         if (_cutInitialPositions.TryGetValue(pc.PlayerId, out Vector2 initialPos))
                         {
@@ -962,11 +943,11 @@ namespace AU_TheDirectorsCut
                         _cutPhase = 1;
                         _cutTimer = 2f;
                         TriggerReactorSabotage(true);
-                        // Update initial positions (exclude killed players)
+                        // Update initial positions (exclude killed players and host)
                         _cutInitialPositions.Clear();
                         foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
                         {
-                            if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected && !_cutKilledPlayers.Contains(pc.PlayerId))
+                            if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected && !_cutKilledPlayers.Contains(pc.PlayerId) && pc != PlayerControl.LocalPlayer)
                             {
                                 _cutInitialPositions[pc.PlayerId] = (Vector2)pc.transform.position;
                             }
@@ -1223,9 +1204,9 @@ namespace AU_TheDirectorsCut
     [HarmonyPatch(typeof(VoteBanSystem), nameof(VoteBanSystem.AddVote))]
     static class ScriptVote_P
     {
-        static bool Prefix(int srcClient, int clientId)
+        static void Postfix(int srcClient, int clientId)
         {
-            if (!AmongUsClient.Instance.AmHost) return true;
+            if (!AmongUsClient.Instance.AmHost) return;
             
             // Find the player who voted
             PlayerControl? voter = null;
@@ -1238,22 +1219,44 @@ namespace AU_TheDirectorsCut
                 }
             }
             
-            if (voter != null && ScriptManager.HasScript(voter.PlayerId, ScriptOrder.SkipVote))
+            if (voter != null)
             {
-                // Check if they voted for someone other than skip
-                // clientId == 0 is skip vote
-                if (clientId != 0)
+                // First check SkipVote script
+                if (ScriptManager.HasScript(voter.PlayerId, ScriptOrder.SkipVote))
                 {
-                    ScriptManager.PunishPlayer(voter);
+                    // Check if they voted for someone other than skip
+                    // clientId == 0 is skip vote
+                    if (clientId != 0)
+                    {
+                        ScriptManager.PunishPlayer(voter);
+                    }
+                    else
+                    {
+                        // They obeyed - remove the script
+                        ScriptManager.RemoveScript(voter.PlayerId);
+                    }
                 }
+                // Then check VoteForPlayer script
                 else
                 {
-                    // They obeyed - remove the script
-                    ScriptManager.RemoveScript(voter.PlayerId);
+                    var allScripts = ScriptManager.GetAllActiveScripts();
+                    var voterScript = allScripts.FirstOrDefault(s => s.Key == voter.PlayerId);
+                    if (voterScript.Value != null && voterScript.Value.Order == ScriptOrder.VoteForPlayer && voterScript.Value.TargetVotePlayerId.HasValue)
+                    {
+                        byte targetId = voterScript.Value.TargetVotePlayerId.Value;
+                        if (clientId == targetId)
+                        {
+                            // Success!
+                            ScriptManager.RemoveScript(voter.PlayerId);
+                        }
+                        else if (clientId != 0) // If they didn't skip and didn't vote for target
+                        {
+                            // Punish immediately!
+                            ScriptManager.PunishPlayer(voter);
+                        }
+                    }
                 }
             }
-            
-            return true;
         }
     }
 
@@ -1264,10 +1267,14 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
             
-            // Clean up all active scripts when meeting ends (they only last one round)
+            // Clean up only MEETING-SPECIFIC active scripts when meeting ends
+            // StayOut is a round-long script, so keep it!
             foreach (var kvp in ScriptManager.GetAllActiveScripts())
             {
-                ScriptManager.RemoveScript(kvp.Key);
+                if (kvp.Value.Order != ScriptOrder.StayOut)
+                {
+                    ScriptManager.RemoveScript(kvp.Key);
+                }
             }
 
             // Fix for black screen after meeting with <3 players in dev mode
@@ -1326,67 +1333,6 @@ namespace AU_TheDirectorsCut
                 return false;
             }
             return true;
-        }
-    }
-    
-    [HarmonyPatch(typeof(VoteBanSystem), nameof(VoteBanSystem.AddVote))]
-    static class ScriptVoteForPlayer_P
-    {
-        static void Postfix(int srcClient, int clientId)
-        {
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            // Find the player who voted
-            PlayerControl? voter = null;
-            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-            {
-                if (pc?.OwnerId == srcClient)
-                {
-                    voter = pc;
-                    break;
-                }
-            }
-            
-            if (voter != null)
-            {
-                // Check VoteForPlayer script
-                if (ScriptManager.HasScript(voter.PlayerId))
-                {
-                    // We need to get the active script for the player to check the target
-                    var allScripts = ScriptManager.GetAllActiveScripts();
-                    var voterScript = allScripts.FirstOrDefault(s => s.Key == voter.PlayerId);
-                    if (voterScript.Value != null && voterScript.Value.Order == ScriptOrder.VoteForPlayer && voterScript.Value.TargetVotePlayerId.HasValue)
-                    {
-                        byte targetId = voterScript.Value.TargetVotePlayerId.Value;
-                        if (clientId == targetId)
-                        {
-                            // Success!
-                            ScriptManager.RemoveScript(voter.PlayerId);
-                        }
-                        else if (clientId != 0) // If they didn't skip and didn't vote for target
-                        {
-                            // Punish!
-                            ScriptManager.PunishPlayer(voter);
-                        }
-                    }
-                }
-            }
-        }
-        
-        private static PlayerControl FindTargetPlayer(int clientId)
-        {
-            // clientId == 0 is skip
-            if (clientId == 0) return null;
-            
-            // Find player with matching player ID (since clientId is player ID here)
-            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-            {
-                if (pc != null && pc.PlayerId == clientId)
-                {
-                    return pc;
-                }
-            }
-            return null;
         }
     }
     

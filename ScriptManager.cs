@@ -212,13 +212,6 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance?.AmHost == true) return;
 
-            // Handle host position lock (from HydraKillPlayer)
-            if (_hostPositionLockTimer > 0f && _savedHostPosition.HasValue && PlayerControl.LocalPlayer != null)
-            {
-                _hostPositionLockTimer -= Time.deltaTime;
-                PlayerControl.LocalPlayer.transform.position = _savedHostPosition.Value;
-            }
-
             foreach (var kvp in ActiveScripts.ToList())
             {
                 var script = kvp.Value;
@@ -251,26 +244,13 @@ namespace AU_TheDirectorsCut
             ChatManager.Queue($"<color=#00ff00>{player.Data.PlayerName} a respecté son ordre !</color>", $"{player.Data.PlayerName} a respecté son ordre !");
         }
 
-        private static Vector3? _savedHostPosition;
-        private static float _hostPositionLockTimer;
-
         private static void HydraKillPlayer(PlayerControl target)
         {
             // Use Hydra's method to kill the player, exactly like in PlayersSection.AttemptMurder
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
-                // Save host's position before killing
-                _savedHostPosition = PlayerControl.LocalPlayer.transform.position;
-                _hostPositionLockTimer = 0.3f; // Lock position for 0.3 seconds
-
-                // Kill the target
+                // Kill the target (no host position lock/teleport needed!)
                 PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
-
-                // Immediately teleport host back to saved position
-                if (_savedHostPosition.HasValue)
-                {
-                    PlayerControl.LocalPlayer.transform.position = _savedHostPosition.Value;
-                }
             }
         }
 
