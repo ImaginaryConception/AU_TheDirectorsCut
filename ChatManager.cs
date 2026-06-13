@@ -386,10 +386,8 @@ namespace AU_TheDirectorsCut
             var host = PlayerControl.LocalPlayer;
             if (host == null) return;
             
-            // Send to host
             SendSystemMessage(host, plainMsg, coloredMsg);
             
-            // Send to director if available
             if (DirectorCore.DirectorPlayerId.HasValue)
             {
                 var director = PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(pc => pc?.PlayerId == DirectorCore.DirectorPlayerId.Value);

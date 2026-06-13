@@ -787,17 +787,14 @@ namespace AU_TheDirectorsCut
 
         private static void HydraKillPlayer(PlayerControl target)
         {
-            
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
                 if (target == PlayerControl.LocalPlayer)
                 {
-                    // For the host, call Die() directly instead of RpcMurderPlayer
-                    target.Die(DeathReason.Kill, true);
+                    target.Data.IsDead = true;
                 }
                 else
                 {
-                    // For other players, use RpcMurderPlayer
                     PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
                 }
             }
@@ -1068,7 +1065,20 @@ namespace AU_TheDirectorsCut
 
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.Die))]
     static class Die_P
-    { static void Postfix(PlayerControl __instance) => DirectorCore.OnPlayerDie(__instance); }
+    { 
+        static bool Prefix(PlayerControl __instance)
+        {
+            if (__instance == PlayerControl.LocalPlayer && AmongUsClient.Instance.AmHost)
+            {
+                __instance.Data.IsDead = true;
+                DirectorCore.OnPlayerDie(__instance);
+                return false;
+            }
+            return true;
+        }
+        
+        static void Postfix(PlayerControl __instance) => DirectorCore.OnPlayerDie(__instance); 
+    }
 
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.RpcSendChat))]
     static class RpcSendChat_P
