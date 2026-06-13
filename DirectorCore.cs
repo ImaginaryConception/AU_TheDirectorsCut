@@ -951,7 +951,7 @@ namespace AU_TheDirectorsCut
                 else if (_cutPhase == 2) 
                 {
                     
-                    bool someoneMoved = false;
+                    PlayerControl? firstMoved = null;
                     foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
                     {
                         if (pc?.Data == null || pc.Data.IsDead || pc.Data.Disconnected) continue;
@@ -964,30 +964,21 @@ namespace AU_TheDirectorsCut
                             float distance = Vector2.Distance(initialPos, currentPos);
                             if (distance > 0.5f) 
                             {
-                                someoneMoved = true;
-                                _cutKilledPlayers.Add(pc.PlayerId);
-                                
-                                ChatManager.Queue(string.Format(ModMessages.CutEliminated, pc.Data.PlayerName), string.Format(ModMessages.CutEliminatedPlain, pc.Data.PlayerName));
-                                HydraKillPlayer(pc);
+                                firstMoved = pc;
+                                break;
                             }
                         }
                     }
 
-                    if (someoneMoved)
+                    if (firstMoved != null)
                     {
+                        _cutKilledPlayers.Add(firstMoved.PlayerId);
+                        ChatManager.Queue(string.Format(ModMessages.CutEliminated, firstMoved.Data.PlayerName), string.Format(ModMessages.CutEliminatedPlain, firstMoved.Data.PlayerName));
+                        HydraKillPlayer(firstMoved);
                         
-                        _cutPhase = 1;
+                        _cutPhase = 3;
                         _cutTimer = 2f;
                         TriggerReactorSabotage(true);
-                        
-                        _cutInitialPositions.Clear();
-                        foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-                        {
-                            if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected && !_cutKilledPlayers.Contains(pc.PlayerId) && pc != PlayerControl.LocalPlayer)
-                            {
-                                _cutInitialPositions[pc.PlayerId] = (Vector2)pc.transform.position;
-                            }
-                        }
                     }
                     else if (_cutTimer <= 0f)
                     {

@@ -126,7 +126,7 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | Command | Effect | Duration | Cooldown |
 |---|---|---|---|
 | `/randomcolors` | Random unique color for all | instant | 20s |
-| `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — anyone who moves dies! | 7s total | 30s |
+| `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — the first player who moves die! | 7s total | 30s |
 | `/darkness` | Total darkness across the entire map | 10s | 35s |
 | `/freeze ID` | Freezes the target player in place | 8s | 30s |
 | `/action ID [A-D]` | Assign a basic secret script to a player! Scripts: A = NoReport (don't report bodies), B = SkipVote (skip the next vote), C = NoVents (don't use vents), D = VoteFirst (vote first this round). Players who disobey get eliminated! | Varies | 20s |
@@ -270,7 +270,7 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | Commande | Effet | Durée | Cooldown |
 |---|---|---|---|
 | `/randomcolors` | Couleurs aléatoires pour tous | instantané | 20s |
-| `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — qui bouge meurt ! | 7s total | 30s |
+| `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — le premier joueur qui bouge meurt ! | 7s total | 30s |
 | `/darkness` | Noir TOTAL sur toute la map | 10s | 35s |
 | `/freeze ID` | Bloque le joueur ciblé sur place | 8s | 30s |
 | `/action ID [A-D]` | Donne un script secret à un joueur ! Utilise `/action ID` pour voir la liste des scripts. Scripts : A = NoReport (ne rapporte pas de corps), B = SkipVote (passe le prochain vote), C = NoVents (ne pas utiliser les vents), D = VoteFirst (vote en premier ce round). Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |

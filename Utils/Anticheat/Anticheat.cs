@@ -7,7 +7,7 @@ namespace AU_TheDirectorsCut.Utils.Anticheat
 {
     internal class Anticheat
     {
-        public static bool Enabled { get; set; } = true;
+        public static bool Enabled { get; set; } = false;
 
         public static Dictionary<RpcCalls, RpcCheck> RpcHandlers = new Dictionary<RpcCalls, RpcCheck>()
         {
