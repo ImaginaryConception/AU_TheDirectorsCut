@@ -8,7 +8,7 @@ namespace AU_TheDirectorsCut
         public static bool devMode = true;
 
         
-        public static bool endGame = true;
+        public static bool endGame = false;
     }
 
     

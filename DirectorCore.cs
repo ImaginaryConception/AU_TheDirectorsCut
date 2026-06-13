@@ -206,13 +206,15 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        private static bool TryCheckCooldown(string cmd)
+        private static bool TryCheckCooldown(string cmd, PlayerControl sender)
         {
             if (IsOnCooldown(cmd))
             {
                 int remaining = Mathf.CeilToInt(CooldownRemaining(cmd));
                 string remainingStr = NumberToFrench(remaining);
-                SendHostMessage(string.Format(ModMessages.CooldownMsg, cmd, remainingStr));
+                string colored = string.Format(ModMessages.CooldownMsg, cmd, remainingStr);
+                string plain = colored;
+                ChatManager.QueueSystemMessage(sender, colored, plain);
                 return false;
             }
             return true;
@@ -240,34 +242,34 @@ namespace AU_TheDirectorsCut
             {
                 if (!DevModeManager.devMode)
                 {
-                    SendHostMessage($"Commande inconnue : {cmd} — /help");
+                    ChatManager.QueueSystemMessage(sender, $"Commande inconnue : {cmd} — /help", $"Commande inconnue : {cmd} — /help");
                     return true;
                 }
 
                 if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
                 {
-                    SendHostMessage(ModMessages.HostOnly, ModMessages.HostOnlyPlain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HostOnly, ModMessages.HostOnlyPlain);
                     return true;
                 }
 
                 switch (cmd)
                 {
                     case "/start":
-                        if (!inLobby) { SendHostMessage("Pas en lobby !"); return true; }
+                        if (!inLobby) { ChatManager.QueueSystemMessage(sender, "Pas en lobby !", "Pas en lobby !"); return true; }
                         AmongUsClient.Instance.StartGame();
                         return true;
 
                     case "/stop":
                         if (inLobby)
                         {
-                            SendHostMessage(ModMessages.NoGameRunning, ModMessages.NoGameRunningPlain);
+                            ChatManager.QueueSystemMessage(sender, ModMessages.NoGameRunning, ModMessages.NoGameRunningPlain);
                             return true;
                         }
                         try
                         {
                             GameManager.Instance.enabled = false;
                             GameManager.Instance.RpcEndGame(GameOverReason.CrewmateDisconnect, false);
-                            SendHostMessage(ModMessages.GameStopped, ModMessages.GameStoppedPlain);
+                            ChatManager.QueueSystemMessage(sender, ModMessages.GameStopped, ModMessages.GameStoppedPlain);
                             Plugin.Log?.LogInfo("[Director] /stop → RpcEndGame.");
                         }
                         catch (Exception e) { Plugin.Log?.LogError($"[/stop] {e.Message}"); }
@@ -279,12 +281,12 @@ namespace AU_TheDirectorsCut
                             var dtarget = FindById(did);
                             if (dtarget?.Data == null)
                             {
-                                SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                                ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                                 return true;
                             }
                             DirectorPlayerId = dtarget.PlayerId;
                             DirectorName = dtarget.Data.PlayerName;
-                            SendHostMessage(
+                            ChatManager.QueueSystemMessage(sender,
                                 string.Format(ModMessages.DirectorSet, dtarget.Data.PlayerName),
                                 string.Format(ModMessages.DirectorSetPlain, dtarget.Data.PlayerName)
                             );
@@ -293,7 +295,7 @@ namespace AU_TheDirectorsCut
                         {
                             DirectorPlayerId = sender.PlayerId;
                             DirectorName = sender.Data.PlayerName;
-                            SendHostMessage(
+                            ChatManager.QueueSystemMessage(sender,
                                 string.Format(ModMessages.DirectorSet, sender.Data.PlayerName),
                                 string.Format(ModMessages.DirectorSetPlain, sender.Data.PlayerName)
                             );
@@ -305,13 +307,13 @@ namespace AU_TheDirectorsCut
             switch (cmd)
             {
                 case "/welcome":
-                    ChatManager.QueueSlow(ModMessages.Welcome, ModMessages.WelcomePlain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Welcome, ModMessages.WelcomePlain);
                     return true;
 
                 case "/help":
-                    ChatManager.QueueSlow(ModMessages.Help1, ModMessages.Help1Plain);
-                    ChatManager.QueueSlow(ModMessages.Help2, ModMessages.Help2Plain);
-                    ChatManager.QueueSlow(ModMessages.Help3, ModMessages.Help3Plain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Help1, ModMessages.Help1Plain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Help2, ModMessages.Help2Plain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Help3, ModMessages.Help3Plain);
                     return true;
 
                 case "/gg":
@@ -320,7 +322,7 @@ namespace AU_TheDirectorsCut
 
                 case "/join":
                 case "/discord":
-                    ChatManager.QueueSlow(ModMessages.Discord, ModMessages.DiscordPlain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Discord, ModMessages.DiscordPlain);
                     return true;
 
                 case "/players":
@@ -379,7 +381,7 @@ namespace AU_TheDirectorsCut
                         }
 
                         for (int i = 0; i < chunksPlain.Count; i++)
-                            ChatManager.QueueSlow(chunksColored[i], chunksPlain[i]);
+                            ChatManager.QueueSystemMessageSlow(sender, chunksColored[i], chunksPlain[i]);
 
                         return true;
                     }
@@ -388,21 +390,21 @@ namespace AU_TheDirectorsCut
                 case "/hrandomcolor":
                 case "/handomcolors":
                 case "/hrandom":
-                    ChatManager.Queue(ModMessages.HelpRandomColors, ModMessages.HelpRandomColorsPlain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpRandomColors, ModMessages.HelpRandomColorsPlain);
                     return true;
                 case "/hcut":
-                    ChatManager.Queue(ModMessages.HelpCut, ModMessages.HelpCutPlain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpCut, ModMessages.HelpCutPlain);
                     return true;
                 case "/hdarkness":
                 case "/hdark":
-                    ChatManager.Queue(ModMessages.HelpDarkness, ModMessages.HelpDarknessPlain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpDarkness, ModMessages.HelpDarknessPlain);
                     return true;
                 case "/hfreeze":
-                    ChatManager.Queue(ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
                     return true;
                 case "/haction":
-                    ChatManager.QueueSlow(ModMessages.HelpAction, ModMessages.HelpActionPlain);
-                    ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpAction, ModMessages.HelpActionPlain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
                     return true;
                 case "/helpaction":
                     if (parts.Length == 2)
@@ -413,43 +415,43 @@ namespace AU_TheDirectorsCut
                             switch (order)
                             {
                                 case ScriptOrder.NoReport:
-                                    ChatManager.QueueSlow(ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
+                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
                                     break;
                                 case ScriptOrder.SkipVote:
-                                    ChatManager.QueueSlow(ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
+                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
                                     break;
                                 case ScriptOrder.DontUseVents:
-                                    ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
+                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
                                     break;
                                 case ScriptOrder.VoteFirst:
-                                    ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
+                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
                                     break;
                             }
                         }
                         else
                         {
-                            ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                            ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
+                            ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                            ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
                         }
                     }
                     else
                     {
                         
-                        ChatManager.QueueSlow(ModMessages.HelpActionTitle, ModMessages.HelpActionTitlePlain);
-                        ChatManager.QueueSlow(ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
-                        ChatManager.QueueSlow(ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
-                        ChatManager.QueueSlow(ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
-                        ChatManager.QueueSlow(ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionTitle, ModMessages.HelpActionTitlePlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
                     }
                     return true;
                 case "/hloc":
                 case "/hollow":
-                    ChatManager.QueueSlow(ModMessages.HelpLoc, ModMessages.HelpLocPlain);
-                    ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
-                    ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpLoc, ModMessages.HelpLocPlain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
+                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
                     return true;
                 case "/hvote":
-                    ChatManager.Queue(ModMessages.HelpVote, ModMessages.HelpVotePlain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpVote, ModMessages.HelpVotePlain);
                     return true;
             }
 
@@ -461,7 +463,10 @@ namespace AU_TheDirectorsCut
 
             if (!IsDirector(sender.PlayerId))
             {
-                SendHostMessage(string.Format(ModMessages.NotDirector, sender.Data.PlayerName), string.Format(ModMessages.NotDirectorPlain, sender.Data.PlayerName));
+                ChatManager.QueueSystemMessage(sender,
+                    string.Format(ModMessages.NotDirector, sender.Data.PlayerName),
+                    string.Format(ModMessages.NotDirectorPlain, sender.Data.PlayerName)
+                );
                 return true;
             }
 
@@ -470,11 +475,11 @@ namespace AU_TheDirectorsCut
                 case "/randomcolors":
                     if (MeetingHud.Instance != null)
                     {
-                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
                         return true;
                     }
-                    if (!TryCheckCooldown("/randomcolors")) return true;
-                    SendHostMessage(ModMessages.RandomColorsStart, ModMessages.RandomColorsStartPlain);
+                    if (!TryCheckCooldown("/randomcolors", sender)) return true;
+                    ChatManager.QueueSystemMessage(sender, ModMessages.RandomColorsStart, ModMessages.RandomColorsStartPlain);
                     NetworkManager.RandomizeColors();
                     SetCooldown("/randomcolors");
                     return true;
@@ -482,10 +487,10 @@ namespace AU_TheDirectorsCut
                 case "/cut":
                     if (MeetingHud.Instance != null)
                     {
-                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
                         return true;
                     }
-                    if (!TryCheckCooldown("/cut")) return true;
+                    if (!TryCheckCooldown("/cut", sender)) return true;
                     StartCutSequence();
                     SetCooldown("/cut");
                     return true;
@@ -493,10 +498,10 @@ namespace AU_TheDirectorsCut
                 case "/darkness":
                     if (MeetingHud.Instance != null)
                     {
-                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
                         return true;
                     }
-                    if (!TryCheckCooldown("/darkness")) return true;
+                    if (!TryCheckCooldown("/darkness", sender)) return true;
                     StartDarkness();
                     SetCooldown("/darkness");
                     return true;
@@ -504,29 +509,29 @@ namespace AU_TheDirectorsCut
                 case "/freeze":
                     if (MeetingHud.Instance != null)
                     {
-                        SendHostMessage("Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
                         return true;
                     }
-                    if (!TryCheckCooldown("/freeze")) return true;
+                    if (!TryCheckCooldown("/freeze", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        SendHostMessage("Usage : /freeze ID");
+                        ChatManager.QueueSystemMessage(sender, "Usage : /freeze ID", "Usage : /freeze ID");
                         return true;
                     }
                     if (!byte.TryParse(parts[1], out byte freezeTargetId))
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     PlayerControl? freezeTarget = FindById(freezeTargetId);
                     if (freezeTarget?.Data == null)
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     if (_frozenPlayers.ContainsKey(freezeTarget.PlayerId))
                     {
-                        SendHostMessage($"{freezeTarget.Data.PlayerName} est déjà bloqué !");
+                        ChatManager.QueueSystemMessage(sender, $"{freezeTarget.Data.PlayerName} est déjà bloqué !", $"{freezeTarget.Data.PlayerName} est déjà bloqué !");
                         return true;
                     }
                     StartFreeze(freezeTarget);
@@ -536,53 +541,56 @@ namespace AU_TheDirectorsCut
                 case "/action":
                     if (MeetingHud.Instance == null)
                     {
-                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
                         return true;
                     }
-                    if (!TryCheckCooldown("/action")) return true;
+                    if (!TryCheckCooldown("/action", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                        ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
                         return true;
                     }
                     if (!byte.TryParse(parts[1], out byte actionTargetId))
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     PlayerControl? actionTarget = FindById(actionTargetId);
                     if (actionTarget?.Data == null)
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     
                     if (parts.Length < 3)
                     {
                         
-                        ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                        ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
                         return true;
                     }
                     
                     if (!TryParseScriptLetter(parts[2], out ScriptOrder order))
                     {
-                        ChatManager.QueueSlow(ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                        ChatManager.QueueSlow(ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
                         return true;
                     }
                     
                     
                     if (order == ScriptOrder.StayOut || order == ScriptOrder.VoteForPlayer)
                     {
-                        SendHostMessage("Utilisez /loc ou /vote pour ces ordres !", "Utilisez /loc ou /vote pour ces ordres !");
+                        ChatManager.QueueSystemMessage(sender, "Utilisez /loc ou /vote pour ces ordres !", "Utilisez /loc ou /vote pour ces ordres !");
                         return true;
                     }
                     
                     if (ScriptManager.HasScript(actionTarget.PlayerId))
                     {
-                        SendHostMessage(string.Format(ModMessages.ActionAlreadyActive, actionTarget.Data.PlayerName), string.Format(ModMessages.ActionAlreadyActivePlain, actionTarget.Data.PlayerName));
+                        ChatManager.QueueSystemMessage(sender,
+                            string.Format(ModMessages.ActionAlreadyActive, actionTarget.Data.PlayerName),
+                            string.Format(ModMessages.ActionAlreadyActivePlain, actionTarget.Data.PlayerName)
+                        );
                         return true;
                     }
                     
@@ -591,7 +599,9 @@ namespace AU_TheDirectorsCut
                     
                     
                     var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order, actionTarget.Data.PlayerName);
-                    ChatManager.QueueSlow(coloredMsg, plainMsg);
+                    ChatManager.QueueSystemMessage(actionTarget, coloredMsg, plainMsg);
+                    
+                    ChatManager.QueueSystemMessage(sender, string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName), string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName));
                     
                     
                     SetCooldown("/action");
@@ -600,49 +610,52 @@ namespace AU_TheDirectorsCut
                 case "/loc":
                     if (MeetingHud.Instance == null)
                     {
-                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
                         return true;
                     }
-                    if (!TryCheckCooldown("/loc")) return true;
+                    if (!TryCheckCooldown("/loc", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSlow(ModMessages.UsageLoc, ModMessages.UsageLocPlain);
-                        ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
-                        ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageLoc, ModMessages.UsageLocPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
                         return true;
                     }
                     if (!byte.TryParse(parts[1], out byte locTargetId))
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     PlayerControl? locTarget = FindById(locTargetId);
                     if (locTarget?.Data == null)
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     
                     if (parts.Length < 3)
                     {
                         
-                        ChatManager.QueueSlow(ModMessages.UsageLoc, ModMessages.UsageLocPlain);
-                        ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
-                        ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageLoc, ModMessages.UsageLocPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
                         return true;
                     }
                     
                     if (!TryParseZoneLetter(parts[2], out MapLocation location))
                     {
-                        ChatManager.QueueSlow(ModMessages.UsageLoc, ModMessages.UsageLocPlain);
-                        ChatManager.QueueSlow(ModMessages.LocList1, ModMessages.LocList1Plain);
-                        ChatManager.QueueSlow(ModMessages.LocList2, ModMessages.LocList2Plain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageLoc, ModMessages.UsageLocPlain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
+                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
                         return true;
                     }
                     
                     if (ScriptManager.HasScript(locTarget.PlayerId))
                     {
-                        SendHostMessage(string.Format(ModMessages.ActionAlreadyActive, locTarget.Data.PlayerName), string.Format(ModMessages.ActionAlreadyActivePlain, locTarget.Data.PlayerName));
+                        ChatManager.QueueSystemMessage(sender,
+                            string.Format(ModMessages.ActionAlreadyActive, locTarget.Data.PlayerName),
+                            string.Format(ModMessages.ActionAlreadyActivePlain, locTarget.Data.PlayerName)
+                        );
                         return true;
                     }
                     
@@ -651,7 +664,9 @@ namespace AU_TheDirectorsCut
                     
                     
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
-                    ChatManager.QueueSlow(locColored, locPlain);
+                    ChatManager.QueueSystemMessage(locTarget, locColored, locPlain);
+                    
+                    ChatManager.QueueSystemMessage(sender, string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName), string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName));
                     
                     
                     SetCooldown("/loc");
@@ -660,23 +675,23 @@ namespace AU_TheDirectorsCut
                 case "/vote":
                     if (MeetingHud.Instance == null)
                     {
-                        SendHostMessage(ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
                         return true;
                     }
-                    if (!TryCheckCooldown("/vote")) return true;
+                    if (!TryCheckCooldown("/vote", sender)) return true;
                     if (parts.Length < 3)
                     {
-                        SendHostMessage(ModMessages.UsageVote, ModMessages.UsageVotePlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.UsageVote, ModMessages.UsageVotePlain);
                         return true;
                     }
                     if (!byte.TryParse(parts[1], out byte voteTargetId))
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     if (!byte.TryParse(parts[2], out byte voteForId))
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     
@@ -685,13 +700,16 @@ namespace AU_TheDirectorsCut
                     
                     if (voteTarget?.Data == null || voteForTarget?.Data == null)
                     {
-                        SendHostMessage(ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     
                     if (ScriptManager.HasScript(voteTarget.PlayerId))
                     {
-                        SendHostMessage(string.Format(ModMessages.ActionAlreadyActive, voteTarget.Data.PlayerName), string.Format(ModMessages.ActionAlreadyActivePlain, voteTarget.Data.PlayerName));
+                        ChatManager.QueueSystemMessage(sender,
+                            string.Format(ModMessages.ActionAlreadyActive, voteTarget.Data.PlayerName),
+                            string.Format(ModMessages.ActionAlreadyActivePlain, voteTarget.Data.PlayerName)
+                        );
                         return true;
                     }
                     
@@ -700,14 +718,16 @@ namespace AU_TheDirectorsCut
                     
                     
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
-                    ChatManager.QueueSlow(voteColored, votePlain);
+                    ChatManager.QueueSystemMessage(voteTarget, voteColored, votePlain);
+                    
+                    ChatManager.QueueSystemMessage(sender, string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName), string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName));
                     
                     
                     SetCooldown("/vote");
                     return true;
 
                 default:
-                    SendHostMessage($"Commande inconnue : {cmd} — /help");
+                    ChatManager.QueueSystemMessage(sender, $"Commande inconnue : {cmd} — /help", $"Commande inconnue : {cmd} — /help");
                     return true;
             }
         }
@@ -1066,7 +1086,6 @@ namespace AU_TheDirectorsCut
             if (chatText.StartsWith("/") && sourcePlayer?.PlayerId != PlayerControl.LocalPlayer.PlayerId)
             {
                 DirectorCore.TryProcessCommand(sourcePlayer, chatText);
-                return false;
             }
             return true;
         }
