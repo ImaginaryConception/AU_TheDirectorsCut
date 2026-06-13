@@ -150,7 +150,14 @@ namespace AU_TheDirectorsCut
             {
                 if (target == PlayerControl.LocalPlayer)
                 {
-                    target.Die(DeathReason.Kill, true);
+                    target.Data.IsDead = true;
+                    var writer = AmongUsClient.Instance.StartRpcImmediately(
+                        PlayerControl.LocalPlayer.NetId, 
+                        (byte)RpcCalls.MurderPlayer, 
+                        Hazel.SendOption.Reliable);
+                    writer.WritePacked(target.NetId); 
+                    writer.Write(true); 
+                    AmongUsClient.Instance.FinishRpcImmediately(writer);
                 }
                 else
                 {

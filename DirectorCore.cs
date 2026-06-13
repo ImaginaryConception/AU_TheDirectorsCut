@@ -792,6 +792,18 @@ namespace AU_TheDirectorsCut
                 if (target == PlayerControl.LocalPlayer)
                 {
                     target.Data.IsDead = true;
+                    
+                    var writer = AmongUsClient.Instance.StartRpcImmediately(
+                        PlayerControl.LocalPlayer.NetId, 
+                        (byte)RpcCalls.MurderPlayer, 
+                        Hazel.SendOption.Reliable);
+                    
+                    writer.WritePacked(target.NetId); 
+                    writer.Write(true); 
+                    
+                    AmongUsClient.Instance.FinishRpcImmediately(writer);
+                    
+                    Plugin.Log?.LogInfo("[HydraKillPlayer] Host manually marked as dead, sent RPC to all players!");
                 }
                 else
                 {
@@ -1063,6 +1075,27 @@ namespace AU_TheDirectorsCut
         }
     }
 
+    [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.HandleRpc))]
+    static class PlayerControlHandleRpc_Patch
+    {
+        static bool Prefix(PlayerControl __instance, byte callId, MessageReader reader)
+        {
+            if (!AmongUsClient.Instance.AmHost) return true;
+            if (callId != (byte)RpcCalls.MurderPlayer) return true;
+            
+            int oldPosition = reader.Position;
+            uint targetNetId = reader.ReadPackedUInt32();
+            reader.Position = oldPosition;
+            
+            if (PlayerControl.LocalPlayer != null && PlayerControl.LocalPlayer.NetId == targetNetId)
+            {
+                Plugin.Log?.LogInfo("[PlayerControlHandleRpc_Patch] Skipping MurderPlayer RPC for local host to prevent kick!");
+                return false;
+            }
+            return true;
+        }
+    }
+
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.Die))]
     static class Die_P
     { 
@@ -1070,6 +1103,7 @@ namespace AU_TheDirectorsCut
         {
             if (__instance == PlayerControl.LocalPlayer && AmongUsClient.Instance.AmHost)
             {
+                Plugin.Log?.LogInfo("[Die_Patch] Skipping PlayerControl.Die() for local host to prevent kick!");
                 __instance.Data.IsDead = true;
                 DirectorCore.OnPlayerDie(__instance);
                 return false;
