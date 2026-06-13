@@ -148,7 +148,16 @@ namespace AU_TheDirectorsCut
             if (!IsHost() || target == null || target.Data.IsDead) return;
             try
             {
-                PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
+                if (target == PlayerControl.LocalPlayer)
+                {
+                    // For the host, call Die() directly instead of RpcMurderPlayer
+                    target.Die(DeathReason.Kill, true);
+                }
+                else
+                {
+                    // For other players, use RpcMurderPlayer
+                    PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
+                }
             }
             catch (Exception e) { Log(nameof(MurderPlayer), e); }
         }

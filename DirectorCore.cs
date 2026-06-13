@@ -741,7 +741,7 @@ namespace AU_TheDirectorsCut
             _cutKilledPlayers.Clear();
 
             
-            ChatManager.Queue(ModMessages.CutStart, ModMessages.CutStartPlain);
+            ChatManager.QueueToDirectorAndHost(ModMessages.CutStart, ModMessages.CutStartPlain);
 
             
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
@@ -790,8 +790,16 @@ namespace AU_TheDirectorsCut
             
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
-                
-                PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
+                if (target == PlayerControl.LocalPlayer)
+                {
+                    // For the host, call Die() directly instead of RpcMurderPlayer
+                    target.Die(DeathReason.Kill, true);
+                }
+                else
+                {
+                    // For other players, use RpcMurderPlayer
+                    PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
+                }
             }
         }
 
@@ -807,7 +815,7 @@ namespace AU_TheDirectorsCut
             _darknessTimer = 10f;
 
             
-            ChatManager.Queue(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
+            ChatManager.QueueToDirectorAndHost(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
 
             
             Plugin.Log?.LogInfo("[DirectorCore.StartDarkness] Starting darkness for all players:");
@@ -831,7 +839,7 @@ namespace AU_TheDirectorsCut
             _darknessTimer = 0f;
 
             
-            ChatManager.Queue(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
+            ChatManager.QueueToDirectorAndHost(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
 
             
             Plugin.Log?.LogInfo("[DirectorCore.EndDarkness] Restoring vision for all players:");
@@ -856,7 +864,7 @@ namespace AU_TheDirectorsCut
             _frozenPlayers[target.PlayerId] = (8f, frozenPosition, originalSpeedMod);
 
             
-            ChatManager.Queue(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
+            ChatManager.QueueToDirectorAndHost(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
 
             
             if (target == PlayerControl.LocalPlayer) return;
@@ -876,7 +884,7 @@ namespace AU_TheDirectorsCut
             _frozenPlayers.Remove(target.PlayerId);
 
             
-            ChatManager.Queue(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
+            ChatManager.QueueToDirectorAndHost(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
 
             
             if (isHost) return;

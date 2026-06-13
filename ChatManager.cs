@@ -18,7 +18,7 @@ namespace AU_TheDirectorsCut
         
         
         
-        private static readonly Queue<(string plain, string colored, float wait, PlayerControl? target)> _queue = new();
+        private static readonly Queue<(string plain, string colored, float wait, PlayerControl? target, bool sendToDirectorAndHost)> _queue = new();
         private const int MaxQueueSize = 20; 
 
         
@@ -176,7 +176,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return; 
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, -1f, null)); 
+                _queue.Enqueue((plainMsg, coloredMsg, -1f, null, false)); 
             }
         }
 
@@ -194,7 +194,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return; 
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, null));
+                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, null, false));
             }
         }
 
@@ -204,7 +204,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return;
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, -1f, target));
+                _queue.Enqueue((plainMsg, coloredMsg, -1f, target, false));
             }
         }
 
@@ -214,7 +214,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return;
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, target));
+                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, target, false));
             }
         }
 
@@ -243,9 +243,13 @@ namespace AU_TheDirectorsCut
             float minWait = head.wait >= 0f ? head.wait : ((ShipStatus.Instance == null) ? 1.0f : 0.8f);
             if (chat.timeSinceLastMessage < minWait) return;
 
-            var (plain, colored, _, target) = _queue.Dequeue();
+            var (plain, colored, _, target, sendToDirectorAndHost) = _queue.Dequeue();
             
-            if (target != null)
+            if (sendToDirectorAndHost)
+            {
+                SendToDirectorAndHost(plain, colored);
+            }
+            else if (target != null)
             {
                 SendSystemMessage(target, plain, colored);
             }
@@ -372,6 +376,37 @@ namespace AU_TheDirectorsCut
             catch (Exception e)
             {
                 Plugin.Log?.LogError($"[ChatManager/SystemMessage] Error sending to {target.Data.PlayerName}: {e.Message}");
+            }
+        }
+
+        public static void SendToDirectorAndHost(string plainMsg, string coloredMsg)
+        {
+            if (!AmongUsClient.Instance.AmHost) return;
+            
+            var host = PlayerControl.LocalPlayer;
+            if (host == null) return;
+            
+            // Send to host
+            SendSystemMessage(host, plainMsg, coloredMsg);
+            
+            // Send to director if available
+            if (DirectorCore.DirectorPlayerId.HasValue)
+            {
+                var director = PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(pc => pc?.PlayerId == DirectorCore.DirectorPlayerId.Value);
+                if (director != null && director != host)
+                {
+                    SendSystemMessage(director, plainMsg, coloredMsg);
+                }
+            }
+        }
+
+        public static void QueueToDirectorAndHost(string coloredMsg, string plainMsg)
+        {
+            if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
+            {
+                if (_queue.Count >= MaxQueueSize) return; 
+                _colorMap[plainMsg] = coloredMsg;
+                _queue.Enqueue((plainMsg, coloredMsg, -1f, null, true)); 
             }
         }
 
