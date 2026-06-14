@@ -328,7 +328,6 @@ namespace AU_TheDirectorsCut
             try
             {
                 const string sysName = "Director";
-                string origSpeakerName = speaker.Data.PlayerName;
 
                 if (target == PlayerControl.LocalPlayer)
                 {
@@ -339,14 +338,20 @@ namespace AU_TheDirectorsCut
                 }
                 else
                 {
+                    // Si l'hôte est mort, on emprunte l'identité d'un joueur vivant pour
+                    // envoyer le chat réseau : sinon le serveur kick l'hôte pour avoir
+                    // fait parler un personnage mort.
+                    var netSpeaker = (speaker.Data?.IsDead == true) ? (LowestAlive() ?? speaker) : speaker;
+                    string origSpeakerName = netSpeaker.Data.PlayerName;
+
                     _colorMap[plainMsg] = coloredMsg;
                     var w = MessageWriter.Get(SendOption.Reliable);
                     w.StartMessage(6);
                     w.Write(AmongUsClient.Instance.GameId);
                     w.WritePacked(target.OwnerId);
-                    WSetName(w, speaker, sysName);
-                    WSendChat(w, speaker, SafeChat(plainMsg));
-                    WSetName(w, speaker, origSpeakerName);
+                    WSetName(w, netSpeaker, sysName);
+                    WSendChat(w, netSpeaker, SafeChat(plainMsg));
+                    WSetName(w, netSpeaker, origSpeakerName);
                     w.EndMessage();
                     AmongUsClient.Instance.SendOrDisconnect(w);
                     w.Recycle();
