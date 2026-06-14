@@ -309,21 +309,6 @@ namespace AU_TheDirectorsCut
             ChatManager.Queue($"<color=#00ff00>{player.Data.PlayerName} a respecté son ordre !</color>", $"{player.Data.PlayerName} a respecté son ordre !");
         }
 
-        private static void HydraKillPlayer(PlayerControl target)
-        {
-            if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
-            {
-                if (target == PlayerControl.LocalPlayer)
-                {
-                    target.Data.IsDead = true;
-                }
-                else
-                {
-                    PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
-                }
-            }
-        }
-
         public static void PunishPlayer(PlayerControl player)
         {
             if (player == null || player.Data.IsDead) return;

@@ -138,6 +138,25 @@ namespace AU_TheDirectorsCut
 
         public static bool IsDirector(byte id) => DirectorPlayerId.HasValue && DirectorPlayerId.Value == id;
 
+        private const float AntiKickWindow = 1.5f;
+
+        public static bool TryRevertAntiCheatRetaliation(PlayerControl player)
+        {
+            if (AmongUsClient.Instance?.AmHost != true) return false;
+            if (player != PlayerControl.LocalPlayer) return false;
+
+            float elapsed = Time.time - NetworkManager.LastKillRpcSentAt;
+            if (elapsed > AntiKickWindow) return false;
+
+            Plugin.Log?.LogWarning(
+                $"[AntiKick] L'hôte est mort {elapsed:F2}s après l'envoi de \"{NetworkManager.LastKillRpcDescription}\" — " +
+                "probable riposte de l'anti-cheat sur le client hôte. Annulation automatique de la mort de l'hôte."
+            );
+
+            player.Data.IsDead = false;
+            return true;
+        }
+
         
         
         
@@ -897,12 +916,7 @@ namespace AU_TheDirectorsCut
 
         private static void HydraKillPlayer(PlayerControl target)
         {
-            
-            if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
-            {
-                
-                PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
-            }
+            NetworkManager.MurderPlayer(target);
         }
 
         private static void StartDarkness()
@@ -1188,7 +1202,13 @@ namespace AU_TheDirectorsCut
 
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.Die))]
     static class Die_P
-    { static void Postfix(PlayerControl __instance) => DirectorCore.OnPlayerDie(__instance); }
+    {
+        static void Postfix(PlayerControl __instance)
+        {
+            if (DirectorCore.TryRevertAntiCheatRetaliation(__instance)) return;
+            DirectorCore.OnPlayerDie(__instance);
+        }
+    }
 
     [HarmonyPatch(typeof(AmongUsClient), nameof(AmongUsClient.OnPlayerLeft))]
     static class OnPlayerLeft_P
