@@ -14,6 +14,7 @@ namespace AU_TheDirectorsCut
     {
         public static byte? DirectorPlayerId { get; private set; }
         public static string? DirectorName { get; private set; }
+        public static int? DirectorOwnerId { get; private set; }
         public static bool PendingAutoGG { get; set; }
         private static float pendingAutoGGDelay = 0f;
         private static float _snapshotTimer = 0f;
@@ -95,6 +96,7 @@ namespace AU_TheDirectorsCut
         {
             DirectorPlayerId = null;
             DirectorName = null;
+            DirectorOwnerId = null;
             PendingAutoGG = false;
             pendingAutoGGDelay = 0f;
             _cd.Clear();
@@ -121,6 +123,7 @@ namespace AU_TheDirectorsCut
 
             DirectorPlayerId = player.PlayerId;
             DirectorName = player.Data.PlayerName;
+            DirectorOwnerId = player.OwnerId;
 
             Plugin.Log?.LogInfo(
                 $"[Director] RÉALISATEUR attribué → \"{DirectorName}\" " +
@@ -134,6 +137,49 @@ namespace AU_TheDirectorsCut
         }
 
         public static bool IsDirector(byte id) => DirectorPlayerId.HasValue && DirectorPlayerId.Value == id;
+
+        
+        
+        
+        public static void HandlePlayerLeft(InnerNet.ClientData data)
+        {
+            if (AmongUsClient.Instance?.AmHost != true) return;
+            if (data == null) return;
+            if (!DirectorPlayerId.HasValue) return;
+
+            
+            
+            bool directorLeft = false;
+
+            if (DirectorOwnerId.HasValue && data.Id == DirectorOwnerId.Value)
+            {
+                directorLeft = true;
+            }
+            else if (data.Character != null && data.Character.PlayerId == DirectorPlayerId.Value)
+            {
+                directorLeft = true;
+            }
+            else if (FindById(DirectorPlayerId.Value) == null)
+            {
+                
+                directorLeft = true;
+            }
+
+            if (!directorLeft) return;
+
+            string formerName = DirectorName ?? "?";
+            DirectorPlayerId = null;
+            DirectorName = null;
+            DirectorOwnerId = null;
+
+            Plugin.Log?.LogInfo($"[Director] Le Réalisateur \"{formerName}\" a quitté la partie — poste VACANT. La prochaine mort deviendra le nouveau Réalisateur.");
+
+            
+            ChatManager.ShowHostLocal(
+                $"<color=#ffd23f>RÉALISATEUR</color> : {formerName} a quitté — poste vacant, prochaine mort = nouveau Réalisateur.",
+                $"RÉALISATEUR : {formerName} a quitté — poste vacant, prochaine mort = nouveau Réalisateur."
+            );
+        }
 
         private static string NumberToFrench(int number) => number.ToString();
 
@@ -317,6 +363,7 @@ namespace AU_TheDirectorsCut
                             }
                             DirectorPlayerId = dtarget.PlayerId;
                             DirectorName = dtarget.Data.PlayerName;
+                            DirectorOwnerId = dtarget.OwnerId;
                             ChatManager.QueueSystemMessage(sender,
                                 string.Format(ModMessages.DirectorSet, dtarget.Data.PlayerName),
                                 string.Format(ModMessages.DirectorSetPlain, dtarget.Data.PlayerName)
@@ -326,6 +373,7 @@ namespace AU_TheDirectorsCut
                         {
                             DirectorPlayerId = sender.PlayerId;
                             DirectorName = sender.Data.PlayerName;
+                            DirectorOwnerId = sender.OwnerId;
                             ChatManager.QueueSystemMessage(sender,
                                 string.Format(ModMessages.DirectorSet, sender.Data.PlayerName),
                                 string.Format(ModMessages.DirectorSetPlain, sender.Data.PlayerName)
@@ -1137,6 +1185,16 @@ namespace AU_TheDirectorsCut
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.Die))]
     static class Die_P
     { static void Postfix(PlayerControl __instance) => DirectorCore.OnPlayerDie(__instance); }
+
+    [HarmonyPatch(typeof(AmongUsClient), nameof(AmongUsClient.OnPlayerLeft))]
+    static class OnPlayerLeft_P
+    {
+        static void Postfix(AmongUsClient __instance, [HarmonyArgument(0)] InnerNet.ClientData data)
+        {
+            if (__instance == null || !__instance.AmHost) return;
+            DirectorCore.HandlePlayerLeft(data);
+        }
+    }
 
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.RpcSendChat))]
     static class RpcSendChat_P
