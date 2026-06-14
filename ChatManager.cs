@@ -147,6 +147,23 @@ namespace AU_TheDirectorsCut
             catch (Exception e) { Plugin.Log?.LogError($"[SendPrivateScript] {e.Message}"); }
         }
 
+        
+        
+        
+        public static void ShowHostLocal(string coloredMsg, string plainMsg)
+        {
+            var speaker = PlayerControl.LocalPlayer;
+            if (speaker == null || HudManager.Instance?.Chat == null) return;
+            try
+            {
+                _colorMap[plainMsg] = coloredMsg;
+                IsSending = true;
+                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                IsSending = false;
+            }
+            catch (Exception e) { IsSending = false; Plugin.Log?.LogError($"[ShowHostLocal] {e.Message}"); }
+        }
+
         public static void Queue(string coloredMsg, string plainMsg)
         {
             if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))

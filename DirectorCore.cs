@@ -633,6 +633,12 @@ namespace AU_TheDirectorsCut
                     ChatManager.QueueSystemMessage(actionTarget, coloredMsg, plainMsg);
                     
                     
+                    ChatManager.ShowHostLocal(
+                        string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName),
+                        string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName)
+                    );
+                    
+                    
                     SetCooldown("/action");
                     return true;
                     
@@ -694,6 +700,12 @@ namespace AU_TheDirectorsCut
                     
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(locTarget, locColored, locPlain);
+                    
+                    
+                    ChatManager.ShowHostLocal(
+                        string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName),
+                        string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName)
+                    );
                     
                     
                     SetCooldown("/loc");
@@ -761,6 +773,12 @@ namespace AU_TheDirectorsCut
                     
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(voteTarget, voteColored, votePlain);
+                    
+                    
+                    ChatManager.ShowHostLocal(
+                        string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName),
+                        string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName)
+                    );
                     
                     
                     SetCooldown("/vote");
