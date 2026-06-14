@@ -39,39 +39,7 @@ namespace AU_TheDirectorsCut
         public static void SendPrivate(PlayerControl target, string plainMessage)
         {
             if (target == null || target.OwnerId < 0) return;
-            
-            var speaker = PlayerControl.LocalPlayer;
-            if (speaker == null) return;
-            
-            try
-            {
-                
-                try
-                {
-                    IsSending = true;
-                    HudManager.Instance.Chat.AddChat(speaker, plainMessage);
-                    IsSending = false;
-                }
-                catch { IsSending = false; }
-                
-                
-                if (MeetingHud.Instance != null)
-                {
-                    Plugin.Log?.LogInfo($"[ChatManager] Envoi du message en meeting à {target.Data.PlayerName}");
-                    
-                    
-                    var writer = AmongUsClient.Instance.StartRpcImmediately(
-                        speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
-                    writer.Write(SafeChat(plainMessage));
-                    AmongUsClient.Instance.FinishRpcImmediately(writer);
-                }
-                
-                Plugin.Log?.LogInfo($"[ChatManager] Message traité pour {target.Data.PlayerName}: {plainMessage}");
-            }
-            catch (Exception e)
-            {
-                Plugin.Log?.LogError($"[ChatManager] Erreur envoi message: {e.Message}");
-            }
+            SendPrivate(target, plainMessage, plainMessage);
         }
 
 
@@ -80,17 +48,39 @@ namespace AU_TheDirectorsCut
         private static void SendPrivate(PlayerControl target, string plainMsg, string coloredMsg)
         {
             var speaker = PlayerControl.LocalPlayer;
-            if (speaker == null || target == null) return;
+            if (speaker == null || target == null || target.OwnerId < 0) return;
             try
             {
-                
                 _colorMap[plainMsg] = coloredMsg;
                 
-                
-                var writer = AmongUsClient.Instance.StartRpcImmediately(
-                    speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
-                writer.Write(SafeChat(plainMsg));
-                AmongUsClient.Instance.FinishRpcImmediately(writer);
+                // Afficher localement uniquement si le message est pour nous
+                if (target == PlayerControl.LocalPlayer)
+                {
+                    try
+                    {
+                        IsSending = true;
+                        HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                        IsSending = false;
+                    }
+                    catch { IsSending = false; }
+                }
+                else
+                {
+                    // Envoyer le message via réseau au destinataire
+                    const string sysName = "System";
+                    string orig = speaker.Data.PlayerName;
+
+                    var w = MessageWriter.Get(SendOption.Reliable);
+                    w.StartMessage(6);
+                    w.Write(AmongUsClient.Instance.GameId);
+                    w.WritePacked(target.OwnerId);
+                    WSetName(w, speaker, sysName);
+                    WSendChat(w, speaker, SafeChat(plainMsg));
+                    WSetName(w, speaker, orig);
+                    w.EndMessage();
+                    AmongUsClient.Instance.SendOrDisconnect(w);
+                    w.Recycle();
+                }
                 
                 Plugin.Log?.LogInfo($"[ChatManager] Message envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");
             }
@@ -108,14 +98,17 @@ namespace AU_TheDirectorsCut
             try
             {
                 
-                try
+                // Afficher localement uniquement si le message est pour nous
+                if (target == PlayerControl.LocalPlayer)
                 {
-                    IsSending = true;
-                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                    IsSending = false;
+                    try
+                    {
+                        IsSending = true;
+                        HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                        IsSending = false;
+                    }
+                    catch { IsSending = false; }
                 }
-                catch { IsSending = false; }
-                
                 
                 _colorMap[plainMsg] = coloredMsg;
                 
@@ -374,51 +367,42 @@ namespace AU_TheDirectorsCut
             bool inLobby = ShipStatus.Instance == null;
 
             
-            try
-            {
-                IsSending = true;
-                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                IsSending = false;
-            }
-            catch { IsSending = false; }
-
-            
             _colorMap[plainMsg] = coloredMsg;
 
-            if (inLobby)
+            // Afficher localement uniquement si le message est pour nous
+            if (target == PlayerControl.LocalPlayer)
             {
-                
-                if (target != PlayerControl.LocalPlayer)
+                try
                 {
-                    try
-                    {
-                        var writer = AmongUsClient.Instance.StartRpcImmediately(
-                            speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
-                        writer.Write(SafeChat(plainMsg));
-                        AmongUsClient.Instance.FinishRpcImmediately(writer);
-                    }
-                    catch (Exception e)
-                    {
-                        Plugin.Log?.LogError($"[ChatManager/PrivateLobby] Error sending to {target.Data.PlayerName}: {e.Message}");
-                    }
+                    IsSending = true;
+                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                    IsSending = false;
                 }
+                catch { IsSending = false; }
             }
-            else
+            else if (!inLobby || target != PlayerControl.LocalPlayer)
             {
-                
-                const string sysName = "Director";
-                string orig = speaker.Data.PlayerName;
+                // Envoyer le message via réseau au destinataire (sauf si c'est pour nous en lobby)
+                try
+                {
+                    const string sysName = "Director";
+                    string orig = speaker.Data.PlayerName;
 
-                var w = MessageWriter.Get(SendOption.Reliable);
-                w.StartMessage(6); 
-                w.Write(AmongUsClient.Instance.GameId);
-                w.WritePacked(target.OwnerId); 
-                WSetName(w, speaker, sysName);
-                WSendChat(w, speaker, SafeChat(plainMsg));
-                WSetName(w, speaker, orig);
-                w.EndMessage();
-                AmongUsClient.Instance.SendOrDisconnect(w);
-                w.Recycle();
+                    var w = MessageWriter.Get(SendOption.Reliable);
+                    w.StartMessage(6);
+                    w.Write(AmongUsClient.Instance.GameId);
+                    w.WritePacked(target.OwnerId);
+                    WSetName(w, speaker, sysName);
+                    WSendChat(w, speaker, SafeChat(plainMsg));
+                    WSetName(w, speaker, orig);
+                    w.EndMessage();
+                    AmongUsClient.Instance.SendOrDisconnect(w);
+                    w.Recycle();
+                }
+                catch (Exception e)
+                {
+                    Plugin.Log?.LogError($"[ChatManager/PrivateTargeted] Error sending to {target.Data.PlayerName}: {e.Message}");
+                }
             }
 
             Plugin.Log?.LogInfo($"[ChatManager] Private targeted message to {target.Data.PlayerName}: {plainMsg}");

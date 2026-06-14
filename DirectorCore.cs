@@ -264,23 +264,7 @@ namespace AU_TheDirectorsCut
         private static void SendPrivateMessage(PlayerControl target, string message)
         {
             if (target == null || target.OwnerId < 0) return;
-            
-            var speaker = PlayerControl.LocalPlayer;
-            if (speaker == null) return;
-            
-            try
-            {
-                var writer = AmongUsClient.Instance.StartRpcImmediately(
-                    speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
-                writer.Write(ChatManager.SafeChat(message));
-                AmongUsClient.Instance.FinishRpcImmediately(writer);
-                
-                Plugin.Log?.LogInfo($"[DirectorCore] Message privé envoyé à {target.Data.PlayerName}: {message}");
-            }
-            catch (Exception e)
-            {
-                Plugin.Log?.LogError($"[DirectorCore] Erreur envoi message privé: {e.Message}");
-            }
+            ChatManager.SendSystemMessage(target, message, message);
         }
 
         private static bool TryCheckCooldown(string cmd, PlayerControl sender)
