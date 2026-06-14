@@ -227,7 +227,7 @@ namespace AU_TheDirectorsCut
 
             
             var head = _queue.Peek();
-            float minWait = head.wait >= 0f ? head.wait : ((ShipStatus.Instance == null) ? 1.0f : 0.8f);
+            float minWait = head.wait >= 0f ? head.wait : ((ShipStatus.Instance == null) ? 5.0f : 2.0f);
             if (chat.timeSinceLastMessage < minWait) return;
 
             var (plain, colored, _, target) = _queue.Dequeue();
@@ -259,7 +259,7 @@ namespace AU_TheDirectorsCut
             if (_lobbyReadyTime < 0f) return;
             if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
 
-            float minWait = 3.5f;
+            float minWait = 5.0f;
             
             
             if (Time.time < _nextGgTime) return;
@@ -287,7 +287,7 @@ namespace AU_TheDirectorsCut
                 if (HudManager.Instance?.Chat != null)
                     HudManager.Instance.Chat.timeSinceLastMessage = 0f;
                 
-                _nextGgTime = Time.time + 3.5f;
+                _nextGgTime = Time.time + 5.0f;
             }
         }
 
@@ -427,14 +427,15 @@ namespace AU_TheDirectorsCut
         private static readonly HashSet<byte> _sentWelcome = new();
 
         
-        private const float WelcomeDelaySec = 3f;
+        private const float WelcomeDelaySec = 5f;
+        private const int MaxWelcomesPerWave = 3;
+        private const float WaveResetWindow = 10f;
         
-        
-        
-        
-        
-        private const float LobbySettleSec = 7f;
+        private static float LobbySettleSec = 10f;
         private static float _lobbyReadyTime = -1f;
+        private static int _welcomesSentInWave = 0;
+        private static float _waveResetTime = 0f;
+        private static bool _fallbackMode = false;
 
         public static void ClearWelcomeSent()
         {
@@ -446,6 +447,9 @@ namespace AU_TheDirectorsCut
             _lobbyReadyTime = -1f;
             _colorMap.Clear();
             _queue.Clear();
+            _welcomesSentInWave = 0;
+            _waveResetTime = 0f;
+            _fallbackMode = false;
             Plugin.Log?.LogInfo("[ChatManager] Welcome, GG, and chat queue system cleared!");
         }
         
@@ -537,7 +541,21 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost || _welcomeQueue.Count == 0) return;
 
-            
+            // Vérifier et réinitialiser le wave counter si la fenêtre est expirée
+            if (Time.time >= _waveResetTime)
+            {
+                _welcomesSentInWave = 0;
+                _waveResetTime = Time.time + WaveResetWindow;
+                _fallbackMode = false;
+            }
+
+            // FALLBACK: Si trop de messages envoyés, skip les prochains
+            if (_fallbackMode)
+            {
+                _welcomeQueue.RemoveAt(0);
+                Plugin.Log?.LogWarning("[ChatManager] FALLBACK: Welcome skippé (trop de spam détecté)");
+                return;
+            }
             
             if (ShipStatus.Instance != null) return;
             
@@ -545,7 +563,7 @@ namespace AU_TheDirectorsCut
             if (_lobbyReadyTime < 0f) return;
             if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
 
-            float minWait = 3.5f;
+            float minWait = 5.0f;
             
             
             var firstItem = _welcomeQueue[0];
@@ -592,11 +610,18 @@ namespace AU_TheDirectorsCut
                     Plugin.Log?.LogInfo($"[ChatManager] Welcome envoyé à {target.Data.PlayerName} (nouveau joueur)!");
                 }
 
+                // Incrémenter le wave counter et détecter le spam
+                _welcomesSentInWave++;
+                if (_welcomesSentInWave >= MaxWelcomesPerWave)
+                {
+                    _fallbackMode = true;
+                    Plugin.Log?.LogWarning($"[ChatManager] FALLBACK ACTIVÉ: {_welcomesSentInWave} messages en {WaveResetWindow}s - prochains messages skippés");
+                }
                 
                 if (HudManager.Instance?.Chat != null)
                     HudManager.Instance.Chat.timeSinceLastMessage = 0f;
                 
-                _nextWelcomeTime = Time.time + 3.5f;
+                _nextWelcomeTime = Time.time + 5.0f;
                 _sentWelcome.Add(pid);
             }
         }
