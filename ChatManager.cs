@@ -4,7 +4,6 @@ using System.Linq;
 using HarmonyLib;
 using Hazel;
 using UnityEngine;
-using AmongUs.InnerNet.GameDataMessages;
 
 namespace AU_TheDirectorsCut
 {
@@ -18,7 +17,7 @@ namespace AU_TheDirectorsCut
         
         
         
-        private static readonly Queue<(string plain, string colored, float wait, PlayerControl? target, bool sendToDirectorAndHost)> _queue = new();
+        private static readonly Queue<(string plain, string colored, float wait, PlayerControl? target)> _queue = new();
         private const int MaxQueueSize = 20; 
 
         
@@ -46,33 +45,25 @@ namespace AU_TheDirectorsCut
             
             try
             {
-                const string sysName = "Director";
-                string orig = speaker.Data.PlayerName;
                 
-                if (target == PlayerControl.LocalPlayer)
+                try
                 {
-                    speaker.Data.PlayerName = sysName;
-                    try
-                    {
-                        IsSending = true;
-                        HudManager.Instance.Chat.AddChat(speaker, plainMessage);
-                        IsSending = false;
-                    }
-                    catch { IsSending = false; }
-                    speaker.Data.PlayerName = orig;
+                    IsSending = true;
+                    HudManager.Instance.Chat.AddChat(speaker, plainMessage);
+                    IsSending = false;
                 }
-                else
+                catch { IsSending = false; }
+                
+                
+                if (MeetingHud.Instance != null)
                 {
-                    var w = MessageWriter.Get(SendOption.Reliable);
-                    w.StartMessage(6); 
-                    w.Write(AmongUsClient.Instance.GameId);
-                    w.WritePacked(target.OwnerId); 
-                    WSetName(w, speaker, sysName);
-                    WSendChat(w, speaker, SafeChat(plainMessage));
-                    WSetName(w, speaker, orig);
-                    w.EndMessage();
-                    AmongUsClient.Instance.SendOrDisconnect(w);
-                    w.Recycle();
+                    Plugin.Log?.LogInfo($"[ChatManager] Envoi du message en meeting à {target.Data.PlayerName}");
+                    
+                    
+                    var writer = AmongUsClient.Instance.StartRpcImmediately(
+                        speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                    writer.Write(SafeChat(plainMessage));
+                    AmongUsClient.Instance.FinishRpcImmediately(writer);
                 }
                 
                 Plugin.Log?.LogInfo($"[ChatManager] Message traité pour {target.Data.PlayerName}: {plainMessage}");
@@ -92,35 +83,14 @@ namespace AU_TheDirectorsCut
             if (speaker == null || target == null) return;
             try
             {
-                const string sysName = "Director";
-                string orig = speaker.Data.PlayerName;
                 
-                if (target == PlayerControl.LocalPlayer)
-                {
-                    speaker.Data.PlayerName = sysName;
-                    try
-                    {
-                        IsSending = true;
-                        HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                        IsSending = false;
-                    }
-                    catch { IsSending = false; }
-                    speaker.Data.PlayerName = orig;
-                }
-                else
-                {
-                    _colorMap[plainMsg] = coloredMsg;
-                    var w = MessageWriter.Get(SendOption.Reliable);
-                    w.StartMessage(6); 
-                    w.Write(AmongUsClient.Instance.GameId);
-                    w.WritePacked(target.OwnerId); 
-                    WSetName(w, speaker, sysName);
-                    WSendChat(w, speaker, SafeChat(plainMsg));
-                    WSetName(w, speaker, orig);
-                    w.EndMessage();
-                    AmongUsClient.Instance.SendOrDisconnect(w);
-                    w.Recycle();
-                }
+                _colorMap[plainMsg] = coloredMsg;
+                
+                
+                var writer = AmongUsClient.Instance.StartRpcImmediately(
+                    speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                writer.Write(SafeChat(plainMsg));
+                AmongUsClient.Instance.FinishRpcImmediately(writer);
                 
                 Plugin.Log?.LogInfo($"[ChatManager] Message envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");
             }
@@ -132,27 +102,34 @@ namespace AU_TheDirectorsCut
         {
             var speaker = PlayerControl.LocalPlayer;
             if (speaker == null || target == null) return;
+            bool inLobby = ShipStatus.Instance == null;
+            bool inMeeting = MeetingHud.Instance != null;
             
             try
             {
-                const string sysName = "Director";
-                string orig = speaker.Data.PlayerName;
                 
-                if (target == PlayerControl.LocalPlayer)
+                try
                 {
-                    speaker.Data.PlayerName = sysName;
-                    try
-                    {
-                        IsSending = true;
-                        HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                        IsSending = false;
-                    }
-                    catch { IsSending = false; }
-                    speaker.Data.PlayerName = orig;
+                    IsSending = true;
+                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                    IsSending = false;
+                }
+                catch { IsSending = false; }
+                
+                
+                _colorMap[plainMsg] = coloredMsg;
+                
+                if (inLobby || inMeeting)
+                {
+                    
+                    SendPrivate(target, plainMsg, coloredMsg);
                 }
                 else
                 {
-                    _colorMap[plainMsg] = coloredMsg;
+                    
+                    const string sysName = "Director";
+                    string orig = speaker.Data.PlayerName;
+
                     var w = MessageWriter.Get(SendOption.Reliable);
                     w.StartMessage(6); 
                     w.Write(AmongUsClient.Instance.GameId);
@@ -176,7 +153,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return; 
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, -1f, null, false)); 
+                _queue.Enqueue((plainMsg, coloredMsg, -1f, null)); 
             }
         }
 
@@ -194,7 +171,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return; 
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, null, false));
+                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, null));
             }
         }
 
@@ -204,7 +181,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return;
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, -1f, target, false));
+                _queue.Enqueue((plainMsg, coloredMsg, -1f, target));
             }
         }
 
@@ -214,7 +191,7 @@ namespace AU_TheDirectorsCut
             {
                 if (_queue.Count >= MaxQueueSize) return;
                 _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, target, false));
+                _queue.Enqueue((plainMsg, coloredMsg, 3.5f, target));
             }
         }
 
@@ -243,13 +220,9 @@ namespace AU_TheDirectorsCut
             float minWait = head.wait >= 0f ? head.wait : ((ShipStatus.Instance == null) ? 1.0f : 0.8f);
             if (chat.timeSinceLastMessage < minWait) return;
 
-            var (plain, colored, _, target, sendToDirectorAndHost) = _queue.Dequeue();
+            var (plain, colored, _, target) = _queue.Dequeue();
             
-            if (sendToDirectorAndHost)
-            {
-                SendToDirectorAndHost(plain, colored);
-            }
-            else if (target != null)
+            if (target != null)
             {
                 SendSystemMessage(target, plain, colored);
             }
@@ -355,8 +328,7 @@ namespace AU_TheDirectorsCut
                     IsSending = false;
                     speaker.Data.PlayerName = origSpeakerName;
                 }
-
-                if (target != PlayerControl.LocalPlayer)
+                else
                 {
                     _colorMap[plainMsg] = coloredMsg;
                     var w = MessageWriter.Get(SendOption.Reliable);
@@ -379,74 +351,61 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        public static void SendToDirectorAndHost(string plainMsg, string coloredMsg)
-        {
-            if (!AmongUsClient.Instance.AmHost) return;
-            
-            var host = PlayerControl.LocalPlayer;
-            if (host == null) return;
-            
-            SendSystemMessage(host, plainMsg, coloredMsg);
-            
-            if (DirectorCore.DirectorPlayerId.HasValue)
-            {
-                var director = PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(pc => pc?.PlayerId == DirectorCore.DirectorPlayerId.Value);
-                if (director != null && director != host)
-                {
-                    SendSystemMessage(director, plainMsg, coloredMsg);
-                }
-            }
-        }
-
-        public static void QueueToDirectorAndHost(string coloredMsg, string plainMsg)
-        {
-            if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
-            {
-                if (_queue.Count >= MaxQueueSize) return; 
-                _colorMap[plainMsg] = coloredMsg;
-                _queue.Enqueue((plainMsg, coloredMsg, -1f, null, true)); 
-            }
-        }
-
         public static void SendPrivateTargeted(PlayerControl speaker, PlayerControl target, string plainMsg, string coloredMsg)
         {
             if (target == null || target.OwnerId < 0) return;
             if (speaker == null) return;
-            const string sysName = "Director";
-            string orig = speaker.Data.PlayerName;
+            bool inLobby = ShipStatus.Instance == null;
 
+            
             try
             {
-                if (target == PlayerControl.LocalPlayer)
+                IsSending = true;
+                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+                IsSending = false;
+            }
+            catch { IsSending = false; }
+
+            
+            _colorMap[plainMsg] = coloredMsg;
+
+            if (inLobby)
+            {
+                
+                if (target != PlayerControl.LocalPlayer)
                 {
-                    speaker.Data.PlayerName = sysName;
                     try
                     {
-                        IsSending = true;
-                        HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                        IsSending = false;
+                        var writer = AmongUsClient.Instance.StartRpcImmediately(
+                            speaker.NetId, (byte)RpcCalls.SendChat, SendOption.Reliable, target.OwnerId);
+                        writer.Write(SafeChat(plainMsg));
+                        AmongUsClient.Instance.FinishRpcImmediately(writer);
                     }
-                    catch { IsSending = false; }
-                    speaker.Data.PlayerName = orig;
+                    catch (Exception e)
+                    {
+                        Plugin.Log?.LogError($"[ChatManager/PrivateLobby] Error sending to {target.Data.PlayerName}: {e.Message}");
+                    }
                 }
-                else
-                {
-                    _colorMap[plainMsg] = coloredMsg;
-                    var w = MessageWriter.Get(SendOption.Reliable);
-                    w.StartMessage(6); 
-                    w.Write(AmongUsClient.Instance.GameId);
-                    w.WritePacked(target.OwnerId); 
-                    WSetName(w, speaker, sysName);
-                    WSendChat(w, speaker, SafeChat(plainMsg));
-                    WSetName(w, speaker, orig);
-                    w.EndMessage();
-                    AmongUsClient.Instance.SendOrDisconnect(w);
-                    w.Recycle();
-                }
-
-                Plugin.Log?.LogInfo($"[ChatManager] Private targeted message to {target.Data.PlayerName}: {plainMsg}");
             }
-            catch (Exception e) { Plugin.Log?.LogError($"[ChatManager/PrivateTargeted] Error sending to {target.Data.PlayerName}: {e.Message}"); }
+            else
+            {
+                
+                const string sysName = "Director";
+                string orig = speaker.Data.PlayerName;
+
+                var w = MessageWriter.Get(SendOption.Reliable);
+                w.StartMessage(6); 
+                w.Write(AmongUsClient.Instance.GameId);
+                w.WritePacked(target.OwnerId); 
+                WSetName(w, speaker, sysName);
+                WSendChat(w, speaker, SafeChat(plainMsg));
+                WSetName(w, speaker, orig);
+                w.EndMessage();
+                AmongUsClient.Instance.SendOrDisconnect(w);
+                w.Recycle();
+            }
+
+            Plugin.Log?.LogInfo($"[ChatManager] Private targeted message to {target.Data.PlayerName}: {plainMsg}");
         }
 
         private static PlayerControl LowestAlive()
@@ -486,7 +445,8 @@ namespace AU_TheDirectorsCut
             _nextGgTime = 0f;
             _lobbyReadyTime = -1f;
             _colorMap.Clear();
-            Plugin.Log?.LogInfo("[ChatManager] Welcome and GG system cleared!");
+            _queue.Clear();
+            Plugin.Log?.LogInfo("[ChatManager] Welcome, GG, and chat queue system cleared!");
         }
         
         public static void OnPlayerLeave(byte playerId)
@@ -644,9 +604,9 @@ namespace AU_TheDirectorsCut
 
 
         private static void WSetName(MessageWriter w, PlayerControl p, string n)
-        { w.StartMessage((byte)GameDataTypes.RpcFlag); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }
+        { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }
         private static void WSendChat(MessageWriter w, PlayerControl p, string m)
-        { w.StartMessage((byte)GameDataTypes.RpcFlag); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SendChat); w.Write(m); w.EndMessage(); }
+        { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SendChat); w.Write(m); w.EndMessage(); }
         
         
         private static readonly List<byte> _ggPlayerQueue = new();

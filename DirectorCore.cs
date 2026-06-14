@@ -184,6 +184,37 @@ namespace AU_TheDirectorsCut
 
         internal static PlayerControl FindById(byte id) => PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
+        private static bool IsValidTarget(PlayerControl sender, PlayerControl target, out string errorMessage)
+        {
+            errorMessage = "";
+            if (target == null || target?.Data == null)
+            {
+                errorMessage = ModMessages.PlayerNotFoundPlain;
+                return false;
+            }
+            if (target.PlayerId == PlayerControl.LocalPlayer.PlayerId)
+            {
+                errorMessage = "Tu ne peux pas choisir l'hôte";
+                return false;
+            }
+            if (target.PlayerId == sender.PlayerId)
+            {
+                errorMessage = "Tu ne peux pas te choisir toi-même";
+                return false;
+            }
+            if (target.Data.IsDead)
+            {
+                errorMessage = $"{target.Data.PlayerName} est éliminé(e)";
+                return false;
+            }
+            if (target.Data.Disconnected)
+            {
+                errorMessage = $"{target.Data.PlayerName} est déconnecté(e)";
+                return false;
+            }
+            return true;
+        }
+
         private static void SendPrivateMessage(PlayerControl target, string message)
         {
             if (target == null || target.OwnerId < 0) return;
@@ -557,9 +588,9 @@ namespace AU_TheDirectorsCut
                         return true;
                     }
                     PlayerControl? actionTarget = FindById(actionTargetId);
-                    if (actionTarget?.Data == null)
+                    if (!IsValidTarget(sender, actionTarget, out string actionError))
                     {
-                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, actionError, actionError);
                         return true;
                     }
                     
@@ -601,8 +632,6 @@ namespace AU_TheDirectorsCut
                     var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order, actionTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(actionTarget, coloredMsg, plainMsg);
                     
-                    ChatManager.QueueSystemMessage(sender, string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName), string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName));
-                    
                     
                     SetCooldown("/action");
                     return true;
@@ -627,9 +656,9 @@ namespace AU_TheDirectorsCut
                         return true;
                     }
                     PlayerControl? locTarget = FindById(locTargetId);
-                    if (locTarget?.Data == null)
+                    if (!IsValidTarget(sender, locTarget, out string locError))
                     {
-                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, locError, locError);
                         return true;
                     }
                     
@@ -666,8 +695,6 @@ namespace AU_TheDirectorsCut
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(locTarget, locColored, locPlain);
                     
-                    ChatManager.QueueSystemMessage(sender, string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName), string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName));
-                    
                     
                     SetCooldown("/loc");
                     return true;
@@ -698,9 +725,24 @@ namespace AU_TheDirectorsCut
                     PlayerControl? voteTarget = FindById(voteTargetId);
                     PlayerControl? voteForTarget = FindById(voteForId);
                     
-                    if (voteTarget?.Data == null || voteForTarget?.Data == null)
+                    if (!IsValidTarget(sender, voteTarget, out string voteTargetError))
                     {
-                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        ChatManager.QueueSystemMessage(sender, voteTargetError, voteTargetError);
+                        return true;
+                    }
+                    if (voteForTarget == null || voteForTarget?.Data == null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFoundPlain, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    if (voteForTarget.Data.IsDead)
+                    {
+                        ChatManager.QueueSystemMessage(sender, $"{voteForTarget.Data.PlayerName} est éliminé(e)", $"{voteForTarget.Data.PlayerName} est éliminé(e)");
+                        return true;
+                    }
+                    if (voteForTarget.Data.Disconnected)
+                    {
+                        ChatManager.QueueSystemMessage(sender, $"{voteForTarget.Data.PlayerName} est déconnecté(e)", $"{voteForTarget.Data.PlayerName} est déconnecté(e)");
                         return true;
                     }
                     
@@ -719,8 +761,6 @@ namespace AU_TheDirectorsCut
                     
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(voteTarget, voteColored, votePlain);
-                    
-                    ChatManager.QueueSystemMessage(sender, string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName), string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName));
                     
                     
                     SetCooldown("/vote");
@@ -741,7 +781,7 @@ namespace AU_TheDirectorsCut
             _cutKilledPlayers.Clear();
 
             
-            ChatManager.QueueToDirectorAndHost(ModMessages.CutStart, ModMessages.CutStartPlain);
+            ChatManager.Queue(ModMessages.CutStart, ModMessages.CutStartPlain);
 
             
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
@@ -787,28 +827,11 @@ namespace AU_TheDirectorsCut
 
         private static void HydraKillPlayer(PlayerControl target)
         {
+            
             if (AmongUsClient.Instance.AmHost && PlayerControl.LocalPlayer != null)
             {
-                if (target == PlayerControl.LocalPlayer)
-                {
-                    target.Data.IsDead = true;
-                    
-                    var writer = AmongUsClient.Instance.StartRpcImmediately(
-                        PlayerControl.LocalPlayer.NetId, 
-                        (byte)RpcCalls.MurderPlayer, 
-                        Hazel.SendOption.Reliable);
-                    
-                    writer.WritePacked(target.NetId); 
-                    writer.Write(true); 
-                    
-                    AmongUsClient.Instance.FinishRpcImmediately(writer);
-                    
-                    Plugin.Log?.LogInfo("[HydraKillPlayer] Host manually marked as dead, sent RPC to all players!");
-                }
-                else
-                {
-                    PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
-                }
+                
+                PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
             }
         }
 
@@ -824,7 +847,7 @@ namespace AU_TheDirectorsCut
             _darknessTimer = 10f;
 
             
-            ChatManager.QueueToDirectorAndHost(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
+            ChatManager.Queue(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
 
             
             Plugin.Log?.LogInfo("[DirectorCore.StartDarkness] Starting darkness for all players:");
@@ -848,7 +871,7 @@ namespace AU_TheDirectorsCut
             _darknessTimer = 0f;
 
             
-            ChatManager.QueueToDirectorAndHost(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
+            ChatManager.Queue(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
 
             
             Plugin.Log?.LogInfo("[DirectorCore.EndDarkness] Restoring vision for all players:");
@@ -873,7 +896,7 @@ namespace AU_TheDirectorsCut
             _frozenPlayers[target.PlayerId] = (8f, frozenPosition, originalSpeedMod);
 
             
-            ChatManager.QueueToDirectorAndHost(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
+            ChatManager.Queue(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
 
             
             if (target == PlayerControl.LocalPlayer) return;
@@ -893,7 +916,7 @@ namespace AU_TheDirectorsCut
             _frozenPlayers.Remove(target.PlayerId);
 
             
-            ChatManager.QueueToDirectorAndHost(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
+            ChatManager.Queue(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
 
             
             if (isHost) return;
@@ -1075,44 +1098,9 @@ namespace AU_TheDirectorsCut
         }
     }
 
-    [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.HandleRpc))]
-    static class PlayerControlHandleRpc_Patch
-    {
-        static bool Prefix(PlayerControl __instance, byte callId, MessageReader reader)
-        {
-            if (!AmongUsClient.Instance.AmHost) return true;
-            if (callId != (byte)RpcCalls.MurderPlayer) return true;
-            
-            int oldPosition = reader.Position;
-            uint targetNetId = reader.ReadPackedUInt32();
-            reader.Position = oldPosition;
-            
-            if (PlayerControl.LocalPlayer != null && PlayerControl.LocalPlayer.NetId == targetNetId)
-            {
-                Plugin.Log?.LogInfo("[PlayerControlHandleRpc_Patch] Skipping MurderPlayer RPC for local host to prevent kick!");
-                return false;
-            }
-            return true;
-        }
-    }
-
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.Die))]
     static class Die_P
-    { 
-        static bool Prefix(PlayerControl __instance)
-        {
-            if (__instance == PlayerControl.LocalPlayer && AmongUsClient.Instance.AmHost)
-            {
-                Plugin.Log?.LogInfo("[Die_Patch] Skipping PlayerControl.Die() for local host to prevent kick!");
-                __instance.Data.IsDead = true;
-                DirectorCore.OnPlayerDie(__instance);
-                return false;
-            }
-            return true;
-        }
-        
-        static void Postfix(PlayerControl __instance) => DirectorCore.OnPlayerDie(__instance); 
-    }
+    { static void Postfix(PlayerControl __instance) => DirectorCore.OnPlayerDie(__instance); }
 
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.RpcSendChat))]
     static class RpcSendChat_P
@@ -1281,16 +1269,7 @@ namespace AU_TheDirectorsCut
         }
     }
 
-    [HarmonyPatch(typeof(GameStartManager), nameof(GameStartManager.BeginGame))]
-    static class Begin_P
-    {
-        static bool Prefix()
-        {
-            if (!AmongUsClient.Instance.AmHost) return true;
-            AmongUsClient.Instance.StartGame();
-            return false;
-        }
-    }
+
 
     
     [HarmonyPatch(typeof(InnerNetClient), nameof(InnerNetClient.SetEndpoint))]
