@@ -621,6 +621,11 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/action":
+                    if (!IsDirector(sender.PlayerId))
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HostOnly, ModMessages.HostOnlyPlain);
+                        return true;
+                    }
                     if (MeetingHud.Instance == null)
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
@@ -667,6 +672,12 @@ namespace AU_TheDirectorsCut
                         return true;
                     }
                     
+                    if (actionTarget?.Data == null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    
                     if (ScriptManager.HasScript(actionTarget.PlayerId))
                     {
                         ChatManager.QueueSystemMessage(sender,
@@ -675,7 +686,6 @@ namespace AU_TheDirectorsCut
                         );
                         return true;
                     }
-                    
                     
                     ScriptManager.AssignScript(actionTarget.PlayerId, order);
                     
@@ -686,6 +696,11 @@ namespace AU_TheDirectorsCut
                     return true;
                     
                 case "/loc":
+                    if (!IsDirector(sender.PlayerId))
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HostOnly, ModMessages.HostOnlyPlain);
+                        return true;
+                    }
                     if (MeetingHud.Instance == null)
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
@@ -728,6 +743,12 @@ namespace AU_TheDirectorsCut
                         return true;
                     }
                     
+                    if (locTarget?.Data == null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    
                     if (ScriptManager.HasScript(locTarget.PlayerId))
                     {
                         ChatManager.QueueSystemMessage(sender,
@@ -736,7 +757,6 @@ namespace AU_TheDirectorsCut
                         );
                         return true;
                     }
-                    
                     
                     ScriptManager.AssignStayOutScript(locTarget.PlayerId, location);
                     
@@ -747,6 +767,11 @@ namespace AU_TheDirectorsCut
                     return true;
                     
                 case "/vote":
+                    if (!IsDirector(sender.PlayerId))
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HostOnly, ModMessages.HostOnlyPlain);
+                        return true;
+                    }
                     if (MeetingHud.Instance == null)
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain);
@@ -772,14 +797,15 @@ namespace AU_TheDirectorsCut
                     PlayerControl? voteTarget = FindById(voteTargetId);
                     PlayerControl? voteForTarget = FindById(voteForId);
                     
+                    if (voteTarget?.Data == null || voteForTarget?.Data == null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    
                     if (!IsValidTarget(sender, voteTarget, out string voteTargetError))
                     {
                         ChatManager.QueueSystemMessage(sender, voteTargetError, voteTargetError);
-                        return true;
-                    }
-                    if (voteForTarget == null || voteForTarget?.Data == null)
-                    {
-                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFoundPlain, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
                     if (voteForTarget.Data.IsDead)
@@ -801,7 +827,6 @@ namespace AU_TheDirectorsCut
                         );
                         return true;
                     }
-                    
                     
                     ScriptManager.AssignVoteForPlayerScript(voteTarget.PlayerId, voteForId);
                     
@@ -1494,9 +1519,12 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
             
+            // Marquer les ordres /loc, /action comme complétés
+            ScriptManager.CompleteAllScriptsAtMeeting();
             
+            // Réinitialiser le tracking VoteFirst
             ScriptManager.ResetVoteFirstTracking();
-            Plugin.Log?.LogInfo("[DirectorCore] Meeting started - VoteFirst tracking reset");
+            Plugin.Log?.LogInfo("[DirectorCore] Meeting started - Scripts completed, VoteFirst tracking reset");
         }
     }
     

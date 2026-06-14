@@ -183,6 +183,32 @@ namespace AU_TheDirectorsCut
             }
         }
 
+        public static void CompleteAllScriptsAtMeeting()
+        {
+            var scriptsToHandle = ActiveScripts.ToList();
+            foreach (var kvp in scriptsToHandle)
+            {
+                var script = kvp.Value;
+                if (!script.Active) continue;
+
+                var player = FindById(script.PlayerId);
+                if (player == null) continue;
+
+                // /loc, /action, /votefirst: Marquer comme succès (l'ordre s'est passé sans que on ait détecté de violation pendant le round)
+                if (script.Order == ScriptOrder.StayOut || script.Order == ScriptOrder.NoReport || script.Order == ScriptOrder.SkipVote || script.Order == ScriptOrder.DontUseVents || script.Order == ScriptOrder.VoteFirst)
+                {
+                    Plugin.Log?.LogInfo($"[ScriptManager] Meeting called - {player.Data.PlayerName}'s {script.Order} order completed successfully");
+                    AnnounceSuccess(player);
+                    script.Active = false;
+                }
+                // /vote (VoteForPlayer): Laisse MeetingClose_P s'en charger
+                else if (script.Order == ScriptOrder.VoteForPlayer)
+                {
+                    Plugin.Log?.LogInfo($"[ScriptManager] Meeting called - {player.Data.PlayerName}'s VoteForPlayer order will be checked at meeting close");
+                }
+            }
+        }
+
         private static bool IsPlayerInRoom(PlayerControl player, Vector2 min, Vector2 max)
         {
             if (player == null || ShipStatus.Instance == null) return false;
