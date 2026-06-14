@@ -510,7 +510,7 @@ namespace AU_TheDirectorsCut
                         return true;
                     }
                     if (!TryCheckCooldown("/randomcolors", sender)) return true;
-                    ChatManager.QueueSystemMessage(sender, ModMessages.RandomColorsStart, ModMessages.RandomColorsStartPlain);
+                    SendDirectorMessage(ModMessages.RandomColorsStart, ModMessages.RandomColorsStartPlain);
                     NetworkManager.RandomizeColors();
                     SetCooldown("/randomcolors");
                     return true;
@@ -847,7 +847,7 @@ namespace AU_TheDirectorsCut
             _darknessTimer = 10f;
 
             
-            ChatManager.Queue(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
+            SendDirectorMessage(ModMessages.DarknessStart, ModMessages.DarknessStartPlain);
 
             
             Plugin.Log?.LogInfo("[DirectorCore.StartDarkness] Starting darkness for all players:");
@@ -871,7 +871,7 @@ namespace AU_TheDirectorsCut
             _darknessTimer = 0f;
 
             
-            ChatManager.Queue(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
+            SendDirectorMessage(ModMessages.DarknessEnd, ModMessages.DarknessEndPlain);
 
             
             Plugin.Log?.LogInfo("[DirectorCore.EndDarkness] Restoring vision for all players:");
@@ -896,7 +896,7 @@ namespace AU_TheDirectorsCut
             _frozenPlayers[target.PlayerId] = (8f, frozenPosition, originalSpeedMod);
 
             
-            ChatManager.Queue(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
+            SendDirectorMessage(string.Format(ModMessages.FreezeStart, target.Data.PlayerName), string.Format(ModMessages.FreezeStartPlain, target.Data.PlayerName));
 
             
             if (target == PlayerControl.LocalPlayer) return;
@@ -916,7 +916,7 @@ namespace AU_TheDirectorsCut
             _frozenPlayers.Remove(target.PlayerId);
 
             
-            ChatManager.Queue(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
+            SendDirectorMessage(string.Format(ModMessages.FreezeEnd, target.Data.PlayerName), string.Format(ModMessages.FreezeEndPlain, target.Data.PlayerName));
 
             
             if (isHost) return;
@@ -1082,6 +1082,24 @@ namespace AU_TheDirectorsCut
 
             foreach (var k in _cd.Keys.ToList())
                 _cd[k] = Mathf.Max(0f, _cd[k] - dt);
+        }
+
+        private static void SendDirectorMessage(string coloredMessage, string plainMessage)
+        {
+            PlayerControl? host = PlayerControl.LocalPlayer;
+            if (host != null)
+            {
+                ChatManager.QueueSystemMessage(host, coloredMessage, plainMessage);
+            }
+            
+            if (DirectorPlayerId.HasValue)
+            {
+                PlayerControl? director = FindById(DirectorPlayerId.Value);
+                if (director != null && host != null && director.PlayerId != host.PlayerId)
+                {
+                    ChatManager.QueueSystemMessage(director, coloredMessage, plainMessage);
+                }
+            }
         }
 
         private static void SendHostMessage(string coloredMessage) => SendHostMessage(coloredMessage, null);

@@ -322,11 +322,10 @@ namespace AU_TheDirectorsCut
 
                 if (target == PlayerControl.LocalPlayer)
                 {
-                    speaker.Data.PlayerName = sysName;
+                    _colorMap[plainMsg] = coloredMsg;
                     IsSending = true;
                     HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
                     IsSending = false;
-                    speaker.Data.PlayerName = origSpeakerName;
                 }
                 else
                 {
