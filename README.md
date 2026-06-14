@@ -106,7 +106,7 @@ Requires the **.NET 6 SDK**.
 
 ## ⌨️ Commands
 
-Players are identified by **numbers** (1, 2, 3…) — run `/players` to see them.
+Players are identified by **letters** (A, B, C…) — run `/players` to see them.
 
 ### 🟢 Public (everyone)
 | Command | Effect |
@@ -114,7 +114,7 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | `/welcome` | Welcome message |
 | `/help` | Command list |
 | `/gg` | Previous-game stats (alive / eliminated) |
-| `/players` | List players with their number IDs |
+| `/players` | List players with their letter IDs |
 | `/hrandomcolors` | Detailed help for `/randomcolors` |
 | `/hcut` | Detailed help for `/cut` |
 | `/hdarkness` | Detailed help for `/darkness` |
@@ -129,10 +129,10 @@ Players are identified by **numbers** (1, 2, 3…) — run `/players` to see the
 | `/randomcolors` | Random unique color for all | instant | 20s |
 | `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — the first player who moves die! | 7s total | 30s |
 | `/darkness` | Total darkness across the entire map | 10s | 35s |
-| `/freeze ID` | Freezes the target player in place | 8s | 30s |
-| `/action ID [A-D]` | Assign a basic secret script to a player! Scripts: A = NoReport (don't report bodies), B = SkipVote (skip the next vote), C = NoVents (don't use vents), D = VoteFirst (vote first this round). Players who disobey get eliminated! | Varies | 20s |
-| `/loc ID_player ID_zone` | Forbid a player from entering a specific zone (The Skeld only). Zone IDs: 1=Cafeteria, 2=Admin, 3=Electrical,4=Storage,5=Security,6=Reactor,7=UpperEngine,8=LowerEngine,9=Medbay,10=ElectricalHallway,11=Communications,12=Shields,13=O2,14=Navigation,15=Weapons | Until round end | 20s |
-| `/vote ID_player ID_target` | Force a player to vote for a specific target. | Until next meeting | 20s |
+| `/freeze LETTRE` | Freezes the target player in place | 8s | 30s |
+| `/action LETTRE [A-D]` | Assign a basic secret script to a player! Scripts: A = NoReport (don't report bodies), B = SkipVote (skip the next vote), C = NoVents (don't use vents), D = VoteFirst (vote first this round). Players who disobey get eliminated! | Varies | 20s |
+| `/loc LETTRE ID_zone` | Forbid a player from entering a specific zone (The Skeld only). Zone IDs: B=Admin, C=Electrical, D=Storage, E=Security, F=Reactor, G=UpperEngine, H=LowerEngine, I=Medbay, J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons | Until round end | 20s |
+| `/vote LETTRE LETTRE` | Force a player to vote for a specific target. | Until next meeting | 20s |
 
 ---
 
@@ -250,7 +250,7 @@ Nécessite le **SDK .NET 6**.
 
 ## ⌨️ Commandes
 
-Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/players` pour les voir.
+Les joueurs sont identifiés par des **lettres** (A, B, C…) — tape `/players` pour les voir.
 
 ### 🟢 Publiques (tout le monde)
 | Commande | Effet |
@@ -258,7 +258,7 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | `/welcome` | Message de bienvenue |
 | `/help` | Liste des commandes |
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
-| `/players` | Liste les joueurs et leurs ID-nums |
+| `/players` | Liste les joueurs et leurs ID-lettres |
 | `/hrandomcolors` | Aide détaillée pour `/randomcolors` |
 | `/hcut` | Aide détaillée pour `/cut` |
 | `/hdarkness` | Aide détaillée pour `/darkness` |
@@ -273,10 +273,10 @@ Les joueurs sont identifiés par des **numéros** (1, 2, 3…) — tape `/player
 | `/randomcolors` | Couleurs aléatoires pour tous | instantané | 20s |
 | `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — le premier joueur qui bouge meurt ! | 7s total | 30s |
 | `/darkness` | Noir TOTAL sur toute la map | 10s | 35s |
-| `/freeze ID` | Bloque le joueur ciblé sur place | 8s | 30s |
-| `/action ID [A-D]` | Donne un script secret à un joueur ! Utilise `/action ID` pour voir la liste des scripts. Scripts : A = NoReport (ne rapporte pas de corps), B = SkipVote (passe le prochain vote), C = NoVents (ne pas utiliser les vents), D = VoteFirst (vote en premier ce round). Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
-| `/loc ID_joueur ID_zone` | Interdit à un joueur d'entrer dans une zone spécifique (The Skeld seulement). IDs de zone : 1=Cafétéria, 2=Admin, 3=Electrical,4=Storage,5=Security,6=Réacteur,7=UpperEngine,8=LowerEngine,9=Medbay,10=CouloirElectrical,11=Communications,12=Shields,13=O2,14=Navigation,15=Weapons | Jusqu'à la fin du round | 20s |
-| `/vote ID_joueur ID_cible` | Force un joueur à voter pour une cible spécifique. | Jusqu'à la prochaine réunion | 20s |
+| `/freeze LETTRE` | Bloque le joueur ciblé sur place | 8s | 30s |
+| `/action LETTRE [A-D]` | Donne un script secret à un joueur ! Utilise `/action LETTRE` pour voir la liste des scripts. Scripts : A = NoReport (ne rapporte pas de corps), B = SkipVote (passe le prochain vote), C = NoVents (ne pas utiliser les vents), D = VoteFirst (vote en premier ce round). Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
+| `/loc LETTRE ID_zone` | Interdit à un joueur d'entrer dans une zone spécifique (The Skeld seulement). IDs de zone : B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine, H=LowerEngine, I=Medbay, J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons | Jusqu'à la fin du round | 20s |
+| `/vote LETTRE LETTRE` | Force un joueur à voter pour une cible spécifique. | Jusqu'à la prochaine réunion | 20s |
 
 ---
 

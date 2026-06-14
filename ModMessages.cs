@@ -16,8 +16,8 @@ namespace AU_TheDirectorsCut
         public const string Help3 = "<color=#ffd23f>INFO</color>: Utilise /h et la commande pour détails (/hcut, /hloc)";
         public const string Help3Plain = "INFO: Utilise /h et la commande pour détails (/hcut, /hloc)";
         
-        public const string HelpLoc = "<color=#ffd23f>/loc ID_joueur ID_zone</color> - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
-        public const string HelpLocPlain = "/loc ID_joueur ID_zone - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
+        public const string HelpLoc = "<color=#ffd23f>/loc LETTRE ID_zone</color> - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
+        public const string HelpLocPlain = "/loc LETTRE ID_zone - Interdit à un joueur d'aller dans une zone. Cooldown:20s";
         public const string LocList1 = "<color=#ffd23f>Zones (B-I):</color> B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
         public const string LocList1Plain = "Zones (B-I): B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine";
         public const string LocList2 = "<color=#ffd23f>Zones (J-N):</color> J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons, H=LowerEngine, I=Medbay";
@@ -25,14 +25,14 @@ namespace AU_TheDirectorsCut
         public const string LocList = LocList1; 
         public const string LocListPlain = LocList1Plain;
         
-        public const string HelpVote = "<color=#ffd23f>/vote ID_joueur ID_cible</color> - Force un joueur à voter pour une cible spécifique. Cooldown:20s";
-        public const string HelpVotePlain = "/vote ID_joueur ID_cible - Force un joueur à voter pour une cible spécifique. Cooldown:20s";
+        public const string HelpVote = "<color=#ffd23f>/vote LETTRE CIBLE</color> - Force un joueur à voter pour une cible spécifique. Cooldown:20s";
+        public const string HelpVotePlain = "/vote LETTRE CIBLE - Force un joueur à voter pour une cible spécifique. Cooldown:20s";
         
-        public const string UsageLoc = "Usage: /loc ID_joueur ID_zone (sans ID_zone pour voir la liste des zones)";
-        public const string UsageLocPlain = "Usage: /loc ID_joueur ID_zone (sans ID_zone pour voir la liste des zones)";
+        public const string UsageLoc = "Usage: /loc LETTRE ID_zone (ex: /loc A B pour interdir à la 1ère personne la zone B)";
+        public const string UsageLocPlain = "Usage: /loc LETTRE ID_zone (ex: /loc A B pour interdir à la 1ère personne la zone B)";
         
-        public const string UsageVote = "Usage: /vote ID_joueur ID_cible";
-        public const string UsageVotePlain = "Usage: /vote ID_joueur ID_cible";
+        public const string UsageVote = "Usage: /vote LETTRE CIBLE (ex: /vote A B pour forcer A à voter B)";
+        public const string UsageVotePlain = "Usage: /vote LETTRE CIBLE (ex: /vote A B pour forcer A à voter B)";
         
 
         
@@ -53,11 +53,11 @@ namespace AU_TheDirectorsCut
         public const string HelpDarkness = "<color=#ffd23f>/darkness</color> - NOIR TOTAL pendant 10s! Cooldown 35s";
         public const string HelpDarknessPlain = "/darkness - NOIR TOTAL pendant 10s! Cooldown 35s";
 
-        public const string HelpFreeze = "<color=#ffd23f>/freeze ID</color> - Bloque un joueur 8s ! Cooldown 30s";
-        public const string HelpFreezePlain = "/freeze ID - Bloque un joueur 8s ! Cooldown 30s";
+        public const string HelpFreeze = "<color=#ffd23f>/freeze LETTRE</color> - Bloque un joueur 8s ! Cooldown 30s";
+        public const string HelpFreezePlain = "/freeze LETTRE - Bloque un joueur 8s ! Cooldown 30s";
 
-        public const string HelpAction = "<color=#ffd23f>/action ID A-D</color> - Donne un script secret à un joueur ! Cooldown 20s";
-        public const string HelpActionPlain = "/action ID A-D - Donne un script secret à un joueur ! Cooldown 20s";
+        public const string HelpAction = "<color=#ffd23f>/action LETTRE SCRIPT</color> - Donne un script secret à un joueur ! Cooldown 20s";
+        public const string HelpActionPlain = "/action LETTRE SCRIPT - Donne un script secret à un joueur ! Cooldown 20s";
 
         public const string ActionList = "<color=#ffd23f>SCRIPTS</color>: A=NoReport, B=SkipVote, C=NoVents, D=VoteFirst (utilise /helpaction)";
         public const string ActionListPlain = "SCRIPTS:A=NoReport,B=SkipVote,C=NoVents,D=VoteFirst (utilise /helpaction)";
@@ -80,8 +80,8 @@ namespace AU_TheDirectorsCut
         public const string ActionAlreadyActive = "{0} a déjà un script actif !";
         public const string ActionAlreadyActivePlain = "{0} a déjà un script actif !";
 
-        public const string UsageAction = "Usage: /action ID A/B/C/D (sans lettre pour voir la liste)";
-        public const string UsageActionPlain = "Usage: /action ID A/B/C/D (sans lettre pour voir la liste)";
+        public const string UsageAction = "Usage: /action LETTRE SCRIPT (ex: /action A B pour donner SkipVote au joueur A)";
+        public const string UsageActionPlain = "Usage: /action LETTRE SCRIPT (ex: /action A B pour donner SkipVote au joueur A)";
 
         public const string GgNoGame = "<color=#ffd23f>FIN</color> - Aucune partie précédente";
         public const string GgNoGamePlain = "FIN - Aucune partie précédente";

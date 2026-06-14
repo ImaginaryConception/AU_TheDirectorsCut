@@ -286,6 +286,25 @@ namespace AU_TheDirectorsCut
             if (_cdMax.TryGetValue(cmd, out float max)) _cd[cmd] = max;
         }
 
+        private static string PlayerIdToLetter(byte playerId)
+        {
+            return ((char)('A' + playerId)).ToString();
+        }
+
+        private static bool LetterToPlayerId(string letter, out byte playerId)
+        {
+            playerId = 0;
+            if (string.IsNullOrEmpty(letter) || letter.Length != 1)
+                return false;
+
+            char c = char.ToUpperInvariant(letter[0]);
+            if (c < 'A' || c > 'Z')
+                return false;
+
+            playerId = (byte)(c - 'A');
+            return true;
+        }
+
         public static bool TryProcessCommand(PlayerControl sender, string raw)
         {
             if (!AmongUsClient.Instance.AmHost || sender == null) return false;
@@ -337,7 +356,7 @@ namespace AU_TheDirectorsCut
                         return true;
 
                     case "/setdirector":
-                        if (parts.Length >= 2 && byte.TryParse(parts[1], out byte did))
+                        if (parts.Length >= 2 && LetterToPlayerId(parts[1], out byte did))
                         {
                             var dtarget = FindById(did);
                             if (dtarget?.Data == null)
@@ -408,8 +427,8 @@ namespace AU_TheDirectorsCut
 
                         foreach (var p in players)
                         {
-                            string coloredPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "")}";
-                            string plainPart = $"{p.PlayerId} {p.Data.PlayerName}{(p.Data.IsDead ? " (éliminé)" : "")}";
+                            string coloredPart = $"{PlayerIdToLetter(p.PlayerId)} {p.Data.PlayerName}{(p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "")}";
+                            string plainPart = $"{PlayerIdToLetter(p.PlayerId)} {p.Data.PlayerName}{(p.Data.IsDead ? " (éliminé)" : "")}";
                             string sep = partsInCur > 0 ? " | " : "";
 
                             if ((plainCur + sep + plainPart).Length <= maxLen)
@@ -578,10 +597,10 @@ namespace AU_TheDirectorsCut
                     if (!TryCheckCooldown("/freeze", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Usage : /freeze ID", "Usage : /freeze ID");
+                        ChatManager.QueueSystemMessage(sender, "Usage : /freeze LETTRE (ex: /freeze A)", "Usage : /freeze LETTRE (ex: /freeze A)");
                         return true;
                     }
-                    if (!byte.TryParse(parts[1], out byte freezeTargetId))
+                    if (!LetterToPlayerId(parts[1], out byte freezeTargetId))
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
@@ -614,7 +633,7 @@ namespace AU_TheDirectorsCut
                         ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
                         return true;
                     }
-                    if (!byte.TryParse(parts[1], out byte actionTargetId))
+                    if (!LetterToPlayerId(parts[1], out byte actionTargetId))
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
@@ -663,14 +682,6 @@ namespace AU_TheDirectorsCut
                     
                     var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order, actionTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(actionTarget, coloredMsg, plainMsg);
-                    
-                    
-                    ChatManager.ShowHostLocal(
-                        string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName),
-                        string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName)
-                    );
-                    
-                    
                     SetCooldown("/action");
                     return true;
                     
@@ -688,7 +699,7 @@ namespace AU_TheDirectorsCut
                         ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
                         return true;
                     }
-                    if (!byte.TryParse(parts[1], out byte locTargetId))
+                    if (!LetterToPlayerId(parts[1], out byte locTargetId))
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
@@ -732,14 +743,6 @@ namespace AU_TheDirectorsCut
                     
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(locTarget, locColored, locPlain);
-                    
-                    
-                    ChatManager.ShowHostLocal(
-                        string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName),
-                        string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName)
-                    );
-                    
-                    
                     SetCooldown("/loc");
                     return true;
                     
@@ -755,12 +758,12 @@ namespace AU_TheDirectorsCut
                         ChatManager.QueueSystemMessage(sender, ModMessages.UsageVote, ModMessages.UsageVotePlain);
                         return true;
                     }
-                    if (!byte.TryParse(parts[1], out byte voteTargetId))
+                    if (!LetterToPlayerId(parts[1], out byte voteTargetId))
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
                     }
-                    if (!byte.TryParse(parts[2], out byte voteForId))
+                    if (!LetterToPlayerId(parts[2], out byte voteForId))
                     {
                         ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
                         return true;
@@ -805,14 +808,6 @@ namespace AU_TheDirectorsCut
                     
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(voteTarget, voteColored, votePlain);
-                    
-                    
-                    ChatManager.ShowHostLocal(
-                        string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName),
-                        string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName)
-                    );
-                    
-                    
                     SetCooldown("/vote");
                     return true;
 
