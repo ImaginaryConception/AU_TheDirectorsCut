@@ -16,7 +16,7 @@
 
 ---
 
-## 🎥 What is this? / Le concept
+## 🎥 What is this? / Le concept 
 
 When the **first player dies**, they don't leave — they take over as the **Director**. From beyond the grave they stop playing Among Us and start *directing* it.
 
