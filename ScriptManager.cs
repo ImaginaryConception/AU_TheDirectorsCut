@@ -17,7 +17,7 @@ namespace AU_TheDirectorsCut
         StayOut = 5,
         VoteForPlayer = 6
     }
-    
+     
     public enum MapLocation
     {
         

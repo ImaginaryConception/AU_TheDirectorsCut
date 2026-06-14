@@ -280,7 +280,7 @@ namespace AU_TheDirectorsCut
             }
             return true;
         }
-
+ 
         private static void SetCooldown(string cmd)
         {
             if (_cdMax.TryGetValue(cmd, out float max)) _cd[cmd] = max;

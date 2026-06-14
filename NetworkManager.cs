@@ -18,7 +18,7 @@ namespace AU_TheDirectorsCut
             PlayerControl.AllPlayerControls.ToArray()
                 .Where(p => p?.Data != null && !p.Data.IsDead && !p.Data.Disconnected)
                 .ToList();
-
+ 
         private static PlayerControl FindById(byte id) =>
             PlayerControl.AllPlayerControls.ToArray().FirstOrDefault(p => p?.PlayerId == id);
 
