@@ -9,6 +9,10 @@ namespace AU_TheDirectorsCut
 {
     public static class NetworkManager
     {
+
+        public static float LastKillRpcSentAt { get; private set; } = float.NegativeInfinity;
+        public static string? LastKillRpcDescription { get; private set; }
+
         public static void Initialize() =>
             Plugin.Log?.LogInfo("[NetworkManager] Initialisé.");
 
@@ -148,21 +152,25 @@ namespace AU_TheDirectorsCut
             if (!IsHost() || target == null || target.Data.IsDead) return;
             try
             {
-                if (target == PlayerControl.LocalPlayer)
-                {
-                    target.Data.IsDead = true;
-                    var writer = AmongUsClient.Instance.StartRpcImmediately(
-                        PlayerControl.LocalPlayer.NetId, 
-                        (byte)RpcCalls.MurderPlayer, 
-                        Hazel.SendOption.Reliable);
-                    writer.WritePacked(target.NetId); 
-                    writer.Write(true); 
-                    AmongUsClient.Instance.FinishRpcImmediately(writer);
-                }
-                else
-                {
-                    PlayerControl.LocalPlayer.RpcMurderPlayer(target, true);
-                }
+
+
+
+
+                Plugin.Log?.LogInfo($"[NetworkManager] MurderPlayer (self-RPC) → {target.Data.PlayerName} (PlayerId={target.PlayerId}, NetId={target.NetId})");
+
+                LastKillRpcSentAt = Time.time;
+                LastKillRpcDescription = $"MurderPlayer → {target.Data.PlayerName} (PlayerId={target.PlayerId})";
+
+                var writer = AmongUsClient.Instance.StartRpcImmediately(
+                    target.NetId,
+                    (byte)RpcCalls.MurderPlayer,
+                    Hazel.SendOption.Reliable);
+                writer.WritePacked(target.NetId);
+                writer.Write(true);
+                AmongUsClient.Instance.FinishRpcImmediately(writer);
+
+
+                target.MurderPlayer(target, MurderResultFlags.Succeeded);
             }
             catch (Exception e) { Log(nameof(MurderPlayer), e); }
         }
