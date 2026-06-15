@@ -573,7 +573,7 @@ namespace AU_TheDirectorsCut
                         if (string.IsNullOrWhiteSpace(link))
                             ChatManager.QueueSystemMessage(sender, ModMessages.Discord, ModMessages.DiscordPlain);
                         else
-                            ChatManager.QueueSystemMessage(sender, $"<b><color=#5865F2>Discord</color></b> : {link}", $"Discord : {link}");
+                            ChatManager.QueueSystemMessage(sender, $"<b><color=#5865F2>Discord</color></b> : <color=#5865F2><u>{link}</u></color>", $"Discord : {link}");
                     }
                     return true;
 

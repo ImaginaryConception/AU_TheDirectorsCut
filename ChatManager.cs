@@ -407,6 +407,23 @@ namespace AU_TheDirectorsCut
         // continu par ProcessPendingWelcome (appelé chaque frame depuis Pump). No-op.
         public static void CheckNewPlayers() { }
 
+        // Construit le message de bienvenue, en y ajoutant le lien Discord configuré (si défini).
+        private static (string plain, string colored) BuildWelcome()
+        {
+            string colored = ModMessages.Welcome;
+            string plain = ModMessages.WelcomePlain;
+            string link = ModConfig.DiscordLink?.Value;
+            if (!string.IsNullOrWhiteSpace(link))
+            {
+                colored += $"\n<b><color=#5865F2>Discord</color></b> : <color=#5865F2><u>{link}</u></color>";
+                plain += $"\nDiscord : {link}";
+            }
+            // Pseudos pour les ajouts directs (alternative à la copie du lien)
+            colored += "\n" + ModMessages.DiscordContacts;
+            plain += "\n" + ModMessages.DiscordContactsPlain;
+            return (plain, colored);
+        }
+
         // Oublie qui a déjà été accueilli (appelé à la fin d'une partie) pour que tous les
         // joueurs de retour au lobby reçoivent le récap GG.
         public static void ClearSentWelcome()
@@ -445,7 +462,8 @@ namespace AU_TheDirectorsCut
                 }
                 else
                 {
-                    SendPrivate(pc, ModMessages.WelcomePlain, ModMessages.Welcome);
+                    var (wp, wc) = BuildWelcome();
+                    SendPrivate(pc, wp, wc);
                     Plugin.Log?.LogInfo($"[ChatManager] Welcome envoyé à {pc.Data.PlayerName} !");
                 }
 

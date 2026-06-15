@@ -21,8 +21,8 @@ namespace AU_TheDirectorsCut
                 "Donne au bot un pseudo bleu ET une couleur d'avatar distincte. Mettre false pour ne garder que le pseudo bleu.");
 
             DiscordLink = config.Bind(
-                "Général", "DiscordLink", "",
-                "Lien d'invitation Discord affiché par /discord. Laisser vide pour afficher les contacts par défaut.");
+                "Général", "DiscordLink", "https://discord.gg/X58Z2dNZ96",
+                "Lien d'invitation Discord affiché par /discord et dans le message de bienvenue. Laisser vide pour afficher les contacts par défaut.");
         }
     }
 }

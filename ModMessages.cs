@@ -167,6 +167,10 @@ namespace AU_TheDirectorsCut
         public const string Discord = "<b><color=#ffd23f>Discord</color></b> : imaginaryconception ou kalinina_sn";
         public const string DiscordPlain = "Discord : imaginaryconception ou kalinina_sn";
 
+        // Pseudos à ajouter (pour ceux qui préfèrent ajouter directement plutôt que copier le lien)
+        public const string DiscordContacts = "<b>Ajouts directs</b> : imaginaryconception · kalinina_sn";
+        public const string DiscordContactsPlain = "Ajouts directs : imaginaryconception · kalinina_sn";
+
         public const string SetImpostorSuccess = "<b><color=#ff6b6b>{0}</color></b> est désormais Imposteur !";
         public const string SetImpostorSuccessPlain = "{0} est desormais Imposteur !";
 
