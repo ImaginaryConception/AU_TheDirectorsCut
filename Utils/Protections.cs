@@ -10,7 +10,11 @@ namespace AU_TheDirectorsCut.Utils
         [HarmonyPatch(typeof(InnerNetClient), nameof(InnerNetClient.SetEndpoint))]
         public static class ForceDTLS
         {
-            public static bool Enabled { get; set; } = true;
+            // Désactivé par défaut : forcer dtls=true écrasait le réglage natif
+            // du jeu et faisait échouer la négociation DTLS à la création d'un
+            // lobby ("DTLS negotiation failed after 35 resends"). Laisser Among Us
+            // décider lui-même du transport.
+            public static bool Enabled { get; set; } = false;
             static void Prefix(ref bool dtls)
             {
                 if (Enabled) dtls = true;

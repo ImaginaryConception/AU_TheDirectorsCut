@@ -1390,14 +1390,11 @@ namespace AU_TheDirectorsCut
 
 
     
-    [HarmonyPatch(typeof(InnerNetClient), nameof(InnerNetClient.SetEndpoint))]
-    static class HydraForceDTLS
-    {
-        static void Prefix(ref bool dtls)
-        {
-            dtls = true;
-        }
-    }
+    // [SUPPRIMÉ] HydraForceDTLS : forçait dtls=true sur chaque appel à
+    // InnerNetClient.SetEndpoint, ce qui écrasait le réglage natif du jeu et
+    // faisait échouer la négociation DTLS à la création d'un lobby
+    // ("DTLS negotiation failed after 35 resends"). On laisse Among Us gérer
+    // lui-même le transport.
 
     [HarmonyPatch(typeof(CustomNetworkTransform), nameof(CustomNetworkTransform.HandleRpc))]
     static class HydraBlockServerTeleports
