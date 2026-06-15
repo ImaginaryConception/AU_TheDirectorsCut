@@ -226,45 +226,23 @@ namespace AU_TheDirectorsCut
         private static void ProcessPendingGG()
         {
             if (!AmongUsClient.Instance.AmHost || _ggPlayerQueue.Count == 0) return;
+            if (ShipStatus.Instance != null) return; // GG en lobby uniquement
 
-            
-            
-            if (ShipStatus.Instance != null) return;
-            
-            
-            
-            if (_lobbyReadyTime < 0f) return;
-            if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
+            // Instantané : on envoie le GG à TOUS les joueurs en file, d'un coup.
+            while (_ggPlayerQueue.Count > 0)
+            {
+                byte pid = _ggPlayerQueue[0];
+                _ggPlayerQueue.RemoveAt(0);
 
-            float minWait = 0f;
-            
-            
-            if (Time.time < _nextGgTime) return;
-            
-            
-            if (HudManager.Instance?.Chat != null && HudManager.Instance.Chat.timeSinceLastMessage < minWait)
-            {
-                return;
-            }
-            
-            
-            byte pid = _ggPlayerQueue[0];
-            _ggPlayerQueue.RemoveAt(0);
-            
-            PlayerControl target = null;
-            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-                if (pc?.PlayerId == pid) { target = pc; break; }
-                
-            if (target?.Data != null && target.OwnerId >= 0)
-            {
-                SendPrivate(target, GenerateGGMessagePlain(), GenerateGGMessageColored());
-                Plugin.Log?.LogInfo($"[ChatManager] GG sent to {target.Data.PlayerName}!");
-                
-                
-                if (HudManager.Instance?.Chat != null)
-                    HudManager.Instance.Chat.timeSinceLastMessage = 0f;
-                
-                _nextGgTime = Time.time + 0f;
+                PlayerControl target = null;
+                foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                    if (pc?.PlayerId == pid) { target = pc; break; }
+
+                if (target?.Data != null && target.OwnerId >= 0)
+                {
+                    SendPrivate(target, GenerateGGMessagePlain(), GenerateGGMessageColored());
+                    Plugin.Log?.LogInfo($"[ChatManager] GG envoyé à {target.Data.PlayerName} !");
+                }
             }
         }
 
@@ -493,88 +471,34 @@ namespace AU_TheDirectorsCut
         private static void ProcessPendingWelcome()
         {
             if (!AmongUsClient.Instance.AmHost || _welcomeQueue.Count == 0) return;
+            if (ShipStatus.Instance != null) return; // welcomes/récap en lobby uniquement
 
-            // Vérifier et réinitialiser le wave counter si la fenêtre est expirée
-            if (Time.time >= _waveResetTime)
+            // Instantané : on traite TOUTE la file d'un coup, sans délai ni anti-spam.
+            // Un joueur déjà présent en mémoire de fin de partie reçoit le GG, sinon le welcome.
+            while (_welcomeQueue.Count > 0)
             {
-                _welcomesSentInWave = 0;
-                _waveResetTime = Time.time + WaveResetWindow;
-                _fallbackMode = false;
-            }
-
-            // FALLBACK: Si trop de messages envoyés, skip les prochains
-            if (_fallbackMode)
-            {
+                byte pid = _welcomeQueue[0].playerId;
                 _welcomeQueue.RemoveAt(0);
-                Plugin.Log?.LogWarning("[ChatManager] FALLBACK: Welcome skippé (trop de spam détecté)");
-                return;
-            }
-            
-            if (ShipStatus.Instance != null) return;
-            
-            
-            if (_lobbyReadyTime < 0f) return;
-            if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
 
-            float minWait = 0f;
-            
-            
-            var firstItem = _welcomeQueue[0];
-            byte pid = firstItem.playerId;
-            float earliestSendTime = firstItem.earliestSendTime;
-            
-            
-            if (Time.time < earliestSendTime) return;
-            
-            
-            if (Time.time < _nextWelcomeTime) return;
-            
-            
-            if (HudManager.Instance?.Chat != null && HudManager.Instance.Chat.timeSinceLastMessage < minWait)
-            {
-                return;
-            }
-            
-            
-            _welcomeQueue.RemoveAt(0);
-            
-            PlayerControl target = null;
-            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-                if (pc?.PlayerId == pid) { target = pc; break; }
-                    
-            if (target?.Data != null && target.OwnerId >= 0)
-            {
-                
+                PlayerControl target = null;
+                foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+                    if (pc?.PlayerId == pid) { target = pc; break; }
+                if (target?.Data == null || target.OwnerId < 0) continue;
+
                 bool isReturningPlayer = DirectorCore.LastAlive.Contains(target.Data.PlayerName) || DirectorCore.LastDead.Contains(target.Data.PlayerName);
                 bool hasGG = DirectorCore.LastAlive.Count > 0 || DirectorCore.LastDead.Count > 0;
 
-                Plugin.Log?.LogInfo($"[ChatManager] Traitement de {target.Data.PlayerName} (id={pid}): isReturning={isReturningPlayer}, hasGG={hasGG}");
-                
                 if (isReturningPlayer && hasGG)
                 {
-                    
                     SendPrivate(target, GenerateGGMessagePlain(), GenerateGGMessageColored());
-                    Plugin.Log?.LogInfo($"[ChatManager] GG envoyé à {target.Data.PlayerName} (joueur de retour)!");
+                    Plugin.Log?.LogInfo($"[ChatManager] GG envoyé à {target.Data.PlayerName} (joueur de retour) !");
                 }
                 else
                 {
-                    
                     SendPrivate(target, ModMessages.WelcomePlain, ModMessages.Welcome);
-                    Plugin.Log?.LogInfo($"[ChatManager] Welcome envoyé à {target.Data.PlayerName} (nouveau joueur)!");
+                    Plugin.Log?.LogInfo($"[ChatManager] Welcome envoyé à {target.Data.PlayerName} (nouveau joueur) !");
                 }
 
-                // Incrémenter le wave counter et détecter le spam
-                _welcomesSentInWave++;
-                if (_welcomesSentInWave >= MaxWelcomesPerWave)
-                {
-                    _fallbackMode = true;
-                    Plugin.Log?.LogWarning($"[ChatManager] FALLBACK ACTIVÉ: {_welcomesSentInWave} messages en {WaveResetWindow}s - prochains messages skippés");
-                }
-                
-                if (HudManager.Instance?.Chat != null)
-                    HudManager.Instance.Chat.timeSinceLastMessage = 0f;
-                
-                _nextWelcomeTime = Time.time + 0f;
                 _sentWelcome.Add(pid);
             }
         }
