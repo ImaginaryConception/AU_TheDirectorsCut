@@ -218,9 +218,10 @@ namespace AU_TheDirectorsCut
             Plugin.Log?.LogInfo($"[Director] Le Réalisateur \"{formerName}\" a quitté la partie — poste VACANT. La prochaine mort deviendra le nouveau Réalisateur.");
 
             
-            ChatManager.ShowHostLocal(
-                $"<color=#ffd23f>RÉALISATEUR</color> : {formerName} a quitté — poste vacant, prochaine mort = nouveau Réalisateur.",
-                $"RÉALISATEUR : {formerName} a quitté — poste vacant, prochaine mort = nouveau Réalisateur."
+            // Annonce PUBLIQUE (visible par tous)
+            ChatManager.Queue(
+                $"<b><color=#ffd23f>RÉALISATEUR</color></b> : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur.",
+                $"RÉALISATEUR : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur."
             );
         }
 
@@ -1554,7 +1555,10 @@ namespace AU_TheDirectorsCut
                 {
                     PendingAutoGG = false;
                     pendingAutoGGDelay = 0f;
-                    Plugin.Log?.LogInfo("[DirectorCore] Fin de partie → récap délégué au flux welcome.");
+                    // On oublie les welcomes déjà envoyés pour que tous les joueurs de retour
+                    // au lobby reçoivent le récap GG via le scan de ProcessPendingWelcome.
+                    ChatManager.ClearSentWelcome();
+                    Plugin.Log?.LogInfo("[DirectorCore] Fin de partie → récap GG délégué au flux welcome.");
                 }
             }
 

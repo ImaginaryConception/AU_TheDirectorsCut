@@ -403,104 +403,57 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        public static void CheckNewPlayers()
+        // Conservé pour les patches Start/HudStart, mais le welcome est désormais géré en
+        // continu par ProcessPendingWelcome (appelé chaque frame depuis Pump). No-op.
+        public static void CheckNewPlayers() { }
+
+        // Oublie qui a déjà été accueilli (appelé à la fin d'une partie) pour que tous les
+        // joueurs de retour au lobby reçoivent le récap GG.
+        public static void ClearSentWelcome()
         {
-            if (!AmongUsClient.Instance.AmHost) return;
-            if (ShipStatus.Instance != null) return;
-            Plugin.Log?.LogInfo($"[ChatManager] CheckNewPlayers() called!");
-
-            
-            
-            if (_lobbyReadyTime < 0f)
-            {
-                _lobbyReadyTime = Time.time;
-                Plugin.Log?.LogInfo("[ChatManager] Lobby actif — départ du délai de stabilisation.");
-            }
-            
-            
-            var currentPlayerIds = new HashSet<byte>();
-            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-            {
-                if (pc == null || pc.Data == null) continue;
-                currentPlayerIds.Add(pc.PlayerId);
-            }
-            
-            
-            foreach (var id in _sentWelcome.ToArray())
-            {
-                if (!currentPlayerIds.Contains(id))
-                {
-                    _sentWelcome.Remove(id);
-                    Plugin.Log?.LogInfo($"[ChatManager] Removed player {id} from sent welcome (no longer present)");
-                }
-            }
-            
-            for (int i = _welcomeQueue.Count - 1; i >= 0; i--)
-            {
-                if (!currentPlayerIds.Contains(_welcomeQueue[i].playerId))
-                {
-                    _welcomeQueue.RemoveAt(i);
-                    Plugin.Log?.LogInfo($"[ChatManager] Removed player {_welcomeQueue[i].playerId} from welcome queue (no longer present)");
-                }
-            }
-            
-            
-            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-            {
-                if (pc == null || pc.Data == null) continue;
-                
-                
-                bool alreadyProcessed = _sentWelcome.Contains(pc.PlayerId);
-                foreach (var item in _welcomeQueue)
-                {
-                    if (item.playerId == pc.PlayerId)
-                    {
-                        alreadyProcessed = true;
-                        break;
-                    }
-                }
-                if (alreadyProcessed) continue;
-
-                
-                float earliestSendTime = Mathf.Max(Time.time + WelcomeDelaySec, _lobbyReadyTime + LobbySettleSec);
-                _welcomeQueue.Add((pc.PlayerId, earliestSendTime));
-                Plugin.Log?.LogInfo($"[ChatManager] {pc.Data.PlayerName} (id={pc.PlayerId}) ajouté à la file d'attente, envoi possible à {earliestSendTime}!");
-            }
+            _sentWelcome.Clear();
+            Plugin.Log?.LogInfo("[ChatManager] Suivi welcome réinitialisé (fin de partie → récap GG).");
         }
 
+        // REFONTE : plus de file ni de hooks fragiles. À chaque frame (en lobby), on scanne
+        // tous les joueurs présents et on envoie le message à tout joueur pas encore accueilli.
+        // Auto-réparant : si un joueur n'était pas prêt (nom/OwnerId pas encore reçus), il sera
+        // accueilli dès la frame suivante. Joueur "de retour" → récap GG, sinon → welcome.
         private static void ProcessPendingWelcome()
         {
-            if (!AmongUsClient.Instance.AmHost || _welcomeQueue.Count == 0) return;
-            if (ShipStatus.Instance != null) return; // welcomes/récap en lobby uniquement
+            if (!AmongUsClient.Instance.AmHost) return;
+            if (ShipStatus.Instance != null) return;            // lobby uniquement
+            if (HudManager.Instance?.Chat == null) return;      // chat prêt
 
-            // Instantané : on traite TOUTE la file d'un coup, sans délai ni anti-spam.
-            // Un joueur déjà présent en mémoire de fin de partie reçoit le GG, sinon le welcome.
-            while (_welcomeQueue.Count > 0)
+            var currentIds = new HashSet<byte>();
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
-                byte pid = _welcomeQueue[0].playerId;
-                _welcomeQueue.RemoveAt(0);
+                if (pc?.Data == null) continue;
+                currentIds.Add(pc.PlayerId);
 
-                PlayerControl target = null;
-                foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
-                    if (pc?.PlayerId == pid) { target = pc; break; }
-                if (target?.Data == null || target.OwnerId < 0) continue;
+                if (pc.OwnerId < 0 || pc.Data.Disconnected) continue;
+                if (string.IsNullOrEmpty(pc.Data.PlayerName)) continue; // pas encore initialisé
+                if (_sentWelcome.Contains(pc.PlayerId)) continue;
 
-                bool isReturningPlayer = DirectorCore.LastAlive.Contains(target.Data.PlayerName) || DirectorCore.LastDead.Contains(target.Data.PlayerName);
+                bool isReturning = DirectorCore.LastAlive.Contains(pc.Data.PlayerName) || DirectorCore.LastDead.Contains(pc.Data.PlayerName);
                 bool hasGG = DirectorCore.LastAlive.Count > 0 || DirectorCore.LastDead.Count > 0;
 
-                if (isReturningPlayer && hasGG)
+                if (isReturning && hasGG)
                 {
-                    SendPrivate(target, GenerateGGMessagePlain(), GenerateGGMessageColored());
-                    Plugin.Log?.LogInfo($"[ChatManager] GG envoyé à {target.Data.PlayerName} (joueur de retour) !");
+                    SendPrivate(pc, GenerateGGMessagePlain(), GenerateGGMessageColored());
+                    Plugin.Log?.LogInfo($"[ChatManager] GG envoyé à {pc.Data.PlayerName} (retour) !");
                 }
                 else
                 {
-                    SendPrivate(target, ModMessages.WelcomePlain, ModMessages.Welcome);
-                    Plugin.Log?.LogInfo($"[ChatManager] Welcome envoyé à {target.Data.PlayerName} (nouveau joueur) !");
+                    SendPrivate(pc, ModMessages.WelcomePlain, ModMessages.Welcome);
+                    Plugin.Log?.LogInfo($"[ChatManager] Welcome envoyé à {pc.Data.PlayerName} !");
                 }
 
-                _sentWelcome.Add(pid);
+                _sentWelcome.Add(pc.PlayerId);
             }
+
+            // Oublier les joueurs partis pour les ré-accueillir s'ils reviennent.
+            _sentWelcome.RemoveWhere(id => !currentIds.Contains(id));
         }
 
 
