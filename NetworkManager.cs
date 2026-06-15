@@ -190,5 +190,100 @@ namespace AU_TheDirectorsCut
                 try { p.RpcSetColor(c); } catch (Exception e) { Log("RpcSetColor", e); }
             }
         }
+
+
+        // ===== /colorblinds =====
+        // SetName RPC : payload = (uint32 Data.NetId)(string nom).
+        private static void WName(Hazel.MessageWriter w, PlayerControl p, string n)
+        { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }
+
+        // Renomme un joueur (admin /rename) : diffusion réseau + application locale.
+        public static void SetPlayerName(PlayerControl p, string name)
+        {
+            if (!IsHost() || p?.Data == null || string.IsNullOrEmpty(name)) return;
+            try
+            {
+                var w = Hazel.MessageWriter.Get(Hazel.SendOption.Reliable);
+                w.StartMessage(5);
+                w.Write(AmongUsClient.Instance.GameId);
+                WName(w, p, name);
+                w.EndMessage();
+                AmongUsClient.Instance.SendOrDisconnect(w);
+                w.Recycle();
+                p.Data.PlayerName = name;
+            }
+            catch (Exception e) { Log(nameof(SetPlayerName), e); }
+        }
+
+        // Met tout le monde en gris (couleur 15) et masque les noms (espace).
+        // RpcSetColor applique localement + réseau ; les noms sont diffusés (tag 5)
+        // puis appliqués localement côté hôte pour cohérence d'affichage.
+        public static void GreyAllAndHideNames()
+        {
+            if (!IsHost()) return;
+            try
+            {
+                foreach (var p in PlayerControl.AllPlayerControls.ToArray())
+                {
+                    if (p?.Data == null || p.Data.Disconnected) continue;
+                    try { p.RpcSetColor(15); } catch (Exception e) { Log("ColorBlindColor", e); }
+                }
+
+                var w = Hazel.MessageWriter.Get(Hazel.SendOption.Reliable);
+                w.StartMessage(5);
+                w.Write(AmongUsClient.Instance.GameId);
+                foreach (var p in PlayerControl.AllPlayerControls.ToArray())
+                {
+                    if (p?.Data == null || p.Data.Disconnected) continue;
+                    WName(w, p, " ");
+                }
+                w.EndMessage();
+                AmongUsClient.Instance.SendOrDisconnect(w);
+                w.Recycle();
+
+                foreach (var p in PlayerControl.AllPlayerControls.ToArray())
+                {
+                    if (p?.Data == null || p.Data.Disconnected) continue;
+                    p.Data.PlayerName = " ";
+                }
+            }
+            catch (Exception e) { Log(nameof(GreyAllAndHideNames), e); }
+        }
+
+        // Restaure couleurs + noms d'origine mémorisés.
+        public static void RestoreColorsAndNames(Dictionary<byte, (int colorId, string name)> originals)
+        {
+            if (!IsHost() || originals == null) return;
+            try
+            {
+                foreach (var kv in originals)
+                {
+                    var p = FindById(kv.Key);
+                    if (p?.Data == null) continue;
+                    try { p.RpcSetColor((byte)kv.Value.colorId); } catch (Exception e) { Log("RestoreColor", e); }
+                }
+
+                var w = Hazel.MessageWriter.Get(Hazel.SendOption.Reliable);
+                w.StartMessage(5);
+                w.Write(AmongUsClient.Instance.GameId);
+                foreach (var kv in originals)
+                {
+                    var p = FindById(kv.Key);
+                    if (p?.Data == null) continue;
+                    WName(w, p, kv.Value.name);
+                }
+                w.EndMessage();
+                AmongUsClient.Instance.SendOrDisconnect(w);
+                w.Recycle();
+
+                foreach (var kv in originals)
+                {
+                    var p = FindById(kv.Key);
+                    if (p?.Data == null) continue;
+                    p.Data.PlayerName = kv.Value.name;
+                }
+            }
+            catch (Exception e) { Log(nameof(RestoreColorsAndNames), e); }
+        }
     }
 }

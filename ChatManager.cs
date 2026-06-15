@@ -11,6 +11,16 @@ namespace AU_TheDirectorsCut
     {
         internal static bool IsSending = false;
 
+        // ===== Identité du bot =====
+        // Pseudo affiché par le bot dans le chat. Les balises <color> sont rendues
+        // dans le nom (pas d'anti-cheat sur serveur privé). Bleu.
+        private const string BotName = "<color=#3B9DFF>The Director's Cut</color>";
+        // Couleur d'avatar du bot dans la bulle de chat. 1 = Blue (cf. Palette.ColorNames).
+        private const byte BotColorId = 1;
+        // Si true, on change aussi la couleur de l'avatar (en plus du nom).
+        // Piloté par la config (BepInEx) ; true par défaut si la config n'est pas prête.
+        private static bool BotCosmetics => ModConfig.BotCosmetics?.Value ?? true;
+
         
         internal static readonly Dictionary<string, string> _colorMap = new();
 
@@ -21,15 +31,17 @@ namespace AU_TheDirectorsCut
         private const int MaxQueueSize = 20; 
 
         
-        private const int MaxChatChars = 100;
-        private const int MaxChatBytes = 100;
+        // Plus de découpage : on autorise les longs messages formatés (gras, couleurs,
+        // sauts de ligne). On garde juste un plafond de sécurité large pour ne pas
+        // dépasser la taille d'un paquet Hazel fiable (~MTU) et risquer un drop.
+        private const int MaxChatChars = 1500;
+        private const int MaxChatBytes = 1200;
         public static string SafeChat(string s)
         {
             if (string.IsNullOrEmpty(s)) return s;
             if (s.Length > MaxChatChars) s = s.Substring(0, MaxChatChars - 3) + "...";
-            
-            
-            
+
+            // Filet de sécurité transport : ne tronque que les messages réellement énormes.
             while (System.Text.Encoding.UTF8.GetByteCount(s) > MaxChatBytes && s.Length > 1)
                 s = s.Substring(0, s.Length - 1);
             return s;
@@ -56,32 +68,21 @@ namespace AU_TheDirectorsCut
                 // Afficher localement uniquement si le message est pour nous
                 if (target == PlayerControl.LocalPlayer)
                 {
-                    try
-                    {
-                        IsSending = true;
-                        HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                        IsSending = false;
-                    }
-                    catch { IsSending = false; }
+                    AddChatLocal(speaker, coloredMsg);
                 }
                 else
                 {
-                    // Envoyer le message via réseau au destinataire
-                    const string sysName = "System";
-                    string orig = speaker.Data.PlayerName;
-
+                    // Envoyer le message via réseau au destinataire (privé → tag 6 ciblé)
                     var w = MessageWriter.Get(SendOption.Reliable);
                     w.StartMessage(6);
                     w.Write(AmongUsClient.Instance.GameId);
                     w.WritePacked(target.OwnerId);
-                    WSetName(w, speaker, sysName);
-                    WSendChat(w, speaker, SafeChat(plainMsg));
-                    WSetName(w, speaker, orig);
+                    WBotChat(w, speaker, coloredMsg);
                     w.EndMessage();
                     AmongUsClient.Instance.SendOrDisconnect(w);
                     w.Recycle();
                 }
-                
+
                 Plugin.Log?.LogInfo($"[ChatManager] Message envoyé (privé) → {target.Data.PlayerName}: {plainMsg}");
             }
             catch (Exception e) { Plugin.Log?.LogError($"[SendPrivate] {e.Message}"); }
@@ -101,35 +102,23 @@ namespace AU_TheDirectorsCut
                 // Afficher localement uniquement si le message est pour nous
                 if (target == PlayerControl.LocalPlayer)
                 {
-                    try
-                    {
-                        IsSending = true;
-                        HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                        IsSending = false;
-                    }
-                    catch { IsSending = false; }
+                    AddChatLocal(speaker, coloredMsg);
                 }
-                
+
                 _colorMap[plainMsg] = coloredMsg;
-                
+
                 if (inLobby || inMeeting)
                 {
-                    
+
                     SendPrivate(target, plainMsg, coloredMsg);
                 }
                 else
                 {
-                    
-                    const string sysName = "Director";
-                    string orig = speaker.Data.PlayerName;
-
                     var w = MessageWriter.Get(SendOption.Reliable);
-                    w.StartMessage(6); 
+                    w.StartMessage(6);
                     w.Write(AmongUsClient.Instance.GameId);
-                    w.WritePacked(target.OwnerId); 
-                    WSetName(w, speaker, sysName);
-                    WSendChat(w, speaker, SafeChat(plainMsg));
-                    WSetName(w, speaker, orig);
+                    w.WritePacked(target.OwnerId);
+                    WBotChat(w, speaker, coloredMsg);
                     w.EndMessage();
                     AmongUsClient.Instance.SendOrDisconnect(w);
                     w.Recycle();
@@ -147,14 +136,8 @@ namespace AU_TheDirectorsCut
         {
             var speaker = PlayerControl.LocalPlayer;
             if (speaker == null || HudManager.Instance?.Chat == null) return;
-            try
-            {
-                _colorMap[plainMsg] = coloredMsg;
-                IsSending = true;
-                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                IsSending = false;
-            }
-            catch (Exception e) { IsSending = false; Plugin.Log?.LogError($"[ShowHostLocal] {e.Message}"); }
+            _colorMap[plainMsg] = coloredMsg;
+            AddChatLocal(speaker, coloredMsg);
         }
 
         public static void Queue(string coloredMsg, string plainMsg)
@@ -216,33 +199,27 @@ namespace AU_TheDirectorsCut
             ProcessPendingGG();
 
             if (_queue.Count == 0) return;
-            
-            
-            bool inLobby = ShipStatus.Instance == null;
-            if (inLobby)
+
+            // Plus d'attente artificielle : on vide TOUTE la file dès cette frame.
+            // Les réponses aux commandes s'affichent donc instantanément, tout en
+            // restant dans le contexte sûr de ChatController.Update et en conservant
+            // la confidentialité (messages ciblés via SendSystemMessage / tag 6).
+            while (_queue.Count > 0)
             {
-                if (_lobbyReadyTime < 0f) return;
-                if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
+                var (plain, colored, _, target) = _queue.Dequeue();
+
+                if (target != null)
+                {
+                    SendSystemMessage(target, plain, colored);
+                }
+                else
+                {
+                    var speaker = LowestAlive() ?? PlayerControl.LocalPlayer;
+                    if (speaker == null) break;
+                    Send(speaker, plain, colored);
+                }
             }
 
-            
-            var head = _queue.Peek();
-            float minWait = head.wait >= 0f ? head.wait : ((ShipStatus.Instance == null) ? 5.0f : 2.0f);
-            if (chat.timeSinceLastMessage < minWait) return;
-
-            var (plain, colored, _, target) = _queue.Dequeue();
-            
-            if (target != null)
-            {
-                SendSystemMessage(target, plain, colored);
-            }
-            else
-            {
-                var speaker = LowestAlive() ?? PlayerControl.LocalPlayer;
-                if (speaker == null) return;
-                Send(speaker, plain, colored);
-            }
-            
             chat.timeSinceLastMessage = 0f;
         }
         
@@ -259,7 +236,7 @@ namespace AU_TheDirectorsCut
             if (_lobbyReadyTime < 0f) return;
             if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
 
-            float minWait = 5.0f;
+            float minWait = 0f;
             
             
             if (Time.time < _nextGgTime) return;
@@ -287,32 +264,20 @@ namespace AU_TheDirectorsCut
                 if (HudManager.Instance?.Chat != null)
                     HudManager.Instance.Chat.timeSinceLastMessage = 0f;
                 
-                _nextGgTime = Time.time + 5.0f;
+                _nextGgTime = Time.time + 0f;
             }
         }
 
         private static void Send(PlayerControl speaker, string plainMsg, string coloredMsg)
         {
-            
-            try
-            {
-                IsSending = true;
-                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                IsSending = false;
-            }
-            catch { IsSending = false; }
+            // Affichage local (hôte) sous l'identité du bot
+            AddChatLocal(speaker, coloredMsg);
 
-            
-            
-            const string sysName = "Director";
-            string orig = speaker.Data.PlayerName;
-
+            // Diffusion à tous (tag 5) sous l'identité du bot
             var w = MessageWriter.Get(SendOption.Reliable);
             w.StartMessage(5);
             w.Write(AmongUsClient.Instance.GameId);
-            WSetName(w, speaker, sysName);
-            WSendChat(w, speaker, SafeChat(plainMsg));
-            WSetName(w, speaker, orig);
+            WBotChat(w, speaker, plainMsg);
             w.EndMessage();
             AmongUsClient.Instance.SendOrDisconnect(w);
             w.Recycle();
@@ -327,14 +292,10 @@ namespace AU_TheDirectorsCut
 
             try
             {
-                const string sysName = "Director";
-
                 if (target == PlayerControl.LocalPlayer)
                 {
                     _colorMap[plainMsg] = coloredMsg;
-                    IsSending = true;
-                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                    IsSending = false;
+                    AddChatLocal(speaker, coloredMsg);
                 }
                 else
                 {
@@ -342,16 +303,13 @@ namespace AU_TheDirectorsCut
                     // envoyer le chat réseau : sinon le serveur kick l'hôte pour avoir
                     // fait parler un personnage mort.
                     var netSpeaker = (speaker.Data?.IsDead == true) ? (LowestAlive() ?? speaker) : speaker;
-                    string origSpeakerName = netSpeaker.Data.PlayerName;
 
                     _colorMap[plainMsg] = coloredMsg;
                     var w = MessageWriter.Get(SendOption.Reliable);
                     w.StartMessage(6);
                     w.Write(AmongUsClient.Instance.GameId);
                     w.WritePacked(target.OwnerId);
-                    WSetName(w, netSpeaker, sysName);
-                    WSendChat(w, netSpeaker, SafeChat(plainMsg));
-                    WSetName(w, netSpeaker, origSpeakerName);
+                    WBotChat(w, netSpeaker, coloredMsg);
                     w.EndMessage();
                     AmongUsClient.Instance.SendOrDisconnect(w);
                     w.Recycle();
@@ -377,29 +335,18 @@ namespace AU_TheDirectorsCut
             // Afficher localement uniquement si le message est pour nous
             if (target == PlayerControl.LocalPlayer)
             {
-                try
-                {
-                    IsSending = true;
-                    HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
-                    IsSending = false;
-                }
-                catch { IsSending = false; }
+                AddChatLocal(speaker, coloredMsg);
             }
             else if (!inLobby || target != PlayerControl.LocalPlayer)
             {
                 // Envoyer le message via réseau au destinataire (sauf si c'est pour nous en lobby)
                 try
                 {
-                    const string sysName = "Director";
-                    string orig = speaker.Data.PlayerName;
-
                     var w = MessageWriter.Get(SendOption.Reliable);
                     w.StartMessage(6);
                     w.Write(AmongUsClient.Instance.GameId);
                     w.WritePacked(target.OwnerId);
-                    WSetName(w, speaker, sysName);
-                    WSendChat(w, speaker, SafeChat(plainMsg));
-                    WSetName(w, speaker, orig);
+                    WBotChat(w, speaker, coloredMsg);
                     w.EndMessage();
                     AmongUsClient.Instance.SendOrDisconnect(w);
                     w.Recycle();
@@ -432,11 +379,12 @@ namespace AU_TheDirectorsCut
         private static readonly HashSet<byte> _sentWelcome = new();
 
         
-        private const float WelcomeDelaySec = 5f;
-        private const int MaxWelcomesPerWave = 3;
+        // Délais neutralisés : welcome/GG instantanés (pas d'attente ni d'anti-spam).
+        private const float WelcomeDelaySec = 0f;
+        private const int MaxWelcomesPerWave = 99999;
         private const float WaveResetWindow = 10f;
-        
-        private static float LobbySettleSec = 10f;
+
+        private static float LobbySettleSec = 0f;
         private static float _lobbyReadyTime = -1f;
         private static int _welcomesSentInWave = 0;
         private static float _waveResetTime = 0f;
@@ -568,7 +516,7 @@ namespace AU_TheDirectorsCut
             if (_lobbyReadyTime < 0f) return;
             if (Time.time < _lobbyReadyTime + LobbySettleSec) return;
 
-            float minWait = 5.0f;
+            float minWait = 0f;
             
             
             var firstItem = _welcomeQueue[0];
@@ -626,7 +574,7 @@ namespace AU_TheDirectorsCut
                 if (HudManager.Instance?.Chat != null)
                     HudManager.Instance.Chat.timeSinceLastMessage = 0f;
                 
-                _nextWelcomeTime = Time.time + 5.0f;
+                _nextWelcomeTime = Time.time + 0f;
                 _sentWelcome.Add(pid);
             }
         }
@@ -637,6 +585,47 @@ namespace AU_TheDirectorsCut
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }
         private static void WSendChat(MessageWriter w, PlayerControl p, string m)
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SendChat); w.Write(m); w.EndMessage(); }
+        // SetColor RPC : payload = (uint32 Data.NetId)(byte colorId). Confirmé par l'anticheat.
+        private static void WSetColor(MessageWriter w, PlayerControl p, byte color)
+        { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetColor); w.Write(p.Data.NetId); w.Write(color); w.EndMessage(); }
+
+        // Écrit dans le writer la séquence "le bot parle" : on bascule cosmétiques + nom
+        // sur le bot, on envoie le chat, puis on remet l'apparence d'origine du speaker.
+        // Le nom et l'avatar sont figés par la bulle de chat au moment de l'AddChat distant,
+        // donc le retour à la normale juste après n'affecte pas le message déjà affiché.
+        // msg = texte RICH (gras/couleurs/\n). Envoyé tel quel à tous les clients pour
+        // qu'ils voient le formatage (les clients vanilla rendent le rich text TMP).
+        private static void WBotChat(MessageWriter w, PlayerControl p, string msg)
+        {
+            string origName = p.Data.PlayerName;
+            byte origColor = (byte)p.Data.DefaultOutfit.ColorId;
+            if (BotCosmetics) WSetColor(w, p, BotColorId);
+            WSetName(w, p, BotName);
+            WSendChat(w, p, SafeChat(msg));
+            WSetName(w, p, origName);
+            if (BotCosmetics) WSetColor(w, p, origColor);
+        }
+
+        // Affichage LOCAL (côté hôte) sous l'identité du bot : on force temporairement le
+        // pseudo de l'hôte sur le bot le temps que la bulle se crée, puis on le remet.
+        // Purement local (aucun RPC), sans risque réseau.
+        private static void AddChatLocal(PlayerControl speaker, string coloredMsg)
+        {
+            if (speaker == null || HudManager.Instance?.Chat == null) return;
+            string origName = speaker.Data.PlayerName;
+            try
+            {
+                IsSending = true;
+                speaker.Data.PlayerName = BotName;
+                HudManager.Instance.Chat.AddChat(speaker, coloredMsg);
+            }
+            catch (Exception e) { Plugin.Log?.LogError($"[AddChatLocal] {e.Message}"); }
+            finally
+            {
+                speaker.Data.PlayerName = origName;
+                IsSending = false;
+            }
+        }
         
         
         private static readonly List<byte> _ggPlayerQueue = new();
@@ -654,7 +643,7 @@ namespace AU_TheDirectorsCut
                 if (pc?.Data != null && !pc.Data.Disconnected && pc.OwnerId >= 0)
                     _ggPlayerQueue.Add(pc.PlayerId);
             }
-            _nextGgTime = Time.time + 0.5f;
+            _nextGgTime = Time.time + 0f;
             Plugin.Log?.LogInfo($"[ChatManager] /gg manuel : {_ggPlayerQueue.Count} joueur(s) en file (envoi privé).");
         }
 

@@ -44,6 +44,10 @@
     <Reference Include="UnityEngine.Physics2DModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.Physics2DModule.dll')">
       <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.Physics2DModule.dll</HintPath><Private>False</Private>
     </Reference>
+    <!-- Input legacy (classe UnityEngine.Input : Input.GetKeyDown, etc.) -->
+    <Reference Include="UnityEngine.InputLegacyModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.InputLegacyModule.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.InputLegacyModule.dll</HintPath><Private>False</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp"       Condition="Exists('$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll')">
       <HintPath>$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll</HintPath><Private>False</Private>
     </Reference>

@@ -16,11 +16,13 @@
 
 ---
 
-## 🎥 What is this? / Le concept 
+## 🎥 What is this?
 
-When the **first player dies**, they don't leave — they take over as the **Director**. From beyond the grave they stop playing Among Us and start *directing* it.
+When the **first player dies**, they don't leave — they take over as the **Director**. From beyond the grave they stop playing Among Us and start *directing* it: secret orders, theatrical events, traps, identity swaps…
 
 **The key point:** only the **host** installs the mod. Everyone else — including the Director — plays on a completely **unmodded (vanilla) client**. The mod intercepts chat commands on the host and replicates effects to all players using vanilla network calls.
+
+**Designed for private lobbies.** Several features (forced kills, vote traps, rapid chat) assume a private server **without anti-cheat**.
 
 ---
 
@@ -31,6 +33,7 @@ When the **first player dies**, they don't leave — they take over as the **Dir
 | **Game** | Among Us (Steam recommended — 32-bit / x86 build) |
 | **Loader** | BepInEx **6.x IL2CPP** (`x86` build to match Among Us) |
 | **Who installs** | **Host only.** Other players need nothing. |
+| **Server** | Private lobby (no anti-cheat) recommended |
 | **OS** | Windows (tested) |
 
 > ⚠️ Among Us is a **32-bit** app — download the **`win-x86`** BepInEx IL2CPP build, not x64.
@@ -40,23 +43,17 @@ When the **first player dies**, they don't leave — they take over as the **Dir
 ## 📦 Installation (host)
 
 ### 1. Install BepInEx 6 (IL2CPP)
-1. Download the latest **BepInEx 6 IL2CPP `win-x86`** build from the official releases:
-   👉 https://github.com/BepInEx/BepInEx/releases (bleeding-edge IL2CPP builds)
-2. Open your Among Us install folder (the one containing `Among Us.exe`):
-   - **Steam:** right-click the game → *Manage* → *Browse local files*.
-3. Extract the **entire contents** of the BepInEx zip directly into that folder. You should now see a `BepInEx/`, `doorstop_config.ini` and `winhttp.dll` next to `Among Us.exe`.
+1. Download the latest **BepInEx 6 IL2CPP `win-x86`** build: 👉 https://github.com/BepInEx/BepInEx/releases
+2. Open your Among Us folder (the one containing `Among Us.exe`) — **Steam:** right-click the game → *Manage* → *Browse local files*.
+3. Extract the **entire contents** of the zip into that folder (you should see `BepInEx/`, `doorstop_config.ini`, `winhttp.dll`).
 
 ### 2. Generate the interop assemblies
-1. **Launch Among Us once.** A console window opens and BepInEx generates the IL2CPP interop DLLs (this can take a minute).
-2. Wait until the game reaches the main menu, then **close it**.
-   - This creates `BepInEx/interop/` — required for the mod to load.
+1. **Launch Among Us once.** BepInEx generates the IL2CPP interop DLLs.
+2. Reach the main menu, then **close the game** — this creates `BepInEx/interop/`.
 
 ### 3. Install the mod
-1. Drop **`AU_TheDirectorsCut.dll`** into:
-   ```
-   <Among Us>/BepInEx/plugins/
-   ```
-2. **Launch Among Us.** In the BepInEx console you should see:
+1. Drop **`AU_TheDirectorsCut.dll`** into `<Among Us>/BepInEx/plugins/`.
+2. **Launch Among Us.** The BepInEx console should show:
    ```
    [DirectorCore] Initialisé.
    [NetworkManager] Initialisé.
@@ -64,75 +61,106 @@ When the **first player dies**, they don't leave — they take over as the **Dir
 
 ### 4. Play
 1. **Host a lobby** (you must be the host for the mod to do anything).
-2. New players receive a private welcome message automatically.
+2. New players receive a private welcome message **instantly**.
 3. Start a game. The **first death** becomes the Director. 🎬
+4. Press **Delete (Suppr)** any time as host to open the **Admin panel**.
 
 ---
 
 ## 🛠️ Build from source (developers)
 
-Requires the **.NET 6 SDK**.
+Requires the **.NET 6 SDK**, and `BepInEx/interop/` must exist (launch the game once with BepInEx).
 
-1. Point the build at your Among Us install. Either set an environment variable:
-   ```bash
-   setx AmongUsPath "C:\Program Files (x86)\Steam\steamapps\common\Among Us"
-   ```
-   …or pass it on the command line (step 3).
-2. Make sure you've launched the game once with BepInEx so `BepInEx/interop/` exists (the `.csproj` references those DLLs).
-3. Build:
-   ```bash
-   dotnet build -c Release /p:AmongUsPath="C:\chemin\vers\Among Us"
-   ```
-4. On success the DLL is **auto-copied** to `BepInEx/plugins/` (see the `PostBuild` target). Output:
-   ```
-   ✅ DLL copié dans BepInEx/plugins/
-   ```
+```bash
+setx AmongUsPath "C:\Program Files (x86)\Steam\steamapps\common\Among Us"
+dotnet build -c Release /p:AmongUsPath="C:\path\to\Among Us"
+```
 
-**Dependencies** (`.csproj`): `BepInEx.Unity.IL2CPP 6.0.0-be.697`, `Lib.Harmony 2.4.2`, `Il2CppInterop.Runtime 1.5.1`.
+On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` target). **Dependencies:** `BepInEx.Unity.IL2CPP 6.0.0-be.697`, `Lib.Harmony 2.4.2`, `Il2CppInterop.Runtime 1.5.1`.
+
+**Source layout:** `Plugin.cs` (entry) · `DirectorCore.cs` (rules, commands, effects) · `ChatManager.cs` (chat/bot identity) · `NetworkManager.cs` (vanilla RPC helpers) · `ScriptManager.cs` (secret orders) · `Directives.cs` (Director directives) · `AdminUI.cs` (host IMGUI panel) · `ModMessages.cs` (all text).
 
 ---
 
 ## 🎮 Rules
 
-- The **first player to die** becomes the **Director** — **one per game**, locked in (irreversible until the next game).
+- The **first player to die** becomes the **Director** — **one per game**, locked in until the next game. They are privately told they're the Director.
 - Only the **host** runs the mod; everyone else is **vanilla**.
-- **Public commands** work for anyone, any time.
-- **Director directives**:
-  - `/randomcolors`, `/cut`, `/darkness`, `/freeze` work for the Director **only**, **in-game only** (ignored in the lobby).
-  - `/action`, `/loc`, `/vote` work for the Director **only**, **in-meeting only**.
-- Every directive has a **cooldown**; if it's recharging, the remaining time is announced.
+- **Players are identified by letters** (A, B, C…) — run `/players` to see them.
+- Most director commands are **in-game only**; the order/vote ones are **meeting only**. Each has a **cooldown**.
+- **The host can be targeted and killed too** (e.g. `/cut`, `/kill`).
+
+### 🔒 Confidentiality model
+- **Command feedback** (confirmations, effect banners, cooldown notices) is shown **only to the Director** who issued it.
+- **Order info** (`/action`, `/loc`, `/vote`, `/stalker`, `/pacifist`, `/stockholm`) is sent **only to the targeted player(s)**.
+- **Public to everyone:** eliminations (`X moved — eliminated!`), order success/failure, `/voiceover`, and the `/roulette` / `/eject` announcements.
+- Messages are signed by the bot **The Director's Cut** (blue name + distinct avatar color), and chat is **instant** (no delay) with full **bold / colors / line-breaks** visible to all players.
 
 ---
 
 ## ⌨️ Commands
 
-Players are identified by **letters** (A, B, C…) — run `/players` to see them.
-
-### 🟢 Public (everyone)
+### 🟢 Public (everyone, anywhere)
 | Command | Effect |
 |---|---|
+| `/help` | Full command list (host also sees the **Admin** section) |
 | `/welcome` | Welcome message |
-| `/help` | Command list |
 | `/gg` | Previous-game stats (alive / eliminated) |
 | `/players` | List players with their letter IDs |
-| `/hrandomcolors` | Detailed help for `/randomcolors` |
-| `/hcut` | Detailed help for `/cut` |
-| `/hdarkness` | Detailed help for `/darkness` |
-| `/hfreeze` | Detailed help for `/freeze` |
-| `/haction` | Detailed help for `/action` |
-| `/hloc` | Detailed help for `/loc` |
-| `/hvote` | Detailed help for `/vote` |
+| `/join` · `/discord` | Discord invite |
+| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` | Detailed help per command |
 
-### 🎬 Director directives
-| Command | Effect | Duration | Cooldown |
-|---|---|---|---|
-| `/randomcolors` | Random unique color for all | instant | 20s |
-| `/cut` | Reactor sabotage alert (2s), then no-movement freeze (5s) — the first player who moves die! | 7s total | 30s |
-| `/darkness` | Total darkness across the entire map | 10s | 35s |
-| `/freeze LETTRE` | Freezes the target player in place | 8s | 30s |
-| `/action LETTRE [A-D]` | Assign a basic secret script to a player! Scripts: A = NoReport (don't report bodies), B = SkipVote (skip the next vote), C = NoVents (don't use vents), D = VoteFirst (vote first this round). Players who disobey get eliminated! | Varies | 20s |
-| `/loc LETTRE ID_zone` | Forbid a player from entering a specific zone (The Skeld only). Zone IDs: B=Admin, C=Electrical, D=Storage, E=Security, F=Reactor, G=UpperEngine, H=LowerEngine, I=Medbay, J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons | Until round end | 20s |
-| `/vote LETTRE LETTRE` | Force a player to vote for a specific target. | Until next meeting | 20s |
+### 🎬 Director — in-game effects
+| Command | Effect | Cooldown |
+|---|---|---|
+| `/randomcolors` | Random unique color for everyone | 20s |
+| `/cut` | Reactor sabotage alert (2s) → no-movement freeze (5s): **everyone who moves dies — host included!** | 30s |
+| `/darkness` | Total darkness across the whole map (10s) | 35s |
+| `/freeze A` | Freezes the target in place (8s) | 30s |
+| `/colorblinds` | Everyone turns grey & names are hidden (25s, auto-restored) | 40s |
+| `/shuffle` | Randomly shuffles everyone's positions | 20s |
+| `/swap A B` | Swaps the positions of two players | 15s |
+| `/teleportall A` | Teleports everyone to player A | 20s |
+
+### 🎬 Director — meeting only
+| Command | Effect | Cooldown |
+|---|---|---|
+| `/action A [A-D]` | Secret script for a player — **A**=NoReport, **B**=SkipVote, **C**=NoVents, **D**=VoteFirst. Disobey = eliminated. | 20s |
+| `/loc A ZONE` | Forbid a player from a zone (Skeld). Zones: B=Admin, C=Electrical, D=Storage, E=Security, F=Reactor, G=UpperEngine, H=LowerEngine, I=Medbay, J=Comms, K=Shields, L=O2, M=Navigation, N=Weapons | 20s |
+| `/vote A B` | Force player A to vote for B | 20s |
+
+### 🎭 Director — Directives (the fun stuff)
+**In-game:**
+| Command | Effect | Cooldown |
+|---|---|---|
+| `/voiceover <text>` | **The Voice-Off** — anonymous, theatrical message shown huge to everyone | 8s |
+| `/spotlight A` | Everyone goes dark **except** player A (20s) | 30s |
+| `/marathon` | Speed boost for everyone (15s) | 30s |
+| `/quarantine A` | Everyone frozen **except** A (8s) | 30s |
+| `/curse A` | A's speed slowly decays over the round (30s) | 30s |
+| `/roulette` | A random living player is dramatically eliminated | 45s |
+| `/bodyswap A B` | Swaps two players' identities (color + name) — total confusion | 30s |
+| `/cube bonus\|malus` | Hidden point on the map; first to walk on it gets a speed boost (bonus) or is trapped/frozen (malus) | 30s |
+
+**Meeting only:**
+| Command | Effect |
+|---|---|
+| `/stalker A B` | **The Obsessive** — A must stay within 3m of B all round (both privately warned). Stray too long → eliminated. |
+| `/pacifist A` | Forbids an impostor from killing for 2 min; survive it → permanent speed boost. |
+| `/stockholm CREW IMP` | Links a crewmate & an impostor. Impostor dies → crewmate dies of grief. Crewmate dies → impostor slowed 2 min. |
+| `/eject first\|last` | **Scripted ejection** — the first (or last) player who voted is ejected at meeting end. A trap for vote-button spammers. |
+
+### 🛡️ Admin (host only — others get "Host only!")
+| Command | Effect |
+|---|---|
+| `/start` · `/stop` | Start / stop the game |
+| `/setdirector [A]` | Set the Director (yourself if no ID) |
+| `/rename A NEW_NAME` | Rename a player |
+| `/kill A` | Eliminate a player |
+| `/endmeeting` | Force the current meeting to end |
+| **Delete (Suppr) key** | Open the **Admin panel**: buttons for all of the above + a per-player list (Kill / Set Director / Rename) |
+
+> ❌ **Not included — "Slasher" mode** (black-and-white screen with red blood). This is a client-side camera/shader effect and is **impossible without a mod on every player's PC**, which breaks the host-only design.
 
 ---
 
@@ -140,19 +168,28 @@ Players are identified by **letters** (A, B, C…) — run `/players` to see the
 
 | Option | Default | Description |
 |---|---|---|
-| `AnnounceInChat` | `true` | Relay actions in public chat |
-| `AntiKick` | `true` | Anti-kick chat throttle (keep on) |
-| `MessageWait` | `0.6s` | Delay between chat messages |
+| `AnnounceInChat` | `true` | Relay relevant actions in chat |
+| `ChatManager.BotCosmetics` | `true` | Give the bot a blue name **and** a distinct avatar color (set `false` to keep only the blue name) |
 
 ---
 
 ## 🧩 How it works (technical)
 
-- **Host-only, vanilla-compatible**: the mod only patches the host's game (HarmonyX) and replicates effects with **vanilla RPCs** (`SendChat`, `SetName`, `SetColor`). Clients need no mod.
-- **Chat as the channel**: all communication goes through chat. A queued, rate-limited **pump** (`ChatManager`) rides the game's native chat timer to avoid the server's anti-spam kick.
-- **Colored vs plain text**: the network gets clean plain text; a local color map re-injects `<color>` tags on the host's screen.
-- **"System" announcements**: the lowest-ID living player is briefly renamed `[ The Director's Cut ]` to sign official messages.
-- **End-of-game snapshot**: alive/dead lists are captured on `ShipStatus.OnDestroy` to feed `/gg`.
+- **Host-only, vanilla-compatible:** only the host is patched (HarmonyX); effects are replicated with **vanilla RPCs** (`SendChat`, `SetName`, `SetColor`, `MurderPlayer`, `SnapTo`) and per-client `GameOptions` (vision, speed, kill cooldown).
+- **Instant chat:** the chat pump drains its whole queue every frame — no artificial delay. Welcome/GG messages are immediate too.
+- **Rich text for everyone:** the colored/bold/multi-line text is sent over the network so **all** players see the formatting (vanilla clients render TMP rich text). A safety cap (~1200 bytes) protects the Hazel packet.
+- **Bot identity:** the host is briefly renamed/recolored to **The Director's Cut** (blue) around each chat RPC; the chat bubble bakes the name & avatar, so the host's real identity is restored immediately after.
+- **Proximity & links** (`/stalker`, `/cube`, `/stockholm`): the host knows every position and every death, so these are tracked host-side each frame and on `PlayerControl.Die`.
+- **End-of-game snapshot:** alive/dead lists are captured on `ShipStatus.OnDestroy` to feed `/gg`.
+
+---
+
+## 💬 Discord
+
+Join the community: **`<!-- remplace par ton invite, ex : https://discord.gg/XXXXXXX -->`**
+Contacts: `imaginaryconception` · `kalinina_sn`
+
+*(In-game `/discord` currently shows the contacts above. Send the host your invite link and it can be added to the message.)*
 
 ---
 ---
@@ -162,9 +199,11 @@ Players are identified by **letters** (A, B, C…) — run `/players` to see the
 
 ## 🎥 Le concept
 
-Quand le **premier joueur meurt**, il ne quitte pas la partie — il devient le **Réalisateur**. Depuis l'au-delà, il ne joue plus à Among Us, il le *met en scène*.
+Quand le **premier joueur meurt**, il ne quitte pas la partie — il devient le **Réalisateur**. Depuis l'au-delà, il ne joue plus à Among Us, il le *met en scène* : ordres secrets, événements théâtraux, pièges, échanges d'identité…
 
 **Le point clé :** seul l'**hôte** installe le mod. Tous les autres — y compris le Réalisateur — jouent sur un client **totalement vanilla (non moddé)**. Le mod intercepte les commandes côté hôte et réplique les effets à tous via des appels réseau vanilla.
+
+**Conçu pour les lobbies privés.** Plusieurs fonctions (kills forcés, pièges de vote, chat rapide) supposent un **serveur privé sans anti-cheat**.
 
 ---
 
@@ -173,34 +212,29 @@ Quand le **premier joueur meurt**, il ne quitte pas la partie — il devient le 
 | | |
 |---|---|
 | **Jeu** | Among Us (Steam recommandé — version 32 bits / x86) |
-| **Loader** | BepInEx **6.x IL2CPP** (build `x86` pour coller à Among Us) |
-| **Qui installe** | **L'hôte seulement.** Les autres joueurs n'ont rien à faire. |
+| **Loader** | BepInEx **6.x IL2CPP** (build `x86`) |
+| **Qui installe** | **L'hôte seulement.** Les autres n'ont rien à faire. |
+| **Serveur** | Lobby privé (sans anti-cheat) recommandé |
 | **OS** | Windows (testé) |
 
-> ⚠️ Among Us est une appli **32 bits** — télécharge le build BepInEx IL2CPP **`win-x86`**, pas le x64.
+> ⚠️ Among Us est une appli **32 bits** — prends le build BepInEx IL2CPP **`win-x86`**, pas le x64.
 
 ---
 
 ## 📦 Installation (hôte)
 
 ### 1. Installer BepInEx 6 (IL2CPP)
-1. Télécharge le dernier build **BepInEx 6 IL2CPP `win-x86`** depuis les releases officielles :
-   👉 https://github.com/BepInEx/BepInEx/releases (builds *bleeding-edge* IL2CPP)
-2. Ouvre le dossier d'installation d'Among Us (celui qui contient `Among Us.exe`) :
-   - **Steam :** clic droit sur le jeu → *Gérer* → *Parcourir les fichiers locaux*.
-3. Extrais **tout le contenu** du zip BepInEx directement dans ce dossier. Tu dois voir apparaître `BepInEx/`, `doorstop_config.ini` et `winhttp.dll` à côté de `Among Us.exe`.
+1. Télécharge le dernier build **BepInEx 6 IL2CPP `win-x86`** : 👉 https://github.com/BepInEx/BepInEx/releases
+2. Ouvre le dossier d'Among Us (celui qui contient `Among Us.exe`) — **Steam :** clic droit → *Gérer* → *Parcourir les fichiers locaux*.
+3. Extrais **tout le contenu** du zip dans ce dossier (tu dois voir `BepInEx/`, `doorstop_config.ini`, `winhttp.dll`).
 
 ### 2. Générer les assemblies interop
-1. **Lance Among Us une fois.** Une console s'ouvre et BepInEx génère les DLL interop IL2CPP (ça peut prendre une minute).
-2. Attends le menu principal, puis **ferme le jeu**.
-   - Cela crée `BepInEx/interop/` — indispensable au chargement du mod.
+1. **Lance Among Us une fois** — BepInEx génère les DLL interop IL2CPP.
+2. Atteins le menu principal, puis **ferme le jeu** — cela crée `BepInEx/interop/`.
 
 ### 3. Installer le mod
-1. Place **`AU_TheDirectorsCut.dll`** dans :
-   ```
-   <Among Us>/BepInEx/plugins/
-   ```
-2. **Lance Among Us.** Dans la console BepInEx, tu dois voir :
+1. Place **`AU_TheDirectorsCut.dll`** dans `<Among Us>/BepInEx/plugins/`.
+2. **Lance Among Us.** La console BepInEx doit afficher :
    ```
    [DirectorCore] Initialisé.
    [NetworkManager] Initialisé.
@@ -208,75 +242,106 @@ Quand le **premier joueur meurt**, il ne quitte pas la partie — il devient le 
 
 ### 4. Jouer
 1. **Héberge un lobby** (tu dois être l'hôte pour que le mod agisse).
-2. Les nouveaux joueurs reçoivent un message de bienvenue privé automatiquement.
+2. Les nouveaux joueurs reçoivent un message de bienvenue privé **instantanément**.
 3. Lance une partie. La **première mort** devient le Réalisateur. 🎬
+4. Appuie sur **Suppr (Delete)** en tant qu'hôte pour ouvrir le **panneau Admin**.
 
 ---
 
 ## 🛠️ Compiler depuis les sources (développeurs)
 
-Nécessite le **SDK .NET 6**.
+Nécessite le **SDK .NET 6**, et `BepInEx/interop/` doit exister (lance le jeu une fois avec BepInEx).
 
-1. Indique au build ton installation d'Among Us. Soit via une variable d'environnement :
-   ```bash
-   setx AmongUsPath "C:\Program Files (x86)\Steam\steamapps\common\Among Us"
-   ```
-   …soit en ligne de commande (étape 3).
-2. Assure-toi d'avoir lancé le jeu au moins une fois avec BepInEx pour que `BepInEx/interop/` existe (le `.csproj` référence ces DLLs).
-3. Compile :
-   ```bash
-   dotnet build -c Release /p:AmongUsPath="C:\chemin\vers\Among Us"
-   ```
-4. En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/` (cible `PostBuild`) :
-   ```
-   ✅ DLL copié dans BepInEx/plugins/
-   ```
+```bash
+setx AmongUsPath "C:\Program Files (x86)\Steam\steamapps\common\Among Us"
+dotnet build -c Release /p:AmongUsPath="C:\chemin\vers\Among Us"
+```
 
-**Dépendances** (`.csproj`) : `BepInEx.Unity.IL2CPP 6.0.0-be.697`, `Lib.Harmony 2.4.2`, `Il2CppInterop.Runtime 1.5.1`.
+En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/` (cible `PostBuild`). **Dépendances :** `BepInEx.Unity.IL2CPP 6.0.0-be.697`, `Lib.Harmony 2.4.2`, `Il2CppInterop.Runtime 1.5.1`.
+
+**Organisation du code :** `Plugin.cs` (entrée) · `DirectorCore.cs` (règles, commandes, effets) · `ChatManager.cs` (chat / identité du bot) · `NetworkManager.cs` (helpers RPC vanilla) · `ScriptManager.cs` (ordres secrets) · `Directives.cs` (directives du Réalisateur) · `AdminUI.cs` (panneau IMGUI hôte) · `ModMessages.cs` (tous les textes).
 
 ---
 
 ## 🎮 Règles
 
-- Le **premier joueur éliminé** devient le **Réalisateur** — **un seul par partie**, définitif (irréversible jusqu'à la partie suivante).
+- Le **premier joueur éliminé** devient le **Réalisateur** — **un seul par partie**, définitif jusqu'à la partie suivante. Il est prévenu en privé qu'il est le Réalisateur.
 - Seul l'**hôte** fait tourner le mod ; tous les autres sont en **vanilla**.
-- Les **commandes publiques** fonctionnent pour tout le monde, à tout moment.
-- Les **directives du Réalisateur** :
-  - `/randomcolors`, `/cut`, `/darkness`, `/freeze` ne marchent que pour le Réalisateur et **uniquement en partie** (ignorées au lobby).
-  - `/action`, `/loc`, `/vote` ne marchent que pour le Réalisateur et **uniquement en réunion**.
-- Chaque directive a un **cooldown** ; si elle recharge, le temps restant est annoncé.
+- **Les joueurs sont identifiés par des lettres** (A, B, C…) — tape `/players`.
+- La plupart des commandes du Réalisateur sont **en partie uniquement** ; celles d'ordre/vote sont **en réunion uniquement**. Chacune a un **cooldown**.
+- **L'hôte peut être ciblé et tué** lui aussi (ex. `/cut`, `/kill`).
+
+### 🔒 Modèle de confidentialité
+- Les **retours de commande** (confirmations, bannières d'effet, cooldowns) ne s'affichent qu'**au Réalisateur** qui les a lancés.
+- Les **infos d'ordre** (`/action`, `/loc`, `/vote`, `/stalker`, `/pacifist`, `/stockholm`) ne vont qu'**au(x) joueur(s) ciblé(s)**.
+- **Publics pour tous :** les éliminations (`X a bougé — éliminé !`), les succès/échecs d'ordre, `/voiceover`, et les annonces de `/roulette` / `/eject`.
+- Les messages sont signés par le bot **The Director's Cut** (pseudo bleu + couleur d'avatar distincte), et le chat est **instantané** (sans délai) avec **gras / couleurs / sauts de ligne** visibles par tous.
 
 ---
 
 ## ⌨️ Commandes
 
-Les joueurs sont identifiés par des **lettres** (A, B, C…) — tape `/players` pour les voir.
-
-### 🟢 Publiques (tout le monde)
+### 🟢 Publiques (tout le monde, partout)
 | Commande | Effet |
 |---|---|
+| `/help` | Liste complète (l'hôte voit aussi la section **Admin**) |
 | `/welcome` | Message de bienvenue |
-| `/help` | Liste des commandes |
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
 | `/players` | Liste les joueurs et leurs ID-lettres |
-| `/hrandomcolors` | Aide détaillée pour `/randomcolors` |
-| `/hcut` | Aide détaillée pour `/cut` |
-| `/hdarkness` | Aide détaillée pour `/darkness` |
-| `/hfreeze` | Aide détaillée pour `/freeze` |
-| `/haction` | Aide détaillée pour `/action` |
-| `/hloc` | Aide détaillée pour `/loc` |
-| `/hvote` | Aide détaillée pour `/vote` |
+| `/join` · `/discord` | Invitation Discord |
+| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` | Aide détaillée par commande |
 
-### 🎬 Directives du Réalisateur
-| Commande | Effet | Durée | Cooldown |
-|---|---|---|---|
-| `/randomcolors` | Couleurs aléatoires pour tous | instantané | 20s |
-| `/cut` | Alerte sabotage réacteur (2s), puis arrêt complet (5s) — le premier joueur qui bouge meurt ! | 7s total | 30s |
-| `/darkness` | Noir TOTAL sur toute la map | 10s | 35s |
-| `/freeze LETTRE` | Bloque le joueur ciblé sur place | 8s | 30s |
-| `/action LETTRE [A-D]` | Donne un script secret à un joueur ! Utilise `/action LETTRE` pour voir la liste des scripts. Scripts : A = NoReport (ne rapporte pas de corps), B = SkipVote (passe le prochain vote), C = NoVents (ne pas utiliser les vents), D = VoteFirst (vote en premier ce round). Les joueurs qui désobéissent sont éliminés ! | Variable | 20s |
-| `/loc LETTRE ID_zone` | Interdit à un joueur d'entrer dans une zone spécifique (The Skeld seulement). IDs de zone : B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine, H=LowerEngine, I=Medbay, J=Communications, K=Shields, L=O2, M=Navigation, N=Weapons | Jusqu'à la fin du round | 20s |
-| `/vote LETTRE LETTRE` | Force un joueur à voter pour une cible spécifique. | Jusqu'à la prochaine réunion | 20s |
+### 🎬 Réalisateur — effets en partie
+| Commande | Effet | Cooldown |
+|---|---|---|
+| `/randomcolors` | Couleur unique aléatoire pour tous | 20s |
+| `/cut` | Alerte sabotage (2s) → arrêt complet (5s) : **tous ceux qui bougent meurent — l'hôte compris !** | 30s |
+| `/darkness` | Noir TOTAL sur toute la map (10s) | 35s |
+| `/freeze A` | Bloque la cible sur place (8s) | 30s |
+| `/colorblinds` | Tout le monde en gris & noms masqués (25s, restauré auto) | 40s |
+| `/shuffle` | Mélange aléatoirement les positions de tous | 20s |
+| `/swap A B` | Échange les positions de deux joueurs | 15s |
+| `/teleportall A` | Téléporte tout le monde vers le joueur A | 20s |
+
+### 🎬 Réalisateur — réunion uniquement
+| Commande | Effet | Cooldown |
+|---|---|---|
+| `/action A [A-D]` | Script secret — **A**=NoReport, **B**=SkipVote, **C**=NoVents, **D**=VoteFirst. Désobéir = éliminé. | 20s |
+| `/loc A ZONE` | Interdit une zone à un joueur (Skeld). Zones : B=Admin, C=Electrical, D=Storage, E=Security, F=Réacteur, G=UpperEngine, H=LowerEngine, I=Medbay, J=Comms, K=Shields, L=O2, M=Navigation, N=Weapons | 20s |
+| `/vote A B` | Force le joueur A à voter pour B | 20s |
+
+### 🎭 Réalisateur — Directives (le fun)
+**En partie :**
+| Commande | Effet | Cooldown |
+|---|---|---|
+| `/voiceover <texte>` | **La Voix Off** — message anonyme et théâtral affiché en grand à tous | 8s |
+| `/spotlight A` | Tout le monde dans le noir **sauf** A (20s) | 30s |
+| `/marathon` | Boost de vitesse pour tous (15s) | 30s |
+| `/quarantine A` | Tout le monde figé **sauf** A (8s) | 30s |
+| `/curse A` | La vitesse de A décroît peu à peu sur la manche (30s) | 30s |
+| `/roulette` | Un joueur vivant au hasard est éliminé avec suspense | 45s |
+| `/bodyswap A B` | Échange les identités (couleur + pseudo) de deux joueurs | 30s |
+| `/cube bonus\|malus` | Point caché sur la map ; le premier dessus gagne un boost (bonus) ou se fait piéger/bloquer (malus) | 30s |
+
+**En réunion :**
+| Commande | Effet |
+|---|---|
+| `/stalker A B` | **L'Obsessionnel** — A doit rester à moins de 3m de B toute la manche (les deux sont prévenus). S'éloigner trop longtemps → éliminé. |
+| `/pacifist A` | Interdit à un imposteur de tuer pendant 2 min ; s'il tient → boost de vitesse permanent. |
+| `/stockholm CREW IMP` | Lie un crewmate & un imposteur. L'imposteur meurt → le crewmate meurt de chagrin. Le crewmate meurt → l'imposteur ralenti 2 min. |
+| `/eject first\|last` | **Éjection scriptée** — le premier (ou dernier) votant est éjecté à la fin de la réunion. Piège pour les spammeurs du bouton de vote. |
+
+### 🛡️ Admin (hôte uniquement — sinon « Hôte seulement ! »)
+| Commande | Effet |
+|---|---|
+| `/start` · `/stop` | Lance / arrête la partie |
+| `/setdirector [A]` | Désigne le Réalisateur (toi-même si pas d'ID) |
+| `/rename A NOUVEAU_NOM` | Renomme un joueur |
+| `/kill A` | Élimine un joueur |
+| `/endmeeting` | Force la fin de la réunion en cours |
+| **Touche Suppr (Delete)** | Ouvre le **panneau Admin** : boutons pour tout ce qui précède + une liste par joueur (Kill / Réalisateur / Renommer) |
+
+> ❌ **Non inclus — mode « Slasher »** (écran noir & blanc avec sang rouge). C'est un effet de caméra/shader côté client, **impossible sans mod installé chez chaque joueur**, ce qui casserait le principe host-only.
 
 ---
 
@@ -284,19 +349,28 @@ Les joueurs sont identifiés par des **lettres** (A, B, C…) — tape `/players
 
 | Option | Défaut | Description |
 |---|---|---|
-| `AnnounceInChat` | `true` | Relayer les actions dans le chat public |
-| `AntiKick` | `true` | Throttle anti-kick (garder activé) |
-| `MessageWait` | `0.6s` | Délai entre deux messages |
+| `AnnounceInChat` | `true` | Relaie les actions pertinentes dans le chat |
+| `ChatManager.BotCosmetics` | `true` | Donne au bot un pseudo bleu **et** une couleur d'avatar distincte (mets `false` pour ne garder que le pseudo bleu) |
 
 ---
 
 ## 🧩 Fonctionnement (technique)
 
-- **Host-only, compatible vanilla :** le mod ne patche que le jeu de l'hôte (HarmonyX) et réplique les effets via des **RPC vanilla** (`SendChat`, `SetName`, `SetColor`). Les clients n'ont besoin d'aucun mod.
-- **Le chat comme canal :** toute la communication passe par le chat. Une **pompe** à file d'attente limitée en débit (`ChatManager`) s'appuie sur le timer de chat natif du jeu pour éviter le kick anti-spam du serveur.
-- **Texte coloré vs brut :** le réseau reçoit du texte brut propre ; une color map locale réinjecte les balises `<color>` sur l'écran de l'hôte.
-- **Annonces "système" :** le joueur vivant au plus petit ID est temporairement renommé `[ The Director's Cut ]` pour signer les messages officiels.
+- **Host-only, compatible vanilla :** seul l'hôte est patché (HarmonyX) ; les effets sont répliqués via des **RPC vanilla** (`SendChat`, `SetName`, `SetColor`, `MurderPlayer`, `SnapTo`) et des `GameOptions` par client (vision, vitesse, cooldown de kill).
+- **Chat instantané :** la pompe de chat vide toute sa file à chaque frame — aucun délai artificiel. Welcome/GG sont immédiats aussi.
+- **Rich text pour tous :** le texte coloré/gras/multi-lignes est envoyé sur le réseau pour que **tous** les joueurs voient le formatage (les clients vanilla rendent le rich text TMP). Un plafond de sécurité (~1200 octets) protège le paquet Hazel.
+- **Identité du bot :** l'hôte est brièvement renommé/recoloré en **The Director's Cut** (bleu) autour de chaque RPC de chat ; la bulle fige le nom & l'avatar, donc l'identité réelle de l'hôte est restaurée juste après.
+- **Proximité & liens** (`/stalker`, `/cube`, `/stockholm`) : l'hôte connaît toutes les positions et toutes les morts, donc tout est suivi côté hôte à chaque frame et sur `PlayerControl.Die`.
 - **Snapshot de fin de partie :** les listes vivants/morts sont capturées sur `ShipStatus.OnDestroy` pour alimenter `/gg`.
+
+---
+
+## 💬 Discord
+
+Rejoins la communauté : **`<!-- remplace par ton invite, ex : https://discord.gg/XXXXXXX -->`**
+Contacts : `imaginaryconception` · `kalinina_sn`
+
+*(En jeu, `/discord` affiche actuellement les contacts ci-dessus. Donne-moi ton lien d'invitation et je l'ajoute au message.)*
 
 ---
 

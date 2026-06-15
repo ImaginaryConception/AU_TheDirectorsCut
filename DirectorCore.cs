@@ -35,6 +35,19 @@ namespace AU_TheDirectorsCut
             ["/action"] = 20f,
             ["/loc"] = 20f,
             ["/vote"] = 20f,
+            ["/colorblinds"] = 40f,
+            ["/shuffle"] = 20f,
+            ["/swap"] = 15f,
+            ["/teleportall"] = 20f,
+            ["/voiceover"] = 8f,
+            ["/spotlight"] = 30f,
+            ["/marathon"] = 30f,
+            ["/quarantine"] = 30f,
+            ["/curse"] = 30f,
+            ["/roulette"] = 45f,
+            ["/bodyswap"] = 30f,
+            ["/cube"] = 30f,
+            ["/tp"] = 10f,
         };
 
         private static Dictionary<byte, (float timer, Vector2 position, float originalSpeed)> _frozenPlayers = new();
@@ -44,6 +57,12 @@ namespace AU_TheDirectorsCut
         private static float _darknessTimer = 0f;
         private static float _originalCrewLightMod = 1f;
         private static float _originalImpostorLightMod = 1f;
+
+        // /colorblinds : effet temporisé (gris + noms masqués), restauration auto
+        private const float ColorBlindDuration = 25f;
+        private static bool _colorBlindActive = false;
+        private static float _colorBlindTimer = 0f;
+        private static readonly Dictionary<byte, (int colorId, string name)> _colorBlindOriginal = new();
 
         public static IReadOnlyList<string> LastAlive => _lastAlive;
         public static IReadOnlyList<string> LastDead => _lastDead;
@@ -109,10 +128,14 @@ namespace AU_TheDirectorsCut
             _darknessTimer = 0f;
             _originalCrewLightMod = 1f;
             _originalImpostorLightMod = 1f;
+            _colorBlindActive = false;
+            _colorBlindTimer = 0f;
+            _colorBlindOriginal.Clear();
             _frozenPlayers.Clear();
             _pendingPunishments.Clear();
             ScriptManager.Reset();
             ChatManager.ClearWelcomeSent();
+            Directives.Reset();
         }
 
         public static void OnPlayerDie(PlayerControl player)
@@ -130,7 +153,8 @@ namespace AU_TheDirectorsCut
                 $"(PlayerId={player.PlayerId}, OwnerId={player.OwnerId})"
             );
 
-            SendHostMessage(
+            // Confidentialité : on prévient en privé le nouveau Réalisateur, pas tout le monde.
+            SendDirectorMessage(
                 string.Format(ModMessages.FirstDirector, player.Data.PlayerName),
                 string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName)
             );
@@ -257,11 +281,8 @@ namespace AU_TheDirectorsCut
                 errorMessage = ModMessages.PlayerNotFoundPlain;
                 return false;
             }
-            if (target.PlayerId == PlayerControl.LocalPlayer.PlayerId)
-            {
-                errorMessage = "Tu ne peux pas choisir l'hôte";
-                return false;
-            }
+            // L'hôte EST une cible valide (s'il est vivant) : l'ordre doit pouvoir lui
+            // être envoyé et agir comme pour n'importe quel joueur.
             if (target.PlayerId == sender.PlayerId)
             {
                 errorMessage = "Tu ne peux pas te choisir toi-même";
@@ -335,16 +356,13 @@ namespace AU_TheDirectorsCut
 
             bool inLobby = ShipStatus.Instance == null;
 
-            bool isDevCommand = cmd == "/start" || cmd == "/stop" || cmd == "/setdirector";
+            bool isAdminCommand = cmd == "/start" || cmd == "/stop" || cmd == "/setdirector"
+                || cmd == "/rename" || cmd == "/kill" || cmd == "/endmeeting"
+                || cmd == "/kick" || cmd == "/status";
 
-            if (isDevCommand)
+            if (isAdminCommand)
             {
-                if (!DevModeManager.devMode)
-                {
-                    ChatManager.QueueSystemMessage(sender, $"Commande inconnue : {cmd} — /help", $"Commande inconnue : {cmd} — /help");
-                    return true;
-                }
-
+                // Commandes ADMIN : réservées à l'hôte. Interdit pour tout autre joueur.
                 if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
                 {
                     ChatManager.QueueSystemMessage(sender, ModMessages.HostOnly, ModMessages.HostOnlyPlain);
@@ -372,6 +390,123 @@ namespace AU_TheDirectorsCut
                             Plugin.Log?.LogInfo("[Director] /stop → RpcEndGame.");
                         }
                         catch (Exception e) { Plugin.Log?.LogError($"[/stop] {e.Message}"); }
+                        return true;
+
+                    case "/rename":
+                        if (parts.Length < 3)
+                        {
+                            ChatManager.QueueSystemMessage(sender, ModMessages.UsageRename, ModMessages.UsageRenamePlain);
+                            return true;
+                        }
+                        if (!LetterToPlayerId(parts[1], out byte rnId))
+                        {
+                            ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                            return true;
+                        }
+                        PlayerControl? rnTarget = FindById(rnId);
+                        if (rnTarget?.Data == null)
+                        {
+                            ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                            return true;
+                        }
+                        string rnOld = rnTarget.Data.PlayerName;
+                        string rnNew = string.Join(" ", parts, 2, parts.Length - 2);
+                        NetworkManager.SetPlayerName(rnTarget, rnNew);
+                        ChatManager.QueueSystemMessage(sender,
+                            string.Format(ModMessages.RenameDone, rnOld, rnNew),
+                            string.Format(ModMessages.RenameDonePlain, rnOld, rnNew)
+                        );
+                        return true;
+
+                    case "/kill":
+                        if (inLobby)
+                        {
+                            ChatManager.QueueSystemMessage(sender, "Pas en jeu !", "Pas en jeu !");
+                            return true;
+                        }
+                        if (parts.Length < 2)
+                        {
+                            ChatManager.QueueSystemMessage(sender, ModMessages.UsageKill, ModMessages.UsageKillPlain);
+                            return true;
+                        }
+                        if (!LetterToPlayerId(parts[1], out byte klId))
+                        {
+                            ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                            return true;
+                        }
+                        PlayerControl? klTarget = FindById(klId);
+                        if (klTarget?.Data == null)
+                        {
+                            ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                            return true;
+                        }
+                        if (klTarget.Data.IsDead)
+                        {
+                            ChatManager.QueueSystemMessage(sender, $"{klTarget.Data.PlayerName} est déjà éliminé(e)", $"{klTarget.Data.PlayerName} est déjà éliminé(e)");
+                            return true;
+                        }
+                        NetworkManager.MurderPlayer(klTarget);
+                        ChatManager.QueueSystemMessage(sender,
+                            string.Format(ModMessages.KillSuccess, klTarget.Data.PlayerName),
+                            string.Format(ModMessages.KillSuccessPlain, klTarget.Data.PlayerName)
+                        );
+                        return true;
+
+                    case "/endmeeting":
+                        if (MeetingHud.Instance == null)
+                        {
+                            ChatManager.QueueSystemMessage(sender, "Aucune réunion en cours !", "Aucune réunion en cours !");
+                            return true;
+                        }
+                        try
+                        {
+                            // Force la fin : le timer dépasse le total discussion+vote → clôture
+                            MeetingHud.Instance.discussionTimer = 9999f;
+                            ChatManager.QueueSystemMessage(sender, ModMessages.MeetingEnded, ModMessages.MeetingEndedPlain);
+                            Plugin.Log?.LogInfo("[Admin] /endmeeting → réunion forcée à se terminer.");
+                        }
+                        catch (Exception e) { Plugin.Log?.LogError($"[/endmeeting] {e.Message}"); }
+                        return true;
+
+                    case "/kick":
+                        if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte kkId))
+                        {
+                            ChatManager.QueueSystemMessage(sender, "Usage : /kick ID", "Usage : /kick ID");
+                            return true;
+                        }
+                        PlayerControl? kkTarget = FindById(kkId);
+                        if (kkTarget?.Data == null)
+                        {
+                            ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                            return true;
+                        }
+                        if (kkTarget.PlayerId == PlayerControl.LocalPlayer.PlayerId)
+                        {
+                            ChatManager.QueueSystemMessage(sender, "Tu ne peux pas te kick toi-même !", "Tu ne peux pas te kick toi-même !");
+                            return true;
+                        }
+                        try
+                        {
+                            AmongUsClient.Instance.KickPlayer(kkTarget.OwnerId, false);
+                            ChatManager.QueueSystemMessage(sender, $"<b><color=#ff4d4d>{kkTarget.Data.PlayerName}</color></b> a été exclu.", $"{kkTarget.Data.PlayerName} a été exclu.");
+                        }
+                        catch (Exception e) { Plugin.Log?.LogError($"[/kick] {e.Message}"); }
+                        return true;
+
+                    case "/status":
+                        {
+                            var fx = new List<string>();
+                            if (_cutActive) fx.Add("Cut en cours");
+                            if (_darknessActive) fx.Add("Darkness");
+                            if (_colorBlindActive) fx.Add("Colorblind");
+                            if (_frozenPlayers.Count > 0) fx.Add($"{_frozenPlayers.Count} gelé(s)");
+                            string dir = Directives.Status();
+                            if (!string.IsNullOrEmpty(dir)) fx.Add(dir);
+                            string body = fx.Count == 0 ? "Aucun effet actif." : string.Join(", ", fx);
+                            string colored = $"<b><color=#ffd23f>État</color></b>\nRéalisateur : {DirectorName ?? "aucun"}\n{body}";
+                            string plain = $"Etat - Realisateur : {DirectorName ?? "aucun"} - {body}";
+                            ChatManager.QueueSystemMessage(sender, colored, plain);
+                        }
                         return true;
 
                     case "/setdirector":
@@ -412,9 +547,18 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/help":
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Help1, ModMessages.Help1Plain);
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Help2, ModMessages.Help2Plain);
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Help3, ModMessages.Help3Plain);
+                    {
+                        // UN seul message : tout est affiché, stylisé. La ligne Admin n'est
+                        // ajoutée que pour l'hôte.
+                        string helpColored = ModMessages.HelpAll;
+                        string helpPlain = ModMessages.HelpAllPlain;
+                        if (sender.PlayerId == PlayerControl.LocalPlayer.PlayerId)
+                        {
+                            helpColored += "\n" + ModMessages.HelpAdminLine;
+                            helpPlain += "\n" + ModMessages.HelpAdminLinePlain;
+                        }
+                        ChatManager.QueueSystemMessage(sender, helpColored, helpPlain);
+                    }
                     return true;
 
                 case "/gg":
@@ -423,7 +567,27 @@ namespace AU_TheDirectorsCut
 
                 case "/join":
                 case "/discord":
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.Discord, ModMessages.DiscordPlain);
+                    {
+                        string link = ModConfig.DiscordLink?.Value;
+                        if (string.IsNullOrWhiteSpace(link))
+                            ChatManager.QueueSystemMessage(sender, ModMessages.Discord, ModMessages.DiscordPlain);
+                        else
+                            ChatManager.QueueSystemMessage(sender, $"<b><color=#5865F2>Discord</color></b> : {link}", $"Discord : {link}");
+                    }
+                    return true;
+
+                case "/cooldowns":
+                case "/cd":
+                    {
+                        var sb = new System.Text.StringBuilder("<b><color=#ffd23f>Cooldowns</color></b>");
+                        foreach (var kvp in _cdMax)
+                        {
+                            float rem = CooldownRemaining(kvp.Key);
+                            sb.Append($"\n{kvp.Key} : {(rem > 0f ? Mathf.CeilToInt(rem) + "s" : "<color=#00e676>prêt</color>")}");
+                        }
+                        string cdTxt = sb.ToString();
+                        ChatManager.QueueSystemMessage(sender, cdTxt, cdTxt);
+                    }
                     return true;
 
                 case "/players":
@@ -433,57 +597,19 @@ namespace AU_TheDirectorsCut
                             .OrderBy(p => p.PlayerId)
                             .ToList();
 
-                        const int maxLen = 100;
-                        const int maxMessages = 8;
-
-                        var chunksPlain = new List<string>();
-                        var chunksColored = new List<string>();
-
-                        string plainCur = "Joueurs : ";
-                        string coloredCur = "Joueurs : ";
-                        int partsInCur = 0;
-                        bool truncated = false;
-
+                        // Un seul message, une ligne par joueur (gras + couleur)
+                        var sbColored = new System.Text.StringBuilder("<b><color=#ffd23f>Joueurs</color></b>");
+                        var sbPlain = new System.Text.StringBuilder("Joueurs");
                         foreach (var p in players)
                         {
-                            string coloredPart = $"{PlayerIdToLetter(p.PlayerId)} {p.Data.PlayerName}{(p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "")}";
-                            string plainPart = $"{PlayerIdToLetter(p.PlayerId)} {p.Data.PlayerName}{(p.Data.IsDead ? " (éliminé)" : "")}";
-                            string sep = partsInCur > 0 ? " | " : "";
-
-                            if ((plainCur + sep + plainPart).Length <= maxLen)
-                            {
-                                plainCur += sep + plainPart;
-                                coloredCur += sep + coloredPart;
-                                partsInCur++;
-                            }
-                            else
-                            {
-                                if (partsInCur > 0)
-                                {
-                                    chunksPlain.Add(plainCur);
-                                    chunksColored.Add(coloredCur);
-                                }
-                                if (chunksPlain.Count >= maxMessages) { truncated = true; break; }
-                                plainCur = plainPart;
-                                coloredCur = coloredPart;
-                                partsInCur = 1;
-                            }
+                            string letter = PlayerIdToLetter(p.PlayerId);
+                            string deadColored = p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "";
+                            string deadPlain = p.Data.IsDead ? " (éliminé)" : "";
+                            sbColored.Append($"\n<b><color=#3B9DFF>{letter}</color></b> {p.Data.PlayerName}{deadColored}");
+                            sbPlain.Append($"\n{letter} {p.Data.PlayerName}{deadPlain}");
                         }
 
-                        if (!truncated && partsInCur > 0)
-                        {
-                            chunksPlain.Add(plainCur);
-                            chunksColored.Add(coloredCur);
-                        }
-                        else if (truncated && chunksPlain.Count > 0)
-                        {
-                            chunksPlain[chunksPlain.Count - 1] += " ...";
-                            chunksColored[chunksColored.Count - 1] += " ...";
-                        }
-
-                        for (int i = 0; i < chunksPlain.Count; i++)
-                            ChatManager.QueueSystemMessageSlow(sender, chunksColored[i], chunksPlain[i]);
-
+                        ChatManager.QueueSystemMessage(sender, sbColored.ToString(), sbPlain.ToString());
                         return true;
                     }
 
@@ -504,52 +630,42 @@ namespace AU_TheDirectorsCut
                     ChatManager.QueueSystemMessage(sender, ModMessages.HelpFreeze, ModMessages.HelpFreezePlain);
                     return true;
                 case "/haction":
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpAction, ModMessages.HelpActionPlain);
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionFull, ModMessages.HelpActionFullPlain);
                     return true;
                 case "/helpaction":
                     if (parts.Length == 2)
                     {
-                        
                         if (TryParseScriptLetter(parts[1], out ScriptOrder order))
                         {
                             switch (order)
                             {
                                 case ScriptOrder.NoReport:
-                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
+                                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
                                     break;
                                 case ScriptOrder.SkipVote:
-                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
+                                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
                                     break;
                                 case ScriptOrder.DontUseVents:
-                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
+                                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
                                     break;
                                 case ScriptOrder.VoteFirst:
-                                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
+                                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
                                     break;
                             }
                         }
                         else
                         {
-                            ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                            ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
+                            ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionFull, ModMessages.HelpActionFullPlain);
                         }
                     }
                     else
                     {
-                        
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionTitle, ModMessages.HelpActionTitlePlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionA, ModMessages.HelpActionAPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionB, ModMessages.HelpActionBPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionC, ModMessages.HelpActionCPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpActionD, ModMessages.HelpActionDPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionFull, ModMessages.HelpActionFullPlain);
                     }
                     return true;
                 case "/hloc":
                 case "/hollow":
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.HelpLoc, ModMessages.HelpLocPlain);
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
-                    ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HelpLocFull, ModMessages.HelpLocFullPlain);
                     return true;
                 case "/hvote":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HelpVote, ModMessages.HelpVotePlain);
@@ -653,8 +769,7 @@ namespace AU_TheDirectorsCut
                     if (!TryCheckCooldown("/action", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionFull, ModMessages.HelpActionFullPlain);
                         return true;
                     }
                     if (!LetterToPlayerId(parts[1], out byte actionTargetId))
@@ -672,15 +787,13 @@ namespace AU_TheDirectorsCut
                     if (parts.Length < 3)
                     {
                         
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionFull, ModMessages.HelpActionFullPlain);
                         return true;
                     }
                     
                     if (!TryParseScriptLetter(parts[2], out ScriptOrder order))
                     {
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageAction, ModMessages.UsageActionPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.ActionList, ModMessages.ActionListPlain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HelpActionFull, ModMessages.HelpActionFullPlain);
                         return true;
                     }
                     
@@ -711,6 +824,11 @@ namespace AU_TheDirectorsCut
                     
                     var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order, actionTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(actionTarget, coloredMsg, plainMsg);
+                    // Confirmation privée à l'hôte ET au réalisateur
+                    SendDirectorMessage(
+                        string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName),
+                        string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName)
+                    );
                     SetCooldown("/action");
                     return true;
                     
@@ -728,9 +846,7 @@ namespace AU_TheDirectorsCut
                     if (!TryCheckCooldown("/loc", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageLoc, ModMessages.UsageLocPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HelpLocFull, ModMessages.HelpLocFullPlain);
                         return true;
                     }
                     if (!LetterToPlayerId(parts[1], out byte locTargetId))
@@ -748,17 +864,13 @@ namespace AU_TheDirectorsCut
                     if (parts.Length < 3)
                     {
                         
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageLoc, ModMessages.UsageLocPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HelpLocFull, ModMessages.HelpLocFullPlain);
                         return true;
                     }
                     
                     if (!TryParseZoneLetter(parts[2], out MapLocation location))
                     {
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.UsageLoc, ModMessages.UsageLocPlain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList1, ModMessages.LocList1Plain);
-                        ChatManager.QueueSystemMessageSlow(sender, ModMessages.LocList2, ModMessages.LocList2Plain);
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HelpLocFull, ModMessages.HelpLocFullPlain);
                         return true;
                     }
                     
@@ -782,6 +894,11 @@ namespace AU_TheDirectorsCut
                     
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(locTarget, locColored, locPlain);
+                    // Confirmation privée à l'hôte ET au réalisateur
+                    SendDirectorMessage(
+                        string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName),
+                        string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName)
+                    );
                     SetCooldown("/loc");
                     return true;
                     
@@ -852,7 +969,251 @@ namespace AU_TheDirectorsCut
                     
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(voteTarget, voteColored, votePlain);
+                    // Confirmation privée à l'hôte ET au réalisateur
+                    SendDirectorMessage(
+                        string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName),
+                        string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName)
+                    );
                     SetCooldown("/vote");
+                    return true;
+
+                case "/colorblinds":
+                case "/colorblind":
+                    if (MeetingHud.Instance != null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/colorblinds", sender)) return true;
+                    if (_colorBlindActive)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Colorblind est déjà actif !", "Colorblind est déjà actif !");
+                        return true;
+                    }
+                    StartColorBlind();
+                    SetCooldown("/colorblinds");
+                    return true;
+
+                case "/shuffle":
+                    if (MeetingHud.Instance != null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/shuffle", sender)) return true;
+                    SendDirectorMessage(ModMessages.ShuffleStart, ModMessages.ShuffleStartPlain);
+                    NetworkManager.ShuffleAllPlayers();
+                    SetCooldown("/shuffle");
+                    return true;
+
+                case "/swap":
+                    if (MeetingHud.Instance != null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/swap", sender)) return true;
+                    if (parts.Length < 3)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Usage : /swap IDA IDB (ex: /swap A B)", "Usage : /swap IDA IDB (ex: /swap A B)");
+                        return true;
+                    }
+                    if (!LetterToPlayerId(parts[1], out byte swapAId) || !LetterToPlayerId(parts[2], out byte swapBId))
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    PlayerControl? swapA = FindById(swapAId);
+                    PlayerControl? swapB = FindById(swapBId);
+                    if (swapA?.Data == null || swapB?.Data == null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    if (swapA.PlayerId == swapB.PlayerId)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !");
+                        return true;
+                    }
+                    NetworkManager.SwapPlayers(swapA, swapB);
+                    SendDirectorMessage(
+                        string.Format(ModMessages.SwapDone, swapA.Data.PlayerName, swapB.Data.PlayerName),
+                        string.Format(ModMessages.SwapDonePlain, swapA.Data.PlayerName, swapB.Data.PlayerName)
+                    );
+                    SetCooldown("/swap");
+                    return true;
+
+                case "/teleportall":
+                    if (MeetingHud.Instance != null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/teleportall", sender)) return true;
+                    if (parts.Length < 2)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Usage : /teleportall ID (ex: /teleportall A)", "Usage : /teleportall ID (ex: /teleportall A)");
+                        return true;
+                    }
+                    if (!LetterToPlayerId(parts[1], out byte tpAllId))
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    PlayerControl? tpAllTarget = FindById(tpAllId);
+                    if (tpAllTarget?.Data == null || tpAllTarget.Data.Disconnected)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    NetworkManager.TeleportAllTo(tpAllTarget);
+                    SendDirectorMessage(
+                        string.Format(ModMessages.TeleportAllDone, tpAllTarget.Data.PlayerName),
+                        string.Format(ModMessages.TeleportAllDonePlain, tpAllTarget.Data.PlayerName)
+                    );
+                    SetCooldown("/teleportall");
+                    return true;
+
+                case "/tp":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/tp", sender)) return true;
+                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte tpA) || !LetterToPlayerId(parts[2], out byte tpB))
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Usage : /tp IDA IDB (téléporte A vers B)", "Usage : /tp IDA IDB (téléporte A vers B)");
+                        return true;
+                    }
+                    PlayerControl? tpTa = FindById(tpA);
+                    PlayerControl? tpTb = FindById(tpB);
+                    if (tpTa?.Data == null || tpTb?.Data == null)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain);
+                        return true;
+                    }
+                    if (tpTa.PlayerId == tpTb.PlayerId)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !");
+                        return true;
+                    }
+                    NetworkManager.Teleport(tpTa, tpTb.GetTruePosition());
+                    SendDirectorMessage($"<b>{tpTa.Data.PlayerName}</b> téléporté vers <b>{tpTb.Data.PlayerName}</b>.", $"{tpTa.Data.PlayerName} téléporté vers {tpTb.Data.PlayerName}.");
+                    SetCooldown("/tp");
+                    return true;
+
+                // ===================== DIRECTIVES (en jeu) =====================
+                case "/voiceover":
+                case "/voixoff":
+                    if (parts.Length < 2)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "Usage : /voiceover <texte>", "Usage : /voiceover <texte>");
+                        return true;
+                    }
+                    if (!TryCheckCooldown("/voiceover", sender)) return true;
+                    Directives.VoiceOver(string.Join(" ", parts, 1, parts.Length - 1));
+                    SetCooldown("/voiceover");
+                    return true;
+
+                case "/spotlight":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/spotlight", sender)) return true;
+                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte spId)) { ChatManager.QueueSystemMessage(sender, "Usage : /spotlight ID", "Usage : /spotlight ID"); return true; }
+                    PlayerControl? spTarget = FindById(spId);
+                    if (spTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    Directives.Spotlight(spTarget);
+                    SetCooldown("/spotlight");
+                    return true;
+
+                case "/marathon":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/marathon", sender)) return true;
+                    Directives.Marathon();
+                    SetCooldown("/marathon");
+                    return true;
+
+                case "/quarantine":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/quarantine", sender)) return true;
+                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte qId)) { ChatManager.QueueSystemMessage(sender, "Usage : /quarantine ID", "Usage : /quarantine ID"); return true; }
+                    PlayerControl? qTarget = FindById(qId);
+                    if (qTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    Directives.Quarantine(qTarget);
+                    SetCooldown("/quarantine");
+                    return true;
+
+                case "/curse":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/curse", sender)) return true;
+                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte cuId)) { ChatManager.QueueSystemMessage(sender, "Usage : /curse ID", "Usage : /curse ID"); return true; }
+                    PlayerControl? cuTarget = FindById(cuId);
+                    if (cuTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    Directives.Curse(cuTarget);
+                    SetCooldown("/curse");
+                    return true;
+
+                case "/roulette":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/roulette", sender)) return true;
+                    Directives.Roulette();
+                    SetCooldown("/roulette");
+                    return true;
+
+                case "/bodyswap":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/bodyswap", sender)) return true;
+                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte bsA) || !LetterToPlayerId(parts[2], out byte bsB)) { ChatManager.QueueSystemMessage(sender, "Usage : /bodyswap IDA IDB", "Usage : /bodyswap IDA IDB"); return true; }
+                    PlayerControl? bsTa = FindById(bsA); PlayerControl? bsTb = FindById(bsB);
+                    if (bsTa?.Data == null || bsTb?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    if (bsTa.PlayerId == bsTb.PlayerId) { ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !"); return true; }
+                    Directives.BodySwap(bsTa, bsTb);
+                    SetCooldown("/bodyswap");
+                    return true;
+
+                case "/cube":
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (!TryCheckCooldown("/cube", sender)) return true;
+                    {
+                        bool cubeBonus = parts.Length < 2 || parts[1].ToLowerInvariant().StartsWith("b");
+                        Directives.Cube(cubeBonus);
+                    }
+                    SetCooldown("/cube");
+                    return true;
+
+                // ===================== DIRECTIVES (réunion) =====================
+                case "/stalker":
+                    if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
+                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte skA) || !LetterToPlayerId(parts[2], out byte skB)) { ChatManager.QueueSystemMessage(sender, "Usage : /stalker IDA IDB (A doit suivre B)", "Usage : /stalker IDA IDB (A doit suivre B)"); return true; }
+                    PlayerControl? skTa = FindById(skA); PlayerControl? skTb = FindById(skB);
+                    if (skTa?.Data == null || skTb?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    if (skTa.PlayerId == skTb.PlayerId) { ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !"); return true; }
+                    Directives.RegisterStalker(skTa, skTb);
+                    return true;
+
+                case "/pacifist":
+                    if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
+                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte pcId)) { ChatManager.QueueSystemMessage(sender, "Usage : /pacifist ID (un Imposteur)", "Usage : /pacifist ID (un Imposteur)"); return true; }
+                    PlayerControl? pcTarget = FindById(pcId);
+                    if (pcTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    Directives.Pacifist(pcTarget);
+                    return true;
+
+                case "/stockholm":
+                    if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
+                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte shCrew) || !LetterToPlayerId(parts[2], out byte shImp)) { ChatManager.QueueSystemMessage(sender, "Usage : /stockholm ID_CREW ID_IMPOSTEUR", "Usage : /stockholm ID_CREW ID_IMPOSTEUR"); return true; }
+                    PlayerControl? shC = FindById(shCrew); PlayerControl? shI = FindById(shImp);
+                    if (shC?.Data == null || shI?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    if (shC.PlayerId == shI.PlayerId) { ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !"); return true; }
+                    Directives.Stockholm(shC, shI);
+                    return true;
+
+                case "/eject":
+                    if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
+                    {
+                        int ejMode = 0;
+                        string arg = parts.Length >= 2 ? parts[1].ToLowerInvariant() : "first";
+                        if (arg.StartsWith("f") || arg.StartsWith("p") || arg == "1") ejMode = 1;
+                        else if (arg.StartsWith("l") || arg.StartsWith("d") || arg == "2") ejMode = 2;
+                        else { ChatManager.QueueSystemMessage(sender, "Usage : /eject first|last", "Usage : /eject first|last"); return true; }
+                        Directives.ArmEject(ejMode);
+                    }
                     return true;
 
                 default:
@@ -870,12 +1231,14 @@ namespace AU_TheDirectorsCut
             _cutKilledPlayers.Clear();
 
             
-            ChatManager.Queue(ModMessages.CutStart, ModMessages.CutStartPlain);
+            // Privé au Réalisateur (confidentialité) — les joueurs ne sont pas prévenus
+            SendDirectorMessage(ModMessages.CutStart, ModMessages.CutStartPlain);
 
             
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
-                if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected && pc != PlayerControl.LocalPlayer)
+                // L'hôte est désormais inclus : /cut peut le tuer aussi s'il bouge.
+                if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected)
                 {
                     _cutInitialPositions[pc.PlayerId] = (Vector2)pc.transform.position;
                 }
@@ -971,6 +1334,36 @@ namespace AU_TheDirectorsCut
             }
         }
 
+        private static void StartColorBlind()
+        {
+            if (ShipStatus.Instance == null) return;
+
+            // Mémorise couleurs + noms d'origine pour pouvoir restaurer
+            _colorBlindOriginal.Clear();
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.Data == null || pc.Data.Disconnected) continue;
+                _colorBlindOriginal[pc.PlayerId] = (pc.Data.DefaultOutfit.ColorId, pc.Data.PlayerName);
+            }
+
+            _colorBlindActive = true;
+            _colorBlindTimer = ColorBlindDuration;
+
+            SendDirectorMessage(ModMessages.ColorBlindStart, ModMessages.ColorBlindStartPlain);
+            NetworkManager.GreyAllAndHideNames();
+        }
+
+        private static void EndColorBlind()
+        {
+            _colorBlindActive = false;
+            _colorBlindTimer = 0f;
+
+            NetworkManager.RestoreColorsAndNames(_colorBlindOriginal);
+            _colorBlindOriginal.Clear();
+
+            SendDirectorMessage(ModMessages.ColorBlindEnd, ModMessages.ColorBlindEndPlain);
+        }
+
         private static void StartFreeze(PlayerControl target)
         {
             if (target?.Data == null || target.Data.IsDead || target.Data.Disconnected) return;
@@ -1035,8 +1428,9 @@ namespace AU_TheDirectorsCut
                 }
             }
 
-            
+
             ScriptManager.Update();
+            Directives.Update(dt);
 
             
             if (_darknessActive)
@@ -1045,6 +1439,16 @@ namespace AU_TheDirectorsCut
                 if (_darknessTimer <= 0f)
                 {
                     EndDarkness();
+                }
+            }
+
+
+            if (_colorBlindActive)
+            {
+                _colorBlindTimer -= dt;
+                if (_colorBlindTimer <= 0f)
+                {
+                    EndColorBlind();
                 }
             }
 
@@ -1092,41 +1496,31 @@ namespace AU_TheDirectorsCut
                         _cutTimer = 5f;
                     }
                 }
-                else if (_cutPhase == 2) 
+                else if (_cutPhase == 2)
                 {
-                    
-                    PlayerControl? firstMoved = null;
+                    // Pendant TOUTE la fenêtre d'arrêt : chaque joueur qui bouge est
+                    // éliminé — l'hôte compris. On ne s'arrête plus au premier bougeur.
                     foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
                     {
                         if (pc?.Data == null || pc.Data.IsDead || pc.Data.Disconnected) continue;
                         if (_cutKilledPlayers.Contains(pc.PlayerId)) continue;
-                        if (pc == PlayerControl.LocalPlayer) continue; 
+                        // L'hôte n'est plus épargné : s'il bouge, il meurt comme les autres.
 
                         if (_cutInitialPositions.TryGetValue(pc.PlayerId, out Vector2 initialPos))
                         {
                             Vector2 currentPos = (Vector2)pc.transform.position;
-                            float distance = Vector2.Distance(initialPos, currentPos);
-                            if (distance > 0.5f) 
+                            if (Vector2.Distance(initialPos, currentPos) > 0.5f)
                             {
-                                firstMoved = pc;
-                                break;
+                                _cutKilledPlayers.Add(pc.PlayerId);
+                                ChatManager.Queue(string.Format(ModMessages.CutEliminated, pc.Data.PlayerName), string.Format(ModMessages.CutEliminatedPlain, pc.Data.PlayerName));
+                                HydraKillPlayer(pc);
                             }
                         }
                     }
 
-                    if (firstMoved != null)
+                    if (_cutTimer <= 0f)
                     {
-                        _cutKilledPlayers.Add(firstMoved.PlayerId);
-                        ChatManager.Queue(string.Format(ModMessages.CutEliminated, firstMoved.Data.PlayerName), string.Format(ModMessages.CutEliminatedPlain, firstMoved.Data.PlayerName));
-                        HydraKillPlayer(firstMoved);
-                        
-                        _cutPhase = 3;
-                        _cutTimer = 2f;
-                        TriggerReactorSabotage(true);
-                    }
-                    else if (_cutTimer <= 0f)
-                    {
-                        
+                        // Fin de la fenêtre → clôture
                         _cutPhase = 3;
                         _cutTimer = 2f;
                         TriggerReactorSabotage(true);
@@ -1168,22 +1562,18 @@ namespace AU_TheDirectorsCut
                 _cd[k] = Mathf.Max(0f, _cd[k] - dt);
         }
 
+        // Wrapper public : permet au module Directives d'envoyer un retour privé au Réalisateur.
+        public static void DirectorNotify(string coloredMessage, string plainMessage) => SendDirectorMessage(coloredMessage, plainMessage);
+
         private static void SendDirectorMessage(string coloredMessage, string plainMessage)
         {
-            PlayerControl? host = PlayerControl.LocalPlayer;
-            if (host != null)
-            {
-                ChatManager.QueueSystemMessage(host, coloredMessage, plainMessage);
-            }
-            
-            if (DirectorPlayerId.HasValue)
-            {
-                PlayerControl? director = FindById(DirectorPlayerId.Value);
-                if (director != null && host != null && director.PlayerId != host.PlayerId)
-                {
-                    ChatManager.QueueSystemMessage(director, coloredMessage, plainMessage);
-                }
-            }
+            // Confidentialité : ces retours (confirmations, bannières d'effet) ne vont
+            // QU'au Réalisateur, c.-à-d. l'émetteur des commandes director. Si le poste
+            // est vacant (aucun mort encore), on retombe sur l'hôte.
+            PlayerControl? director = DirectorPlayerId.HasValue ? FindById(DirectorPlayerId.Value) : null;
+            PlayerControl? recipient = director ?? PlayerControl.LocalPlayer;
+            if (recipient != null)
+                ChatManager.QueueSystemMessage(recipient, coloredMessage, plainMessage);
         }
 
         private static void SendHostMessage(string coloredMessage) => SendHostMessage(coloredMessage, null);
@@ -1205,8 +1595,10 @@ namespace AU_TheDirectorsCut
     {
         static void Postfix(PlayerControl __instance)
         {
-            if (DirectorCore.TryRevertAntiCheatRetaliation(__instance)) return;
+            // Plus de revert anti-cheat : sur serveur privé sans anti-cheat, la mort de
+            // l'hôte doit tenir (sinon /cut ne pourrait pas tuer l'hôte).
             DirectorCore.OnPlayerDie(__instance);
+            Directives.OnDeath(__instance);
         }
     }
 
@@ -1541,6 +1933,7 @@ namespace AU_TheDirectorsCut
             
             // Réinitialiser le tracking VoteFirst
             ScriptManager.ResetVoteFirstTracking();
+            Directives.OnMeetingStart();
             Plugin.Log?.LogInfo("[DirectorCore] Meeting started - Scripts completed, VoteFirst tracking reset");
         }
     }
@@ -1551,7 +1944,10 @@ namespace AU_TheDirectorsCut
         static void Postfix()
         {
             if (!AmongUsClient.Instance.AmHost) return;
-            
+
+            // Directives liées à la fin de réunion (éjection scriptée, activation Stalker)
+            Directives.OnMeetingClose();
+
             Plugin.Log?.LogInfo("[MeetingClose_P] Meeting closed - checking vote scripts");
             
             

@@ -17,13 +17,17 @@ namespace AU_TheDirectorsCut
             Log = base.Log;
             Log.LogInfo($"[{PluginInfo.PLUGIN_NAME}] Loading...");
 
+            ModConfig.Init(Config);
+
             harmony = new Harmony(PluginInfo.PLUGIN_GUID);
             harmony.PatchAll();
 
             DirectorCore.Initialize();
             NetworkManager.Initialize();
-            
-            
+
+            // Panneau Admin hôte (IMGUI) — ouvert avec la touche Suppr (Delete)
+            AddComponent<AdminUI>();
+
             Log.LogInfo($"[{PluginInfo.PLUGIN_NAME}] Loaded!");
         }
 
