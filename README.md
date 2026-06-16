@@ -108,7 +108,7 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | `/gg` | Previous-game stats (alive / eliminated) |
 | `/players` | List players with their letter IDs |
 | `/join` · `/discord` | Discord invite |
-| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` | Detailed help per command |
+| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hquarantine` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Detailed help per command |
 
 ### 🎬 Director — in-game effects
 | Command | Effect | Cooldown |
@@ -182,7 +182,7 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 
 ## 💬 Discord
 
-Join the community: **`<!-- remplace par ton invite, ex : https://discord.gg/XXXXXXX -->`**
+Join the community: **`https://discord.gg/EVbPNEWDZd`**
 Contacts: `imaginaryconception` · `kalinina_sn`
 
 *(In-game `/discord` currently shows the contacts above. Send the host your invite link and it can be added to the message.)*
@@ -285,7 +285,7 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
 | `/players` | Liste les joueurs et leurs ID-lettres |
 | `/join` · `/discord` | Invitation Discord |
-| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` | Aide détaillée par commande |
+| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hquarantine` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Aide détaillée par commande |
 
 ### 🎬 Réalisateur — effets en partie
 | Commande | Effet | Cooldown |
@@ -359,7 +359,7 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 
 ## 💬 Discord
 
-Rejoins la communauté : **`<!-- remplace par ton invite, ex : https://discord.gg/XXXXXXX -->`**
+Rejoins la communauté : **`https://discord.gg/EVbPNEWDZd`**
 Contacts : `imaginaryconception` · `kalinina_sn`
 
 *(En jeu, `/discord` affiche actuellement les contacts ci-dessus. Donne-moi ton lien d'invitation et je l'ajoute au message.)*
