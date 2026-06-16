@@ -677,6 +677,99 @@ namespace AU_TheDirectorsCut
                 case "/hvote":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HelpVote, ModMessages.HelpVotePlain);
                     return true;
+
+                // ---- Aides des commandes générales ----
+                case "/hhelp":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HHelp, ModMessages.HHelpPlain);
+                    return true;
+                case "/hwelcome":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HWelcome, ModMessages.HWelcomePlain);
+                    return true;
+                case "/hgg":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HGg, ModMessages.HGgPlain);
+                    return true;
+                case "/hplayers":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HPlayers, ModMessages.HPlayersPlain);
+                    return true;
+                case "/hdiscord":
+                case "/hjoin":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HDiscord, ModMessages.HDiscordPlain);
+                    return true;
+                case "/hcooldowns":
+                case "/hcd":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HCooldowns, ModMessages.HCooldownsPlain);
+                    return true;
+
+                // ---- Aides des commandes Réalisateur (en jeu) ----
+                case "/hcolorblind":
+                case "/hcolorblinds":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HColorblind, ModMessages.HColorblindPlain);
+                    return true;
+                case "/hshuffle":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HShuffle, ModMessages.HShufflePlain);
+                    return true;
+                case "/hswap":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HSwap, ModMessages.HSwapPlain);
+                    return true;
+                case "/hteleportall":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HTeleportall, ModMessages.HTeleportallPlain);
+                    return true;
+                case "/htp":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HTp, ModMessages.HTpPlain);
+                    return true;
+                case "/hvoiceover":
+                case "/hvoixoff":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HVoiceover, ModMessages.HVoiceoverPlain);
+                    return true;
+                case "/hspotlight":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HSpotlight, ModMessages.HSpotlightPlain);
+                    return true;
+                case "/hmarathon":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HMarathon, ModMessages.HMarathonPlain);
+                    return true;
+                case "/hquarantine":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HQuarantine, ModMessages.HQuarantinePlain);
+                    return true;
+                case "/hroulette":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HRoulette, ModMessages.HRoulettePlain);
+                    return true;
+                case "/hbodyswap":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HBodyswap, ModMessages.HBodyswapPlain);
+                    return true;
+
+                // ---- Aides des commandes Réalisateur (en réunion) ----
+                case "/hstalker":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HStalker, ModMessages.HStalkerPlain);
+                    return true;
+                case "/hultimatum":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HUltimatum, ModMessages.HUltimatumPlain);
+                    return true;
+
+                // ---- Aides des commandes Admin ----
+                case "/hstart":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HStart, ModMessages.HStartPlain);
+                    return true;
+                case "/hstop":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HStop, ModMessages.HStopPlain);
+                    return true;
+                case "/hsetdirector":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HSetdirector, ModMessages.HSetdirectorPlain);
+                    return true;
+                case "/hrename":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HRename, ModMessages.HRenamePlain);
+                    return true;
+                case "/hkill":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HKill, ModMessages.HKillPlain);
+                    return true;
+                case "/hkick":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HKick, ModMessages.HKickPlain);
+                    return true;
+                case "/hendmeeting":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HEndmeeting, ModMessages.HEndmeetingPlain);
+                    return true;
+                case "/hstatus":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HStatus, ModMessages.HStatusPlain);
+                    return true;
             }
 
             if (inLobby)
