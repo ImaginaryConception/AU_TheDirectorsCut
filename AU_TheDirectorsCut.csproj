@@ -48,6 +48,14 @@
     <Reference Include="UnityEngine.InputLegacyModule" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.InputLegacyModule.dll')">
       <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.InputLegacyModule.dll</HintPath><Private>False</Private>
     </Reference>
+    <!-- TextMeshPro (cosmetics.nameText : rafraîchir le pseudo localement) -->
+    <Reference Include="Unity.TextMeshPro" Condition="Exists('$(AmongUsPath)\BepInEx\interop\Unity.TextMeshPro.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\Unity.TextMeshPro.dll</HintPath><Private>False</Private>
+    </Reference>
+    <!-- UnityEngine.UI : TextMeshPro hérite de MaskableGraphic (défini ici) -->
+    <Reference Include="UnityEngine.UI" Condition="Exists('$(AmongUsPath)\BepInEx\interop\UnityEngine.UI.dll')">
+      <HintPath>$(AmongUsPath)\BepInEx\interop\UnityEngine.UI.dll</HintPath><Private>False</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp"       Condition="Exists('$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll')">
       <HintPath>$(AmongUsPath)\BepInEx\interop\Assembly-CSharp.dll</HintPath><Private>False</Private>
     </Reference>

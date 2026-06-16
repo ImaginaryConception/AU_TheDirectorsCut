@@ -612,7 +612,17 @@ namespace AU_TheDirectorsCut
 
     [HarmonyPatch(typeof(ChatController), nameof(ChatController.Update))]
     static class ChatPump_P
-    { static void Postfix(ChatController __instance) => ChatManager.Pump(__instance); }
+    {
+        static void Postfix(ChatController __instance)
+        {
+            ChatManager.Pump(__instance);
+            // Hôte uniquement : on annule le cooldown d'envoi (~3s) en gardant le compteur
+            // "temps depuis le dernier message" toujours au-dessus du seuil. L'hôte peut donc
+            // enchaîner ses messages sans attendre.
+            if (AmongUsClient.Instance?.AmHost == true)
+                __instance.timeSinceLastMessage = 99f;
+        }
+    }
 
     [HarmonyPatch(typeof(ChatController), nameof(ChatController.AddChat))]
     static class ChatAddColor_P

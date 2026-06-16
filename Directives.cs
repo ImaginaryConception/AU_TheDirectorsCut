@@ -22,11 +22,23 @@ namespace AU_TheDirectorsCut
             PlayerControl.AllPlayerControls.ToArray()
                 .Where(p => p?.Data != null && !p.Data.IsDead && !p.Data.Disconnected).ToList();
 
+        // IMPORTANT : envoyer des GameOptions à l'HÔTE appelle SetGameOptions qui MODIFIE le
+        // currentGameOptions partagé. Si on relisait currentGameOptions pour restaurer, on
+        // restaurerait des valeurs déjà polluées (→ marathon/quarantine qui ne s'arrêtent pas).
+        // On garde donc un instantané PROPRE des options, capturé avant toute modification.
+        private static IGameOptions _pristine;
+        private static IGameOptions Pristine()
+        {
+            if (_pristine == null)
+                _pristine = Utils.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+            return _pristine;
+        }
+
         private static IGameOptions Clone() =>
-            Utils.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions);
+            Utils.GameOptions.CreateCloneOptions(Pristine());
 
         private static float BaseSpeed() =>
-            GameManager.Instance.LogicOptions.currentGameOptions.GetFloat(FloatOptionNames.PlayerSpeedMod);
+            Pristine().GetFloat(FloatOptionNames.PlayerSpeedMod);
 
         private static void SetClientSpeed(int ownerId, float value)
         {
@@ -75,41 +87,37 @@ namespace AU_TheDirectorsCut
 
         // Stalker
         private const float StalkerDist = 3f;
-        private const float StalkerGrace = 8f;
+        private const float StalkerGrace = 8f;        // temps toléré hors de portée avant kill
+        private const float StalkerStartDelay = 10f;  // grâce après le début de la manche
         private static bool _stalkerOn;
         private static byte _stA, _stB;
         private static float _stFar;
+        private static float _stStartGrace;           // décompte avant de commencer à vérifier
         private static bool _stWarned;
         private static byte? _pendStalkerA, _pendStalkerB;
 
-        // Cube
-        private static bool _cubeOn;
-        private static Vector2 _cubePos;
-        private static bool _cubeBonus;
-
-        // Curse
-        private static bool _curseOn;
-        private static byte _curseId;
-        private static float _curseElapsed, _curseResend;
-        private const float CurseDur = 30f;
-
-        // Stockholm : (crewmate, impostor)
-        private static readonly List<(byte crew, byte imp)> _stockholm = new();
-
-        // Éjection scriptée : 0 = off, 1 = premier votant, 2 = dernier votant
-        private static int _ejectMode;
+        // Ultimatum : un imposteur doit tuer avant la fin du délai, sinon il est démasqué.
+        private static bool _ultimatumOn;
+        private static byte _ultimatumId;
+        private static float _ultimatumTimer;
+        private static bool _ultimatumKilled;         // a-t-il fait un vrai kill depuis l'assignation ?
+        private static byte? _pendUltimatumId;
+        private static float _pendUltimatumDur;
+        private const float UltimatumDefault = 60f;
 
         // ===================== Reset =====================
         public static void Reset()
         {
+            // Capture un instantané PROPRE des options au début de partie (currentGameOptions
+            // est encore intact ici). Sert de base fiable pour appliquer/restaurer les effets.
+            try { _pristine = Utils.GameOptions.CreateCloneOptions(GameManager.Instance.LogicOptions.currentGameOptions); }
+            catch { _pristine = null; }
             _timed.Clear();
             _modifiedOwners.Clear();
-            _stalkerOn = false; _stFar = 0f; _stWarned = false;
+            _stalkerOn = false; _stFar = 0f; _stWarned = false; _stStartGrace = 0f;
             _pendStalkerA = null; _pendStalkerB = null;
-            _cubeOn = false;
-            _curseOn = false; _curseElapsed = 0f; _curseResend = 0f;
-            _stockholm.Clear();
-            _ejectMode = 0;
+            _ultimatumOn = false; _ultimatumKilled = false; _ultimatumTimer = 0f;
+            _pendUltimatumId = null; _pendUltimatumDur = 0f;
         }
 
         // ===================== Tick =====================
@@ -139,6 +147,12 @@ namespace AU_TheDirectorsCut
                 {
                     _stalkerOn = false;
                 }
+                else if (_stStartGrace > 0f)
+                {
+                    // Grâce de début de manche : on attend avant de vérifier (les joueurs viennent
+                    // d'être téléportés à leur spawn à la fin de la réunion).
+                    _stStartGrace -= dt;
+                }
                 else
                 {
                     float d = Vector2.Distance(a.GetTruePosition(), b.GetTruePosition());
@@ -153,6 +167,7 @@ namespace AU_TheDirectorsCut
                         if (_stFar >= StalkerGrace)
                         {
                             _stalkerOn = false;
+                            // On tue bien le SUIVEUR (A), jamais la cible suivie (B).
                             Broadcast($"<b><color=#ff6b6b>{a.Data.PlayerName}</color></b> a perdu sa cible — éliminé(e) !", $"{a.Data.PlayerName} a perdu sa cible - elimine !");
                             NetworkManager.MurderPlayer(a);
                         }
@@ -164,88 +179,50 @@ namespace AU_TheDirectorsCut
                 }
             }
 
-            // ---- Cube ----
-            if (_cubeOn)
+            // ---- Ultimatum ----
+            if (_ultimatumOn)
             {
-                foreach (var p in Living())
+                var t = Find(_ultimatumId);
+                if (t?.Data == null || t.Data.IsDead || t.Data.Disconnected)
                 {
-                    if (Vector2.Distance(p.GetTruePosition(), _cubePos) <= 1.3f)
+                    _ultimatumOn = false;
+                }
+                else
+                {
+                    _ultimatumTimer -= dt;
+                    if (_ultimatumTimer <= 0f)
                     {
-                        _cubeOn = false;
-                        if (_cubeBonus)
-                        {
-                            int owner = p.OwnerId;
-                            SetClientSpeed(owner, BaseSpeed() * 1.6f);
-                            AddTimed(30f, () => RestoreClient(owner));
-                            Whisper(p, "<b><color=#00e676>Cube bonus !</color></b> Boost de vitesse 30s !", "Cube bonus ! Boost de vitesse 30s !");
-                            Director($"<b>Cube</b> : {p.Data.PlayerName} a pris le bonus.", $"Cube : {p.Data.PlayerName} a pris le bonus.");
-                        }
-                        else
-                        {
-                            int owner = p.OwnerId;
-                            SetClientSpeed(owner, 0.02f);
-                            AddTimed(8f, () => RestoreClient(owner));
-                            Whisper(p, "<b><color=#ff6b6b>Cube piégé !</color></b> Tu es bloqué 8s !", "Cube piege ! Tu es bloque 8s !");
-                            Director($"<b>Cube</b> : {p.Data.PlayerName} est tombé dans le piège.", $"Cube : {p.Data.PlayerName} est tombe dans le piege.");
-                        }
-                        break;
+                        _ultimatumOn = false;
+                        if (!_ultimatumKilled) ExposeUltimatum(t);
                     }
                 }
             }
+        }
 
-            // ---- Curse (décroissance de vitesse) ----
-            if (_curseOn)
+        // Révélation publique de l'imposteur qui n'a pas tué à temps : pseudo en rouge + meeting auto.
+        private static void ExposeUltimatum(PlayerControl t)
+        {
+            try
             {
-                _curseElapsed += dt;
-                _curseResend -= dt;
-                var c = Find(_curseId);
-                if (c?.Data == null || c.Data.IsDead || c.Data.Disconnected || _curseElapsed >= CurseDur)
-                {
-                    if (c != null) RestoreClient(c.OwnerId);
-                    _curseOn = false;
-                }
-                else if (_curseResend <= 0f)
-                {
-                    _curseResend = 2f;
-                    float mult = Mathf.Lerp(BaseSpeed(), BaseSpeed() * 0.25f, _curseElapsed / CurseDur);
-                    SetClientSpeed(c.OwnerId, mult);
-                }
+                string original = t.Data.PlayerName;
+                NetworkManager.SetPlayerName(t, $"<color=#ff1f1f>{original}</color>");
+                Broadcast($"<b><color=#ff1f1f>{original} est un IMPOSTEUR !</color></b> Il n'a pas tué à temps.", $"{original} est un IMPOSTEUR ! Il n'a pas tue a temps.");
+                var reporter = Living().FirstOrDefault(p => p != null);
+                if (reporter != null) reporter.RpcStartMeeting(null); // null = bouton d'urgence
             }
+            catch (Exception e) { Plugin.Log?.LogError($"[Ultimatum] {e.Message}"); }
+        }
+
+        // Appelé par le patch MurderPlayer quand un VRAI kill est détecté (killer != victime).
+        public static void NotifyKill(byte killerId)
+        {
+            if (_ultimatumOn && killerId == _ultimatumId) _ultimatumKilled = true;
         }
 
         // ===================== Hooks =====================
         public static void OnDeath(PlayerControl victim)
         {
-            if (!Host || victim?.Data == null) return;
-            byte id = victim.PlayerId;
-
-            // Stockholm
-            for (int i = _stockholm.Count - 1; i >= 0; i--)
-            {
-                var link = _stockholm[i];
-                if (id == link.imp)
-                {
-                    _stockholm.RemoveAt(i);
-                    var crew = Find(link.crew);
-                    if (crew?.Data != null && !crew.Data.IsDead)
-                    {
-                        Broadcast($"<b><color=#ff6b6b>{crew.Data.PlayerName}</color></b> meurt de chagrin…", $"{crew.Data.PlayerName} meurt de chagrin...");
-                        NetworkManager.MurderPlayer(crew);
-                    }
-                }
-                else if (id == link.crew)
-                {
-                    _stockholm.RemoveAt(i);
-                    var imp = Find(link.imp);
-                    if (imp?.Data != null && !imp.Data.IsDead)
-                    {
-                        int owner = imp.OwnerId;
-                        SetClientSpeed(owner, BaseSpeed() * 0.4f);
-                        AddTimed(120f, () => RestoreClient(owner));
-                        Whisper(imp, "<b><color=#ff6b6b>Ton lien est brisé</color></b> — ralenti 2 min.", "Ton lien est brise - ralenti 2 min.");
-                    }
-                }
-            }
+            // (réservé pour de futures directives liées à la mort)
         }
 
         public static void OnMeetingStart()
@@ -253,6 +230,7 @@ namespace AU_TheDirectorsCut
             if (!Host) return;
             // Les directives "de manche" s'arrêtent quand une réunion démarre.
             _stalkerOn = false;
+            _ultimatumOn = false;
         }
 
         public static void OnMeetingClose()
@@ -264,32 +242,25 @@ namespace AU_TheDirectorsCut
             {
                 _stalkerOn = true; _stA = _pendStalkerA.Value; _stB = _pendStalkerB.Value;
                 _stFar = 0f; _stWarned = false;
+                _stStartGrace = StalkerStartDelay; // 10s de grâce avant de vérifier
                 _pendStalkerA = null; _pendStalkerB = null;
             }
 
-            // Éjection scriptée : piège sur le 1er/dernier votant
-            if (_ejectMode != 0)
+            // Activer un Ultimatum programmé pour la manche qui commence
+            if (_pendUltimatumId.HasValue)
             {
-                var order = ScriptManager.VotedPlayerIdsInOrder;
-                if (order != null && order.Count > 0)
-                {
-                    byte vid = _ejectMode == 1 ? order[0] : order[order.Count - 1];
-                    var victim = Find(vid);
-                    string which = _ejectMode == 1 ? "premier" : "dernier";
-                    if (victim?.Data != null && !victim.Data.IsDead)
-                    {
-                        Broadcast($"<b><color=#ff6b6b>Le vaisseau éjecte {victim.Data.PlayerName}</color></b> — piège du {which} votant !", $"Le vaisseau ejecte {victim.Data.PlayerName} - piege du {which} votant !");
-                        NetworkManager.MurderPlayer(victim);
-                    }
-                }
-                _ejectMode = 0;
+                _ultimatumOn = true;
+                _ultimatumId = _pendUltimatumId.Value;
+                _ultimatumTimer = _pendUltimatumDur;
+                _ultimatumKilled = false;
+                _pendUltimatumId = null;
             }
         }
 
         // ===================== Commandes =====================
         public static void VoiceOver(string text)
         {
-            string colored = $"<b><size=150%><color=#dfe6e9>« {text} »</color></size></b>";
+            string colored = $"<b><size=150%><color=#000000>« {text} »</color></size></b>";
             Broadcast(colored, $"« {text} »");
         }
 
@@ -331,12 +302,6 @@ namespace AU_TheDirectorsCut
             Director($"<b><color=#74b9ff>Quarantaine</color></b> : tous figés sauf {target.Data.PlayerName} (8s).", $"Quarantaine : tous figes sauf {target.Data.PlayerName} (8s).");
         }
 
-        public static void Curse(PlayerControl target)
-        {
-            _curseOn = true; _curseId = target.PlayerId; _curseElapsed = 0f; _curseResend = 0f;
-            Director($"<b><color=#b2bec3>Malédiction</color></b> sur {target.Data.PlayerName} : il ralentit peu à peu (30s).", $"Malediction sur {target.Data.PlayerName} : il ralentit peu a peu (30s).");
-        }
-
         public static void Roulette()
         {
             var living = Living();
@@ -364,16 +329,6 @@ namespace AU_TheDirectorsCut
             Director($"<b><color=#a29bfe>Échange d'identités</color></b> : {na} ⇄ {nb}.", $"Echange d'identites : {na} <-> {nb}.");
         }
 
-        public static void Cube(bool bonus)
-        {
-            var locs = Teleporter.GetTeleportLocations();
-            if (locs == null || locs.Count == 0) return;
-            var values = locs.Values.ToList();
-            _cubePos = values[_rng.Next(values.Count)];
-            _cubeOn = true; _cubeBonus = bonus;
-            Director($"<b><color=#ffd23f>Cube {(bonus ? "bonus" : "piégé")}</color></b> placé. Premier arrivé, premier servi !", $"Cube {(bonus ? "bonus" : "piege")} place. Premier arrive, premier servi !");
-        }
-
         // ---- meeting-only ----
         public static void RegisterStalker(PlayerControl a, PlayerControl b)
         {
@@ -383,37 +338,16 @@ namespace AU_TheDirectorsCut
             Director($"<b>Stalker</b> armé : {a.Data.PlayerName} → {b.Data.PlayerName} (dès la prochaine manche).", $"Stalker arme : {a.Data.PlayerName} -> {b.Data.PlayerName}.");
         }
 
-        public static void Pacifist(PlayerControl target)
+        // Ultimatum : un imposteur doit faire un kill dans le délai imparti (dès le début de la
+        // manche). S'il n'a tué personne à l'expiration, son rôle est révélé à tous (pseudo en
+        // rouge) et une réunion d'urgence est déclenchée automatiquement.
+        public static void Ultimatum(PlayerControl target, float seconds)
         {
-            int owner = target.OwnerId;
-            byte pid = target.PlayerId;
-            SetClientKillCooldown(owner, 9000f);
-            Whisper(target, "<b><color=#ffd23f>Pacifiste forcé</color></b> : interdit de tuer pendant 2 min. Tiens bon pour une récompense !", "Pacifiste force : interdit de tuer pendant 2 min. Tiens bon pour une recompense !");
-            Director($"<b>Pacifiste</b> appliqué à {target.Data.PlayerName} (2 min).", $"Pacifiste applique a {target.Data.PlayerName} (2 min).");
-            AddTimed(120f, () =>
-            {
-                var p = Find(pid);
-                if (p?.Data != null && !p.Data.IsDead)
-                {
-                    SetClientSpeed(p.OwnerId, BaseSpeed() * 1.3f); // restaure le kill cd + boost permanent
-                    Whisper(p, "<b><color=#00e676>Pacifiste accompli !</color></b> Boost de vitesse pour le reste de la partie.", "Pacifiste accompli ! Boost de vitesse pour le reste de la partie.");
-                }
-            });
-        }
-
-        public static void Stockholm(PlayerControl crew, PlayerControl imp)
-        {
-            _stockholm.Add((crew.PlayerId, imp.PlayerId));
-            Whisper(crew, $"<b><color=#ffd23f>Syndrome de Stockholm</color></b> : ton sort est lié à <b>{imp.Data.PlayerName}</b>. S'il meurt, tu meurs.", $"Syndrome de Stockholm : ton sort est lie a {imp.Data.PlayerName}. S'il meurt, tu meurs.");
-            Whisper(imp, $"<b><color=#ffd23f>Lien</color></b> : protège <b>{crew.Data.PlayerName}</b>. S'il meurt, tu perds ta force 2 min.", $"Lien : protege {crew.Data.PlayerName}. S'il meurt, tu perds ta force 2 min.");
-            Director($"<b>Stockholm</b> : {crew.Data.PlayerName} ⇄ {imp.Data.PlayerName}.", $"Stockholm : {crew.Data.PlayerName} <-> {imp.Data.PlayerName}.");
-        }
-
-        public static void ArmEject(int mode)
-        {
-            _ejectMode = mode;
-            string which = mode == 1 ? "premier" : "dernier";
-            Director($"<b><color=#ff4d4d>Éjection scriptée</color></b> armée : le <b>{which}</b> votant sera éjecté à la fin de cette réunion.", $"Ejection scriptee armee : le {which} votant sera ejecte a la fin de cette reunion.");
+            _pendUltimatumId = target.PlayerId;
+            _pendUltimatumDur = seconds > 0f ? seconds : UltimatumDefault;
+            int s = Mathf.RoundToInt(_pendUltimatumDur);
+            Whisper(target, $"<b><color=#ff4d4d>Ultimatum</color></b> : tu dois tuer dans les <b>{s}s</b> après le début de la manche, sinon ton rôle sera révélé à tous !", $"Ultimatum : tue dans les {s}s apres le debut de la manche, sinon ton role sera revele !");
+            Director($"<b>Ultimatum</b> appliqué à {target.Data.PlayerName} ({s}s) — dès la prochaine manche.", $"Ultimatum applique a {target.Data.PlayerName} ({s}s).");
         }
 
         // Résumé (texte simple) des directives actives, pour /status.
@@ -422,10 +356,8 @@ namespace AU_TheDirectorsCut
             var lines = new List<string>();
             if (_stalkerOn) lines.Add("Stalker actif");
             if (_pendStalkerA.HasValue) lines.Add("Stalker programmé (prochaine manche)");
-            if (_cubeOn) lines.Add($"Cube {(_cubeBonus ? "bonus" : "piégé")} posé");
-            if (_curseOn) lines.Add("Malédiction active");
-            if (_stockholm.Count > 0) lines.Add($"{_stockholm.Count} lien(s) Stockholm");
-            if (_ejectMode != 0) lines.Add($"Éjection scriptée armée ({(_ejectMode == 1 ? "premier" : "dernier")})");
+            if (_ultimatumOn) lines.Add($"Ultimatum en cours ({Mathf.CeilToInt(_ultimatumTimer)}s)");
+            if (_pendUltimatumId.HasValue) lines.Add("Ultimatum programmé (prochaine manche)");
             if (_timed.Count > 0) lines.Add($"{_timed.Count} effet(s) temporisé(s)");
             return string.Join(", ", lines);
         }

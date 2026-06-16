@@ -96,12 +96,41 @@ namespace AU_TheDirectorsCut
 
         
 
+        // Si le joueur est dans un vent, on l'en éjecte avant tout TP (sinon il reste "coincé"
+        // dans le vent à la nouvelle position). On boote le vent le plus proche de lui.
+        public static void ForceExitVent(PlayerControl player)
+        {
+            if (player == null || ShipStatus.Instance == null) return;
+            if (!player.inVent) return;
+            try
+            {
+                Vent nearest = null;
+                float best = float.MaxValue;
+                Vector2 pos = player.GetTruePosition();
+                foreach (var v in ShipStatus.Instance.AllVents)
+                {
+                    if (v == null) continue;
+                    float d = Vector2.Distance(pos, (Vector2)v.transform.position);
+                    if (d < best) { best = d; nearest = v; }
+                }
+                if (nearest != null && player.MyPhysics != null)
+                    player.MyPhysics.RpcBootFromVent(nearest.Id);
+            }
+            catch (Exception e) { Log(nameof(ForceExitVent), e); }
+        }
+
+        private static void TeleportSafe(PlayerControl player, Vector2 pos)
+        {
+            ForceExitVent(player);
+            Utils.Teleporter.TeleportTo(player, pos);
+        }
+
         public static void Teleport(PlayerControl player, Vector2 pos)
         {
             if (!IsHost() || player?.NetTransform == null) return;
             try
             {
-                Utils.Teleporter.TeleportTo(player, pos);
+                TeleportSafe(player, pos);
             }
             catch (Exception e) { Log(nameof(Teleport), e); }
         }
@@ -113,8 +142,8 @@ namespace AU_TheDirectorsCut
             {
                 var a = p1.GetTruePosition();
                 var b = p2.GetTruePosition();
-                Utils.Teleporter.TeleportTo(p1, b);
-                Utils.Teleporter.TeleportTo(p2, a);
+                TeleportSafe(p1, b);
+                TeleportSafe(p2, a);
             }
             catch (Exception e) { Log(nameof(SwapPlayers), e); }
         }
@@ -122,11 +151,12 @@ namespace AU_TheDirectorsCut
         public static void TeleportAllTo(PlayerControl target)
         {
             if (!IsHost() || target == null) return;
+            ForceExitVent(target);
             var dest = target.GetTruePosition();
             foreach (var p in Alive())
             {
                 if (p.PlayerId == target.PlayerId) continue;
-                Utils.Teleporter.TeleportTo(p, dest + new Vector2(
+                TeleportSafe(p, dest + new Vector2(
                     UnityEngine.Random.Range(-1f, 1f),
                     UnityEngine.Random.Range(-1f, 1f)
                 ));
@@ -141,7 +171,7 @@ namespace AU_TheDirectorsCut
             var rnd = new System.Random();
             int n = positions.Count;
             while (n > 1) { n--; int k = rnd.Next(n + 1); (positions[k], positions[n]) = (positions[n], positions[k]); }
-            for (int i = 0; i < players.Count; i++) Utils.Teleporter.TeleportTo(players[i], positions[i]);
+            for (int i = 0; i < players.Count; i++) TeleportSafe(players[i], positions[i]);
         }
 
 
@@ -197,6 +227,16 @@ namespace AU_TheDirectorsCut
         private static void WName(Hazel.MessageWriter w, PlayerControl p, string n)
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }
 
+        // Applique le nom localement (Data + plaque au-dessus du perso) côté hôte, car l'hôte
+        // ne reçoit pas son propre RPC réseau → sinon le changement n'était pas instantané.
+        public static void ApplyNameLocal(PlayerControl p, string name)
+        {
+            if (p?.Data == null) return;
+            p.Data.PlayerName = name;
+            try { if (p.cosmetics != null && p.cosmetics.nameText != null) p.cosmetics.nameText.text = name; }
+            catch (Exception e) { Log("ApplyNameLocal", e); }
+        }
+
         // Renomme un joueur (admin /rename) : diffusion réseau + application locale.
         public static void SetPlayerName(PlayerControl p, string name)
         {
@@ -210,7 +250,7 @@ namespace AU_TheDirectorsCut
                 w.EndMessage();
                 AmongUsClient.Instance.SendOrDisconnect(w);
                 w.Recycle();
-                p.Data.PlayerName = name;
+                ApplyNameLocal(p, name);
             }
             catch (Exception e) { Log(nameof(SetPlayerName), e); }
         }
@@ -235,7 +275,7 @@ namespace AU_TheDirectorsCut
                 foreach (var p in PlayerControl.AllPlayerControls.ToArray())
                 {
                     if (p?.Data == null || p.Data.Disconnected) continue;
-                    WName(w, p, " ");
+                    WName(w, p, "Anonyme");
                 }
                 w.EndMessage();
                 AmongUsClient.Instance.SendOrDisconnect(w);
@@ -244,7 +284,7 @@ namespace AU_TheDirectorsCut
                 foreach (var p in PlayerControl.AllPlayerControls.ToArray())
                 {
                     if (p?.Data == null || p.Data.Disconnected) continue;
-                    p.Data.PlayerName = " ";
+                    ApplyNameLocal(p, "Anonyme");
                 }
             }
             catch (Exception e) { Log(nameof(GreyAllAndHideNames), e); }
@@ -280,7 +320,7 @@ namespace AU_TheDirectorsCut
                 {
                     var p = FindById(kv.Key);
                     if (p?.Data == null) continue;
-                    p.Data.PlayerName = kv.Value.name;
+                    ApplyNameLocal(p, kv.Value.name);
                 }
             }
             catch (Exception e) { Log(nameof(RestoreColorsAndNames), e); }

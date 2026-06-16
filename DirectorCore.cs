@@ -43,10 +43,8 @@ namespace AU_TheDirectorsCut
             ["/spotlight"] = 30f,
             ["/marathon"] = 30f,
             ["/quarantine"] = 30f,
-            ["/curse"] = 30f,
             ["/roulette"] = 45f,
             ["/bodyswap"] = 30f,
-            ["/cube"] = 30f,
             ["/tp"] = 10f,
         };
 
@@ -374,7 +372,15 @@ namespace AU_TheDirectorsCut
                 {
                     case "/start":
                         if (!inLobby) { ChatManager.QueueSystemMessage(sender, "Pas en lobby !", "Pas en lobby !"); return true; }
-                        AmongUsClient.Instance.StartGame();
+                        try
+                        {
+                            // BeginGame() = le vrai bouton "Start" de l'hôte (gère le lancement réseau).
+                            if (GameStartManager.Instance != null)
+                                GameStartManager.Instance.BeginGame();
+                            else
+                                AmongUsClient.Instance.StartGame();
+                        }
+                        catch (Exception e) { Plugin.Log?.LogError($"[/start] {e.Message}"); }
                         return true;
 
                     case "/stop":
@@ -1140,16 +1146,6 @@ namespace AU_TheDirectorsCut
                     SetCooldown("/quarantine");
                     return true;
 
-                case "/curse":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
-                    if (!TryCheckCooldown("/curse", sender)) return true;
-                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte cuId)) { ChatManager.QueueSystemMessage(sender, "Usage : /curse ID", "Usage : /curse ID"); return true; }
-                    PlayerControl? cuTarget = FindById(cuId);
-                    if (cuTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
-                    Directives.Curse(cuTarget);
-                    SetCooldown("/curse");
-                    return true;
-
                 case "/roulette":
                     if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
                     if (!TryCheckCooldown("/roulette", sender)) return true;
@@ -1168,16 +1164,6 @@ namespace AU_TheDirectorsCut
                     SetCooldown("/bodyswap");
                     return true;
 
-                case "/cube":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
-                    if (!TryCheckCooldown("/cube", sender)) return true;
-                    {
-                        bool cubeBonus = parts.Length < 2 || parts[1].ToLowerInvariant().StartsWith("b");
-                        Directives.Cube(cubeBonus);
-                    }
-                    SetCooldown("/cube");
-                    return true;
-
                 // ===================== DIRECTIVES (réunion) =====================
                 case "/stalker":
                     if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
@@ -1188,33 +1174,14 @@ namespace AU_TheDirectorsCut
                     Directives.RegisterStalker(skTa, skTb);
                     return true;
 
-                case "/pacifist":
+                case "/ultimatum":
                     if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
-                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte pcId)) { ChatManager.QueueSystemMessage(sender, "Usage : /pacifist ID (un Imposteur)", "Usage : /pacifist ID (un Imposteur)"); return true; }
-                    PlayerControl? pcTarget = FindById(pcId);
-                    if (pcTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
-                    Directives.Pacifist(pcTarget);
-                    return true;
-
-                case "/stockholm":
-                    if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
-                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte shCrew) || !LetterToPlayerId(parts[2], out byte shImp)) { ChatManager.QueueSystemMessage(sender, "Usage : /stockholm ID_CREW ID_IMPOSTEUR", "Usage : /stockholm ID_CREW ID_IMPOSTEUR"); return true; }
-                    PlayerControl? shC = FindById(shCrew); PlayerControl? shI = FindById(shImp);
-                    if (shC?.Data == null || shI?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
-                    if (shC.PlayerId == shI.PlayerId) { ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !"); return true; }
-                    Directives.Stockholm(shC, shI);
-                    return true;
-
-                case "/eject":
-                    if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
-                    {
-                        int ejMode = 0;
-                        string arg = parts.Length >= 2 ? parts[1].ToLowerInvariant() : "first";
-                        if (arg.StartsWith("f") || arg.StartsWith("p") || arg == "1") ejMode = 1;
-                        else if (arg.StartsWith("l") || arg.StartsWith("d") || arg == "2") ejMode = 2;
-                        else { ChatManager.QueueSystemMessage(sender, "Usage : /eject first|last", "Usage : /eject first|last"); return true; }
-                        Directives.ArmEject(ejMode);
-                    }
+                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte ulId)) { ChatManager.QueueSystemMessage(sender, "Usage : /ultimatum ID [secondes] (un Imposteur)", "Usage : /ultimatum ID [secondes] (un Imposteur)"); return true; }
+                    PlayerControl? ulTarget = FindById(ulId);
+                    if (ulTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    float ulSec = 0f;
+                    if (parts.Length >= 3) float.TryParse(parts[2], out ulSec);
+                    Directives.Ultimatum(ulTarget, ulSec);
                     return true;
 
                 default:
@@ -1500,7 +1467,7 @@ namespace AU_TheDirectorsCut
                 else if (_cutPhase == 2)
                 {
                     // Pendant TOUTE la fenêtre d'arrêt : chaque joueur qui bouge est
-                    // éliminé — l'hôte compris. On ne s'arrête plus au premier bougeur.
+                    // éliminé (aucune exclusion). On ne s'arrête plus au premier bougeur.
                     foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
                     {
                         if (pc?.Data == null || pc.Data.IsDead || pc.Data.Disconnected) continue;
@@ -1606,6 +1573,19 @@ namespace AU_TheDirectorsCut
         }
     }
 
+    // Détecte les VRAIS kills (killer != victime) pour l'Ultimatum.
+    [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.MurderPlayer))]
+    static class MurderDetect_P
+    {
+        static void Postfix(PlayerControl __instance, [HarmonyArgument(0)] PlayerControl target)
+        {
+            if (AmongUsClient.Instance?.AmHost != true) return;
+            if (__instance == null || target == null) return;
+            if (__instance.PlayerId == target.PlayerId) return; // self-kill (mod) → ignoré
+            Directives.NotifyKill(__instance.PlayerId);
+        }
+    }
+
     [HarmonyPatch(typeof(AmongUsClient), nameof(AmongUsClient.OnPlayerLeft))]
     static class OnPlayerLeft_P
     {
@@ -1671,6 +1651,41 @@ namespace AU_TheDirectorsCut
 
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartGame))]
     static class Start_P { static void Postfix() => DirectorCore.Reset(); }
+
+    // Désactive la fermeture automatique du lobby pour inactivité (compte à rebours ~10 min).
+    // Le nom du champ varie selon les versions d'Among Us : on le retrouve par réflexion
+    // (propriété float dont le nom contient "Inactiv") et on le maintient à 600 chaque frame.
+    [HarmonyPatch(typeof(GameStartManager), nameof(GameStartManager.Update))]
+    static class NoLobbyTimeout_P
+    {
+        static System.Reflection.PropertyInfo _prop;
+        static bool _init;
+
+        static void Postfix(GameStartManager __instance)
+        {
+            try
+            {
+                if (!_init)
+                {
+                    _init = true;
+                    foreach (var pr in typeof(GameStartManager).GetProperties())
+                    {
+                        if (pr.PropertyType == typeof(float) && pr.CanWrite &&
+                            pr.Name.IndexOf("Inactiv", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            _prop = pr;
+                            Plugin.Log?.LogInfo($"[NoLobbyTimeout] Champ d'inactivité trouvé : {pr.Name}");
+                            break;
+                        }
+                    }
+                    if (_prop == null)
+                        Plugin.Log?.LogWarning("[NoLobbyTimeout] Aucun champ d'inactivité trouvé sur GameStartManager (timer lobby non neutralisé).");
+                }
+                _prop?.SetValue(__instance, 600f, null);
+            }
+            catch (Exception e) { Plugin.Log?.LogError($"[NoLobbyTimeout] {e.Message}"); }
+        }
+    }
 
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.EndGame))]
     static class EndGame_P

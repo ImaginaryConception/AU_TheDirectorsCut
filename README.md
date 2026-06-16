@@ -92,8 +92,8 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 
 ### 🔒 Confidentiality model
 - **Command feedback** (confirmations, effect banners, cooldown notices) is shown **only to the Director** who issued it.
-- **Order info** (`/action`, `/loc`, `/vote`, `/stalker`, `/pacifist`, `/stockholm`) is sent **only to the targeted player(s)**.
-- **Public to everyone:** eliminations (`X moved — eliminated!`), order success/failure, `/voiceover`, and the `/roulette` / `/eject` announcements.
+- **Order info** (`/action`, `/loc`, `/vote`, `/stalker`, `/ultimatum`) is sent **only to the targeted player(s)**.
+- **Public to everyone:** eliminations (`X moved — eliminated!`), order success/failure, `/voiceover`, and the `/roulette` announcements.
 - Messages are signed by the bot **The Director's Cut** (blue name + distinct avatar color), and chat is **instant** (no delay) with full **bold / colors / line-breaks** visible to all players.
 
 ---
@@ -114,10 +114,10 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | Command | Effect | Cooldown |
 |---|---|---|
 | `/randomcolors` | Random unique color for everyone | 20s |
-| `/cut` | Reactor sabotage alert (2s) → no-movement freeze (5s): **everyone who moves dies — host included!** | 30s |
+| `/cut` | Reactor sabotage alert (2s) → no-movement freeze (5s): **everyone who moves dies!** | 30s |
 | `/darkness` | Total darkness across the whole map (10s) | 35s |
 | `/freeze A` | Freezes the target in place (8s) | 30s |
-| `/colorblinds` | Everyone turns grey & names are hidden (25s, auto-restored) | 40s |
+| `/colorblind` | Everyone turns grey & names are hidden (25s, auto-restored) | 40s |
 | `/shuffle` | Randomly shuffles everyone's positions | 20s |
 | `/swap A B` | Swaps the positions of two players | 15s |
 | `/teleportall A` | Teleports everyone to player A | 20s |
@@ -137,18 +137,14 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | `/spotlight A` | Everyone goes dark **except** player A (20s) | 30s |
 | `/marathon` | Speed boost for everyone (15s) | 30s |
 | `/quarantine A` | Everyone frozen **except** A (8s) | 30s |
-| `/curse A` | A's speed slowly decays over the round (30s) | 30s |
 | `/roulette` | A random living player is dramatically eliminated | 45s |
 | `/bodyswap A B` | Swaps two players' identities (color + name) — total confusion | 30s |
-| `/cube bonus\|malus` | Hidden point on the map; first to walk on it gets a speed boost (bonus) or is trapped/frozen (malus) | 30s |
 
 **Meeting only:**
 | Command | Effect |
 |---|---|
 | `/stalker A B` | **The Obsessive** — A must stay within 3m of B all round (both privately warned). Stray too long → eliminated. |
-| `/pacifist A` | Forbids an impostor from killing for 2 min; survive it → permanent speed boost. |
-| `/stockholm CREW IMP` | Links a crewmate & an impostor. Impostor dies → crewmate dies of grief. Crewmate dies → impostor slowed 2 min. |
-| `/eject first\|last` | **Scripted ejection** — the first (or last) player who voted is ejected at meeting end. A trap for vote-button spammers. |
+| `/ultimatum A [s]` | An impostor must make a kill within the delay (default 60s, configurable in seconds); if they kill no one, their role is revealed to everyone (name in red) and an emergency meeting is auto-called. |
 
 ### 🛡️ Admin (host only — others get "Host only!")
 | Command | Effect |
@@ -179,7 +175,7 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 - **Instant chat:** the chat pump drains its whole queue every frame — no artificial delay. Welcome/GG messages are immediate too.
 - **Rich text for everyone:** the colored/bold/multi-line text is sent over the network so **all** players see the formatting (vanilla clients render TMP rich text). A safety cap (~1200 bytes) protects the Hazel packet.
 - **Bot identity:** the host is briefly renamed/recolored to **The Director's Cut** (blue) around each chat RPC; the chat bubble bakes the name & avatar, so the host's real identity is restored immediately after.
-- **Proximity & links** (`/stalker`, `/cube`, `/stockholm`): the host knows every position and every death, so these are tracked host-side each frame and on `PlayerControl.Die`.
+- **Proximity** (`/stalker`): the host knows every position, so this is tracked host-side each frame.
 - **End-of-game snapshot:** alive/dead lists are captured on `ShipStatus.OnDestroy` to feed `/gg`.
 
 ---
@@ -273,8 +269,8 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 
 ### 🔒 Modèle de confidentialité
 - Les **retours de commande** (confirmations, bannières d'effet, cooldowns) ne s'affichent qu'**au Réalisateur** qui les a lancés.
-- Les **infos d'ordre** (`/action`, `/loc`, `/vote`, `/stalker`, `/pacifist`, `/stockholm`) ne vont qu'**au(x) joueur(s) ciblé(s)**.
-- **Publics pour tous :** les éliminations (`X a bougé — éliminé !`), les succès/échecs d'ordre, `/voiceover`, et les annonces de `/roulette` / `/eject`.
+- Les **infos d'ordre** (`/action`, `/loc`, `/vote`, `/stalker`, `/ultimatum`) ne vont qu'**au(x) joueur(s) ciblé(s)**.
+- **Publics pour tous :** les éliminations (`X a bougé — éliminé !`), les succès/échecs d'ordre, `/voiceover`, et les annonces de `/roulette`.
 - Les messages sont signés par le bot **The Director's Cut** (pseudo bleu + couleur d'avatar distincte), et le chat est **instantané** (sans délai) avec **gras / couleurs / sauts de ligne** visibles par tous.
 
 ---
@@ -295,10 +291,10 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | Commande | Effet | Cooldown |
 |---|---|---|
 | `/randomcolors` | Couleur unique aléatoire pour tous | 20s |
-| `/cut` | Alerte sabotage (2s) → arrêt complet (5s) : **tous ceux qui bougent meurent — l'hôte compris !** | 30s |
+| `/cut` | Alerte sabotage (2s) → arrêt complet (5s) : **tous ceux qui bougent meurent !** | 30s |
 | `/darkness` | Noir TOTAL sur toute la map (10s) | 35s |
 | `/freeze A` | Bloque la cible sur place (8s) | 30s |
-| `/colorblinds` | Tout le monde en gris & noms masqués (25s, restauré auto) | 40s |
+| `/colorblind` | Tout le monde en gris & noms masqués (25s, restauré auto) | 40s |
 | `/shuffle` | Mélange aléatoirement les positions de tous | 20s |
 | `/swap A B` | Échange les positions de deux joueurs | 15s |
 | `/teleportall A` | Téléporte tout le monde vers le joueur A | 20s |
@@ -318,18 +314,14 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | `/spotlight A` | Tout le monde dans le noir **sauf** A (20s) | 30s |
 | `/marathon` | Boost de vitesse pour tous (15s) | 30s |
 | `/quarantine A` | Tout le monde figé **sauf** A (8s) | 30s |
-| `/curse A` | La vitesse de A décroît peu à peu sur la manche (30s) | 30s |
 | `/roulette` | Un joueur vivant au hasard est éliminé avec suspense | 45s |
 | `/bodyswap A B` | Échange les identités (couleur + pseudo) de deux joueurs | 30s |
-| `/cube bonus\|malus` | Point caché sur la map ; le premier dessus gagne un boost (bonus) ou se fait piéger/bloquer (malus) | 30s |
 
 **En réunion :**
 | Commande | Effet |
 |---|---|
 | `/stalker A B` | **L'Obsessionnel** — A doit rester à moins de 3m de B toute la manche (les deux sont prévenus). S'éloigner trop longtemps → éliminé. |
-| `/pacifist A` | Interdit à un imposteur de tuer pendant 2 min ; s'il tient → boost de vitesse permanent. |
-| `/stockholm CREW IMP` | Lie un crewmate & un imposteur. L'imposteur meurt → le crewmate meurt de chagrin. Le crewmate meurt → l'imposteur ralenti 2 min. |
-| `/eject first\|last` | **Éjection scriptée** — le premier (ou dernier) votant est éjecté à la fin de la réunion. Piège pour les spammeurs du bouton de vote. |
+| `/ultimatum A [s]` | Un imposteur doit faire un kill dans le délai (défaut 60s, configurable en secondes) ; s'il ne tue personne, son rôle est révélé à tous (pseudo en rouge) et une réunion d'urgence est déclenchée automatiquement. |
 
 ### 🛡️ Admin (hôte uniquement — sinon « Hôte seulement ! »)
 | Commande | Effet |
@@ -360,7 +352,7 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 - **Chat instantané :** la pompe de chat vide toute sa file à chaque frame — aucun délai artificiel. Welcome/GG sont immédiats aussi.
 - **Rich text pour tous :** le texte coloré/gras/multi-lignes est envoyé sur le réseau pour que **tous** les joueurs voient le formatage (les clients vanilla rendent le rich text TMP). Un plafond de sécurité (~1200 octets) protège le paquet Hazel.
 - **Identité du bot :** l'hôte est brièvement renommé/recoloré en **The Director's Cut** (bleu) autour de chaque RPC de chat ; la bulle fige le nom & l'avatar, donc l'identité réelle de l'hôte est restaurée juste après.
-- **Proximité & liens** (`/stalker`, `/cube`, `/stockholm`) : l'hôte connaît toutes les positions et toutes les morts, donc tout est suivi côté hôte à chaque frame et sur `PlayerControl.Die`.
+- **Proximité** (`/stalker`) : l'hôte connaît toutes les positions, donc c'est suivi côté hôte à chaque frame.
 - **Snapshot de fin de partie :** les listes vivants/morts sont capturées sur `ShipStatus.OnDestroy` pour alimenter `/gg`.
 
 ---

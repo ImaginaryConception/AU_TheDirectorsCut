@@ -59,7 +59,7 @@ namespace AU_TheDirectorsCut
                 if (GUILayout.Button("Darkness")) Run("/darkness");
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button("ColorBlind")) Run("/colorblinds");
+                if (GUILayout.Button("ColorBlind")) Run("/colorblind");
                 if (GUILayout.Button("Shuffle")) Run("/shuffle");
                 GUILayout.EndHorizontal();
                 if (GUILayout.Button("Couleurs aléatoires")) Run("/randomcolors");

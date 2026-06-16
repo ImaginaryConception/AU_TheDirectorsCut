@@ -15,37 +15,11 @@ namespace AU_TheDirectorsCut
         public const string Welcome = "<b><color=#ff6b6b>THE DIRECTOR'S CUT</color></b>\nLe premier mort devient <b><color=#ffd23f>RÉALISATEUR</color></b>.\nTape <b>/help</b> pour voir toutes les commandes !";
         public const string WelcomePlain = "THE DIRECTOR'S CUT - Le premier mort devient REALISATEUR. Tape /help pour voir les commandes !";
 
-        // ---- /help : un seul message complet ----
-        public const string HelpFull =
-            "<b><color=#ff6b6b>THE DIRECTOR'S CUT</color></b>\n" +
-            "<b><color=#ffd23f>Général</color></b> : /help, /welcome, /gg, /players, /join, /discord\n" +
-            "<b><color=#ffd23f>Réalisateur — jeu</color></b> : /cut, /darkness, /freeze A, /randomcolors, /colorblinds\n" +
-            "<b><color=#ffd23f>Réalisateur — téléport</color></b> : /shuffle, /swap A B, /teleportall A\n" +
-            "<b><color=#ffd23f>Réalisateur — réunion</color></b> : /action A X, /loc A Z, /vote A B\n" +
-            "<b><color=#ffd23f>Détails</color></b> : /hcut, /hloc, /haction, /hvote, /hfreeze, /hdarkness";
-        public const string HelpFullPlain =
-            "THE DIRECTOR'S CUT\n" +
-            "General : /help, /welcome, /gg, /players, /join, /discord\n" +
-            "Realisateur - jeu : /cut, /darkness, /freeze A, /randomcolors, /colorblinds\n" +
-            "Realisateur - teleport : /shuffle, /swap A B, /teleportall A\n" +
-            "Realisateur - reunion : /action A X, /loc A Z, /vote A B\n" +
-            "Details : /hcut, /hloc, /haction, /hvote, /hfreeze, /hdarkness";
-
-        // Anciennes lignes (conservées pour compatibilité, plus utilisées par /help)
-        public const string Help1 = "<b><color=#ffd23f>HELP</color></b> : /help, /welcome, /gg, /players, /join";
-        public const string Help1Plain = "HELP: /help, /welcome, /gg, /players, /join";
-        public const string Help2 = "<b><color=#ffd23f>DIRECTOR</color></b> : /randomcolors, /cut, /darkness, /freeze, /action, /loc, /vote";
-        public const string Help2Plain = "DIRECTOR: /randomcolors, /cut, /darkness, /freeze, /action, /loc, /vote";
-        public const string Help3 = "<b><color=#ffd23f>INFO</color></b> : Utilise /h + la commande pour les détails (/hcut, /hloc)";
-        public const string Help3Plain = "INFO: Utilise /h et la commande pour details (/hcut, /hloc)";
-        public const string Help4 = "<b><color=#ffd23f>TÉLÉPORT</color></b> : /shuffle, /swap A B, /teleportall A, /colorblinds";
-        public const string Help4Plain = "TELEPORT: /shuffle, /swap A B, /teleportall A, /colorblinds";
-
         // ---- /hloc : un seul message ----
         public const string HelpLoc = "<b><color=#ffd23f>/loc LETTRE ZONE</color></b> — Interdit une zone à un joueur. Cooldown 20s";
         public const string HelpLocPlain = "/loc LETTRE ZONE - Interdit une zone a un joueur. Cooldown 20s";
         public const string HelpLocFull =
-            "<b><color=#ffd23f>/loc LETTRE ZONE</color></b> — interdit une zone à un joueur ce round <i>(réunion)</i>. Cooldown 20s.\n" +
+            "<b><color=#ffd23f>/loc LETTRE ZONE</color></b> — interdit au joueur LETTRE d'entrer dans ZONE pendant la manche (Skeld). <b>S'il y entre, il est éliminé.</b> Le joueur est prévenu en privé. <i>Réunion. Cooldown 20s.</i>\n" +
             "<b>Zones :</b>\n" +
             "<color=#3B9DFF>B</color>=Admin  <color=#3B9DFF>C</color>=Electrical  <color=#3B9DFF>D</color>=Storage  <color=#3B9DFF>E</color>=Security  <color=#3B9DFF>F</color>=Réacteur\n" +
             "<color=#3B9DFF>G</color>=UpperEngine  <color=#3B9DFF>H</color>=LowerEngine  <color=#3B9DFF>I</color>=Medbay  <color=#3B9DFF>J</color>=Communications\n" +
@@ -63,8 +37,12 @@ namespace AU_TheDirectorsCut
         public const string LocList = LocList1;
         public const string LocListPlain = LocList1Plain;
 
-        public const string HelpVote = "<b><color=#ffd23f>/vote LETTRE CIBLE</color></b> — Force un joueur à voter une cible précise <i>(réunion)</i>. Cooldown 20s.\nEx : <b>/vote A B</b>";
-        public const string HelpVotePlain = "/vote LETTRE CIBLE - Force un joueur a voter une cible precise (reunion). Cooldown 20s. Ex: /vote A B";
+        public const string HelpVote =
+            "<b><color=#ffd23f>/vote LETTRE CIBLE</color></b> — force le joueur <b>LETTRE</b> à voter pour <b>CIBLE</b> lors de la réunion en cours.\n" +
+            "S'il vote pour quelqu'un d'autre, s'il passe (skip) ou ne vote pas, il est <b>éliminé</b> à la fin de la réunion.\n" +
+            "Le joueur reçoit l'ordre en privé. Ex : <b>/vote A B</b> (A doit voter B).\n" +
+            "<i>En réunion uniquement. Cooldown 20s.</i>";
+        public const string HelpVotePlain = "/vote LETTRE CIBLE - force LETTRE a voter CIBLE ce vote ; sinon elimine. Ex: /vote A B. En reunion. Cooldown 20s.";
 
         public const string UsageLoc = "<b>Usage :</b> /loc LETTRE ZONE (ex : /loc A B = interdit la zone B au joueur A)";
         public const string UsageLocPlain = "Usage: /loc LETTRE ZONE (ex: /loc A B)";
@@ -81,17 +59,31 @@ namespace AU_TheDirectorsCut
         public const string OnlyInMeeting = "<color=#ff6b6b>Cette commande ne s'utilise qu'en <b>réunion</b> !</color>";
         public const string OnlyInMeetingPlain = "Cette commande ne s'utilise qu'en reunion !";
 
-        public const string HelpRandomColors = "<b><color=#ffd23f>/randomcolors</color></b> — Couleurs aléatoires pour TOUS ! Cooldown 20s";
-        public const string HelpRandomColorsPlain = "/randomcolors - Couleurs aleatoires pour TOUS ! Cooldown 20s";
+        public const string HelpRandomColors =
+            "<b><color=#ffd23f>/randomcolors</color></b> — donne instantanément à chaque joueur vivant une couleur <b>aléatoire et unique</b> (mélange général).\n" +
+            "Le changement est permanent jusqu'au prochain changement de couleur (autre /randomcolors, /colorblind, /bodyswap…).\n" +
+            "<i>En jeu uniquement. Cooldown 20s.</i>";
+        public const string HelpRandomColorsPlain = "/randomcolors - couleur aleatoire et unique pour chaque joueur vivant (permanent). En jeu. Cooldown 20s.";
 
-        public const string HelpCut = "<b><color=#ff6b6b>/cut</color></b> — Alerte sabotage (2s) puis <b>arrêt</b> (5s) : <b>tous</b> ceux qui bougent meurent (sauf l'hôte) ! Cooldown 30s";
-        public const string HelpCutPlain = "/cut - Alerte sabotage (2s) puis arret (5s): tous ceux qui bougent meurent (sauf hote) ! Cooldown 30s";
+        public const string HelpCut =
+            "<b><color=#ff6b6b>/cut</color></b> — le jeu du « 1, 2, 3, Soleil ».\n" +
+            "1) Un sabotage réacteur de <b>2s</b> sert de signal d'alerte.\n" +
+            "2) Phase d'<b>ARRÊT de 5s</b> : pendant ces 5 secondes, <b>tout joueur qui se déplace</b> (plus d'un demi-pas) est <b>éliminé immédiatement</b>.\n" +
+            "3) Un dernier sabotage de 2s indique qu'on peut <b>rebouger</b>.\n" +
+            "<i>En jeu uniquement. Cooldown 30s.</i>";
+        public const string HelpCutPlain = "/cut - 1,2,3 soleil : alerte 2s, puis arret 5s ou tout mouvement = mort, puis 2s avant de rebouger. En jeu. Cooldown 30s.";
 
-        public const string HelpDarkness = "<b><color=#2d3436>/darkness</color></b> — <b>NOIR TOTAL</b> pendant 10s ! Cooldown 35s";
-        public const string HelpDarknessPlain = "/darkness - NOIR TOTAL pendant 10s ! Cooldown 35s";
+        public const string HelpDarkness =
+            "<b><color=#2d3436>/darkness</color></b> — coupe la <b>vision de TOUS</b> les joueurs (lumière à zéro, écran quasi noir) pendant <b>10s</b>, puis la vision revient automatiquement.\n" +
+            "N'affecte que la visibilité, pas la vitesse de déplacement.\n" +
+            "<i>En jeu uniquement. Cooldown 35s.</i>";
+        public const string HelpDarknessPlain = "/darkness - coupe la vision de tous (ecran noir) 10s, puis retour auto. En jeu. Cooldown 35s.";
 
-        public const string HelpFreeze = "<b><color=#74b9ff>/freeze LETTRE</color></b> — Bloque un joueur 8s ! Cooldown 30s\nEx : <b>/freeze A</b>";
-        public const string HelpFreezePlain = "/freeze LETTRE - Bloque un joueur 8s ! Cooldown 30s. Ex: /freeze A";
+        public const string HelpFreeze =
+            "<b><color=#74b9ff>/freeze LETTRE</color></b> — <b>fige sur place</b> le joueur visé pendant <b>8s</b> (vitesse ~0).\n" +
+            "Il ne peut plus se déplacer mais reste vivant et visible. Au bout de 8s il rebouge normalement.\n" +
+            "Ex : <b>/freeze A</b>. <i>En jeu uniquement. Cooldown 30s.</i>";
+        public const string HelpFreezePlain = "/freeze LETTRE - fige le joueur 8s (ne peut plus bouger), reste vivant. Ex: /freeze A. En jeu. Cooldown 30s.";
 
         public const string HelpAction = "<b><color=#ffd23f>/action LETTRE SCRIPT</color></b> — Donne un script secret à un joueur ! Cooldown 20s";
         public const string HelpActionPlain = "/action LETTRE SCRIPT - Donne un script secret a un joueur ! Cooldown 20s";
@@ -101,19 +93,19 @@ namespace AU_TheDirectorsCut
 
         // ---- /haction et /helpaction : un seul message ----
         public const string HelpActionFull =
-            "<b><color=#ffd23f>/action LETTRE SCRIPT</color></b> — ordre secret à un joueur <i>(réunion)</i>. Cooldown 20s.\n" +
-            "<b><color=#3B9DFF>A</color> / NoReport</b> : ne doit pas signaler de corps.\n" +
-            "<b><color=#3B9DFF>B</color> / SkipVote</b> : doit passer son vote.\n" +
-            "<b><color=#3B9DFF>C</color> / NoVents</b> : ne doit pas utiliser les vents.\n" +
-            "<b><color=#3B9DFF>D</color> / VoteFirst</b> : doit voter en premier.\n" +
-            "Ex : <b>/action A B</b>";
+            "<b><color=#ffd23f>/action LETTRE SCRIPT</color></b> — donne un <b>ordre secret</b> au joueur LETTRE pour la manche qui suit. Le joueur est prévenu en privé ; <b>s'il désobéit, il est éliminé</b>.\n" +
+            "<b><color=#3B9DFF>A</color> NoReport</b> : ne doit pas signaler de corps ce round.\n" +
+            "<b><color=#3B9DFF>B</color> SkipVote</b> : doit passer (skip) son vote à la prochaine réunion.\n" +
+            "<b><color=#3B9DFF>C</color> NoVents</b> : ne doit pas utiliser les vents ce round.\n" +
+            "<b><color=#3B9DFF>D</color> VoteFirst</b> : doit être le tout premier à voter.\n" +
+            "Ex : <b>/action A B</b> (donne SkipVote à A). <i>En réunion uniquement. Cooldown 20s.</i>";
         public const string HelpActionFullPlain =
-            "/action LETTRE SCRIPT - ordre secret a un joueur (reunion). Cooldown 20s.\n" +
-            "A / NoReport : ne doit pas signaler de corps.\n" +
-            "B / SkipVote : doit passer son vote.\n" +
-            "C / NoVents : ne doit pas utiliser les vents.\n" +
-            "D / VoteFirst : doit voter en premier.\n" +
-            "Ex : /action A B";
+            "/action LETTRE SCRIPT - ordre secret au joueur ; desobeir = elimine.\n" +
+            "A NoReport : ne doit pas signaler de corps.\n" +
+            "B SkipVote : doit passer son vote.\n" +
+            "C NoVents : ne doit pas utiliser les vents.\n" +
+            "D VoteFirst : doit voter en premier.\n" +
+            "Ex : /action A B. En reunion. Cooldown 20s.";
 
         public const string HelpActionTitle = "<b><color=#ffd23f>/helpaction — Liste détaillée des scripts</color></b>";
         public const string HelpActionTitlePlain = "/helpaction - Liste detaillee des scripts";
@@ -201,36 +193,32 @@ namespace AU_TheDirectorsCut
         // ===== /help : UN SEUL message complet et stylisé =====
         public const string HelpAll =
             "<b><color=#ff6b6b>══ THE DIRECTOR'S CUT ══</color></b>\n" +
-            "<b><color=#ffd23f>Général</color></b> : /help · /welcome · /gg · /players · /join · /discord · /cooldowns\n" +
-            "<b><color=#ffd23f>Réalisateur · jeu</color></b> : /cut · /darkness · /freeze A · /randomcolors · /colorblinds · /shuffle · /swap A B · /teleportall A · /tp A B\n" +
-            "<b><color=#ffd23f>Réalisateur · réunion</color></b> : /action A X · /loc A Z · /vote A B\n" +
-            "<b><color=#3B9DFF>Directives · jeu</color></b> : /voiceover txt · /spotlight A · /marathon · /quarantine A · /curse A · /roulette · /bodyswap A B · /cube bonus|malus\n" +
-            "<b><color=#3B9DFF>Directives · réunion</color></b> : /stalker A B · /pacifist A · /stockholm C I · /eject first|last\n" +
-            "<b><color=#b2bec3>Détails</color></b> : /hcut · /hloc · /haction · /hvote · /hfreeze · /hdarkness";
+            "<b><color=#ffd23f>Général</color></b> : /help · /welcome · /gg · /players · /discord · /cooldowns\n" +
+            "<b><color=#ffd23f>Réalisateur</color></b>\n" +
+            "/cut · /darkness · /freeze A · /randomcolors · /colorblind\n" +
+            "/shuffle · /swap A B · /teleportall A · /tp A B\n" +
+            "/voiceover txt · /spotlight A · /marathon · /quarantine A\n" +
+            "/roulette · /bodyswap A B\n" +
+            "/action A X · /loc A Z · /vote A B <i>(réunion)</i>\n" +
+            "/stalker A B · /ultimatum A [s] <i>(réunion)</i>\n" +
+            "<b><color=#b2bec3>Détails</color></b> : /h + commande (ex : /hcut, /haction, /hloc)";
         public const string HelpAllPlain =
             "== THE DIRECTOR'S CUT ==\n" +
-            "General : /help /welcome /gg /players /join /discord /cooldowns\n" +
-            "Realisateur jeu : /cut /darkness /freeze A /randomcolors /colorblinds /shuffle /swap A B /teleportall A /tp A B\n" +
-            "Realisateur reunion : /action A X /loc A Z /vote A B\n" +
-            "Directives jeu : /voiceover txt /spotlight A /marathon /quarantine A /curse A /roulette /bodyswap A B /cube bonus|malus\n" +
-            "Directives reunion : /stalker A B /pacifist A /stockholm C I /eject first|last\n" +
-            "Details : /hcut /hloc /haction /hvote /hfreeze /hdarkness";
+            "General : /help /welcome /gg /players /discord /cooldowns\n" +
+            "Realisateur :\n" +
+            "/cut /darkness /freeze A /randomcolors /colorblind\n" +
+            "/shuffle /swap A B /teleportall A /tp A B\n" +
+            "/voiceover txt /spotlight A /marathon /quarantine A\n" +
+            "/roulette /bodyswap A B\n" +
+            "/action A X /loc A Z /vote A B (reunion)\n" +
+            "/stalker A B /ultimatum A [s] (reunion)\n" +
+            "Details : /h + commande (ex : /hcut, /haction, /hloc)";
 
         // Ligne Admin ajoutée au message /help uniquement pour l'hôte
         public const string HelpAdminLine =
             "<b><color=#ff4d4d>Admin (hôte)</color></b> : /start · /stop · /setdirector A · /rename A nom · /kill A · /kick A · /endmeeting · /status · <i>[Suppr] = panneau</i>";
         public const string HelpAdminLinePlain =
             "Admin (hote) : /start /stop /setdirector A /rename A nom /kill A /kick A /endmeeting /status [Suppr] = panneau";
-
-        // Section Directives (Réalisateur) affichée dans /help
-        public const string HelpDirectives =
-            "<b><color=#ff6b6b>Directives du Réalisateur</color></b>\n" +
-            "<b>En jeu :</b> /voiceover &lt;texte&gt;, /spotlight A, /marathon, /quarantine A, /curse A, /roulette, /bodyswap A B, /cube bonus|malus\n" +
-            "<b>En réunion :</b> /stalker A B, /pacifist A, /stockholm CREW IMP, /eject first|last";
-        public const string HelpDirectivesPlain =
-            "Directives du Realisateur\n" +
-            "En jeu : /voiceover <texte>, /spotlight A, /marathon, /quarantine A, /curse A, /roulette, /bodyswap A B, /cube bonus|malus\n" +
-            "En reunion : /stalker A B, /pacifist A, /stockholm CREW IMP, /eject first|last";
 
         // Section Admin affichée dans /help (hôte uniquement)
         public const string HelpAdmin =
