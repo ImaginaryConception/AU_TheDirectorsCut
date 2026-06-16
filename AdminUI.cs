@@ -5,12 +5,8 @@ using UnityEngine;
 
 namespace AU_TheDirectorsCut
 {
-    // Panneau Admin (hôte uniquement) dessiné en IMGUI (OnGUI), à la manière de Hydra.
-    // Ouvert/fermé avec la touche Suppr (Delete). Chaque bouton réutilise le pipeline de
-    // commandes existant via DirectorCore.TryProcessCommand (donc mêmes contrôles/permissions).
     public class AdminUI : MonoBehaviour
     {
-        // Constructeur requis pour les MonoBehaviours injectés en IL2CPP.
         public AdminUI(IntPtr ptr) : base(ptr) { }
 
         private bool _visible = false;
@@ -47,7 +43,6 @@ namespace AU_TheDirectorsCut
             if (GUILayout.Button("GG à tous")) Run("/gg");
             GUILayout.EndHorizontal();
 
-            // Pouvoirs Réalisateur : affichés seulement si l'hôte EST le Réalisateur.
             bool hostIsDirector = DirectorCore.DirectorPlayerId.HasValue
                 && DirectorCore.DirectorPlayerId.Value == PlayerControl.LocalPlayer.PlayerId;
             if (hostIsDirector)

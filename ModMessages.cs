@@ -5,17 +5,10 @@ namespace AU_TheDirectorsCut
 {
     public static class ModMessages
     {
-        // ============================================================
-        // Palette utilisée : marque #ff6b6b (rouge), titres #ffd23f (or),
-        // accent #3B9DFF (bleu), succès #00e676 (vert), sombre #b2bec3.
-        // Le rich text TMP (<b>, <color>, \n) est désormais envoyé à TOUS
-        // les joueurs : un seul message par commande, formaté, sans découpage.
-        // ============================================================
 
         public const string Welcome = "<b><color=#ff6b6b>THE DIRECTOR'S CUT</color></b>\nLe premier mort devient <b><color=#ffd23f>RÉALISATEUR</color></b>.\nTape <b>/help</b> pour voir toutes les commandes !";
         public const string WelcomePlain = "THE DIRECTOR'S CUT - Le premier mort devient REALISATEUR. Tape /help pour voir les commandes !";
 
-        // ---- /hloc : un seul message ----
         public const string HelpLoc = "<b><color=#ffd23f>/loc LETTRE ZONE</color></b> — Interdit une zone à un joueur. Cooldown 20s";
         public const string HelpLocPlain = "/loc LETTRE ZONE - Interdit une zone a un joueur. Cooldown 20s";
         public const string HelpLocFull =
@@ -91,7 +84,6 @@ namespace AU_TheDirectorsCut
         public const string ActionList = "<b><color=#ffd23f>SCRIPTS</color></b> : <color=#3B9DFF>A</color>=NoReport, <color=#3B9DFF>B</color>=SkipVote, <color=#3B9DFF>C</color>=NoVents, <color=#3B9DFF>D</color>=VoteFirst";
         public const string ActionListPlain = "SCRIPTS: A=NoReport, B=SkipVote, C=NoVents, D=VoteFirst";
 
-        // ---- /haction et /helpaction : un seul message ----
         public const string HelpActionFull =
             "<b><color=#ffd23f>/action LETTRE SCRIPT</color></b> — donne un <b>ordre secret</b> au joueur LETTRE pour la manche qui suit. Le joueur est prévenu en privé ; <b>s'il désobéit, il est éliminé</b>.\n" +
             "<b><color=#3B9DFF>A</color> NoReport</b> : ne doit pas signaler de corps ce round.\n" +
@@ -159,7 +151,6 @@ namespace AU_TheDirectorsCut
         public const string Discord = "<b><color=#ffd23f>Discord</color></b> : imaginaryconception ou kalinina_sn";
         public const string DiscordPlain = "Discord : imaginaryconception ou kalinina_sn";
 
-        // Pseudos à ajouter (pour ceux qui préfèrent ajouter directement plutôt que copier le lien)
         public const string DiscordContacts = "<b>Ajouts directs</b> : imaginaryconception · kalinina_sn";
         public const string DiscordContactsPlain = "Ajouts directs : imaginaryconception · kalinina_sn";
 
@@ -190,12 +181,6 @@ namespace AU_TheDirectorsCut
         public const string MeetingEnded = "<b><color=#ff4d4d>Réunion</color></b> forcée à se terminer !";
         public const string MeetingEndedPlain = "Reunion forcee a se terminer !";
 
-        // =====================================================================
-        // Aides détaillées par commande (/hXXX) — accessibles à TOUS, PARTOUT
-        // (lobby, jeu, réunion). Précisent ce que fait la commande ET comment l'écrire.
-        // =====================================================================
-
-        // ---- Général ----
         public const string HHelp = "<b><color=#ffd23f>/help</color></b> — affiche la liste de toutes les commandes en un seul message stylé. La section <b>Admin</b> n'apparaît que pour l'hôte.\n<b>Écriture :</b> /help (aucun argument). Partout, pour tout le monde.";
         public const string HHelpPlain = "/help - liste toutes les commandes. Section Admin visible seulement par l'hote. Ecriture : /help.";
         public const string HWelcome = "<b><color=#ffd23f>/welcome</color></b> — réaffiche le message de bienvenue du mod (le concept du Réalisateur).\n<b>Écriture :</b> /welcome. Partout.";
@@ -209,7 +194,6 @@ namespace AU_TheDirectorsCut
         public const string HCooldowns = "<b><color=#ffd23f>/cooldowns</color></b> (ou <b>/cd</b>) — affiche l'état de TOUTES les commandes à recharge : <color=#00e676>prêt</color> ou temps restant.\n<b>Écriture :</b> /cooldowns. Partout.";
         public const string HCooldownsPlain = "/cooldowns (ou /cd) - etat de toutes les commandes (pret / temps restant). Ecriture : /cooldowns.";
 
-        // ---- Réalisateur — en jeu ----
         public const string HColorblind = "<b><color=#b2bec3>/colorblind</color></b> — rend TOUS les joueurs gris et remplace leur pseudo par « <b>Anonyme</b> » pendant <b>25s</b> ; les couleurs et pseudos d'origine sont sauvegardés puis restaurés automatiquement. Plus personne ne se reconnaît.\n<b>Écriture :</b> /colorblind (aucun argument). <i>En jeu uniquement. Cooldown 40s.</i>";
         public const string HColorblindPlain = "/colorblind - tout le monde gris + pseudo 'Anonyme' 25s, puis restaure. Ecriture : /colorblind. En jeu. Cooldown 40s.";
         public const string HShuffle = "<b><color=#a29bfe>/shuffle</color></b> — téléporte tous les joueurs vivants à des positions <b>mélangées au hasard</b> (chacun atterrit là où se trouvait un autre).\n<b>Écriture :</b> /shuffle (aucun argument). <i>En jeu uniquement. Cooldown 20s.</i>";
@@ -226,20 +210,16 @@ namespace AU_TheDirectorsCut
         public const string HSpotlightPlain = "/spotlight ID - tout le monde dans le noir sauf ID, 20s. Ecriture : /spotlight A. En jeu. Cooldown 30s.";
         public const string HMarathon = "<b><color=#a29bfe>/marathon</color></b> — <b>accélère TOUS</b> les joueurs (vitesse augmentée) pendant <b>15s</b>, puis retour à la normale.\n<b>Écriture :</b> /marathon (aucun argument). <i>En jeu uniquement. Cooldown 30s.</i>";
         public const string HMarathonPlain = "/marathon - accelere tout le monde 15s. Ecriture : /marathon. En jeu. Cooldown 30s.";
-        public const string HQuarantine = "<b><color=#74b9ff>/quarantine ID</color></b> — <b>fige TOUT le monde SAUF</b> le joueur ID pendant <b>8s</b>.\n<b>Écriture :</b> /quarantine A. <i>En jeu uniquement. Cooldown 30s.</i>";
-        public const string HQuarantinePlain = "/quarantine ID - fige tout le monde sauf ID, 8s. Ecriture : /quarantine A. En jeu. Cooldown 30s.";
         public const string HRoulette = "<b><color=#ff6b6b>/roulette</color></b> — élimine un joueur vivant <b>au hasard</b>, après un court suspense.\n<b>Écriture :</b> /roulette (aucun argument). <i>En jeu uniquement. Cooldown 45s.</i>";
         public const string HRoulettePlain = "/roulette - elimine un joueur vivant au hasard. Ecriture : /roulette. En jeu. Cooldown 45s.";
         public const string HBodyswap = "<b><color=#a29bfe>/bodyswap IDA IDB</color></b> — échange l'<b>identité</b> (couleur + pseudo) de deux joueurs : confusion totale.\n<b>Écriture :</b> /bodyswap A B. <i>En jeu uniquement. Cooldown 30s.</i>";
         public const string HBodyswapPlain = "/bodyswap IDA IDB - echange couleur + pseudo de deux joueurs. Ecriture : /bodyswap A B. En jeu. Cooldown 30s.";
 
-        // ---- Réalisateur — en réunion ----
         public const string HStalker = "<b><color=#ffd23f>/stalker IDA IDB</color></b> — l'<b>Obsessionnel</b> : le joueur <b>A doit rester à moins de 3m de B</b> toute la manche (les deux sont prévenus en privé). 10s de grâce au début de la manche, puis si A s'éloigne trop longtemps, <b>A (le suiveur)</b> est éliminé.\n<b>Écriture :</b> /stalker A B (A suit B). <i>En réunion ; l'effet démarre à la manche suivante.</i>";
         public const string HStalkerPlain = "/stalker IDA IDB - A doit rester pres de B toute la manche, sinon A est elimine. Ecriture : /stalker A B. En reunion.";
-        public const string HUltimatum = "<b><color=#ff4d4d>/ultimatum ID [secondes]</color></b> — applique un ultimatum à un <b>imposteur</b> : il doit faire un <b>kill avant la fin du délai</b> (60s par défaut, ou le nombre de secondes indiqué). S'il ne tue personne, son <b>rôle est révélé à tous</b> (pseudo en rouge) et une <b>réunion d'urgence</b> se déclenche automatiquement.\n<b>Écriture :</b> /ultimatum A  (60s) ou /ultimatum A 90  (90s). <i>En réunion ; démarre à la manche suivante.</i>";
-        public const string HUltimatumPlain = "/ultimatum ID [s] - un imposteur doit tuer avant le delai (60s defaut) sinon revele + meeting. Ecriture : /ultimatum A ou /ultimatum A 90. En reunion.";
+        public const string HUltimatum = "<b><color=#ff4d4d>/ultimatum ID [secondes]</color></b> — applique un ultimatum à un <b>imposteur</b> : il doit faire un <b>kill avant la fin du délai</b> (60s par défaut, ou le nombre de secondes indiqué, <b>30s minimum</b>). S'il ne tue personne, son <b>rôle est révélé à tous</b> (pseudo en rouge) et une <b>réunion d'urgence</b> se déclenche automatiquement.\n<b>Écriture :</b> /ultimatum A  (60s) ou /ultimatum A 90  (90s). <i>En réunion ; démarre à la manche suivante.</i>";
+        public const string HUltimatumPlain = "/ultimatum ID [s] - un imposteur doit tuer avant le delai (60s defaut, 30s minimum) sinon revele + meeting. Ecriture : /ultimatum A ou /ultimatum A 90. En reunion.";
 
-        // ---- Admin (hôte uniquement) ----
         public const string HStart = "<b><color=#ff4d4d>/start</color></b> — lance la partie depuis le lobby (= bouton Démarrer). <i>Hôte uniquement.</i>\n<b>Écriture :</b> /start (en lobby).";
         public const string HStartPlain = "/start - lance la partie (hote, en lobby). Ecriture : /start.";
         public const string HStop = "<b><color=#ff4d4d>/stop</color></b> — termine immédiatement la partie en cours. <i>Hôte uniquement.</i>\n<b>Écriture :</b> /stop (en partie).";
@@ -257,14 +237,13 @@ namespace AU_TheDirectorsCut
         public const string HStatus = "<b><color=#ff4d4d>/status</color></b> — affiche les effets et directives actuellement ACTIFS (darkness, colorblind, gelés, stalker, ultimatum…) + le Réalisateur. <i>Hôte uniquement.</i>\n<b>Écriture :</b> /status.";
         public const string HStatusPlain = "/status - effets et directives actifs + Realisateur (hote). Ecriture : /status.";
 
-        // ===== /help : UN SEUL message complet et stylisé =====
         public const string HelpAll =
             "<b><color=#ff6b6b>══ THE DIRECTOR'S CUT ══</color></b>\n" +
             "<b><color=#ffd23f>Général</color></b> : /help · /welcome · /gg · /players · /discord · /cooldowns\n" +
             "<b><color=#ffd23f>Réalisateur</color></b>\n" +
             "/cut · /darkness · /freeze A · /randomcolors · /colorblind\n" +
             "/shuffle · /swap A B · /teleportall A · /tp A B\n" +
-            "/voiceover txt · /spotlight A · /marathon · /quarantine A\n" +
+            "/voiceover txt · /spotlight A · /marathon\n" +
             "/roulette · /bodyswap A B\n" +
             "/action A X · /loc A Z · /vote A B <i>(réunion)</i>\n" +
             "/stalker A B · /ultimatum A [s] <i>(réunion)</i>\n" +
@@ -275,19 +254,17 @@ namespace AU_TheDirectorsCut
             "Realisateur :\n" +
             "/cut /darkness /freeze A /randomcolors /colorblind\n" +
             "/shuffle /swap A B /teleportall A /tp A B\n" +
-            "/voiceover txt /spotlight A /marathon /quarantine A\n" +
+            "/voiceover txt /spotlight A /marathon\n" +
             "/roulette /bodyswap A B\n" +
             "/action A X /loc A Z /vote A B (reunion)\n" +
             "/stalker A B /ultimatum A [s] (reunion)\n" +
             "Details : mets /h devant n'importe quelle commande (ex : /hcut, /htp, /hultimatum, /hkick)";
 
-        // Ligne Admin ajoutée au message /help uniquement pour l'hôte
         public const string HelpAdminLine =
             "<b><color=#ff4d4d>Admin (hôte)</color></b> : /start · /stop · /setdirector A · /rename A nom · /kill A · /kick A · /endmeeting · /status · <i>[Suppr] = panneau</i>";
         public const string HelpAdminLinePlain =
             "Admin (hote) : /start /stop /setdirector A /rename A nom /kill A /kick A /endmeeting /status [Suppr] = panneau";
 
-        // Section Admin affichée dans /help (hôte uniquement)
         public const string HelpAdmin =
             "<b><color=#ff4d4d>Admin (hôte)</color></b>\n" +
             "/start — lance la partie  •  /stop — arrête la partie\n" +

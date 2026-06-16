@@ -13,8 +13,39 @@ namespace AU_TheDirectorsCut
         public static float LastKillRpcSentAt { get; private set; } = float.NegativeInfinity;
         public static string? LastKillRpcDescription { get; private set; }
 
-        public static void Initialize() =>
+        public static void Initialize()
+        {
+            _pendingTPs.Clear();
             Plugin.Log?.LogInfo("[NetworkManager] Initialisé.");
+        }
+
+        private struct PendingTP { public PlayerControl Player; public Vector2 Pos; public float Delay; }
+        private static readonly List<PendingTP> _pendingTPs = new();
+
+        public static void Tick(float dt)
+        {
+            for (int i = _pendingTPs.Count - 1; i >= 0; i--)
+            {
+                var p = _pendingTPs[i];
+                float remaining = p.Delay - dt;
+                if (remaining <= 0f)
+                {
+                    try
+                    {
+                        if (p.Player != null && p.Player.Data != null && !p.Player.Data.IsDead)
+                            Utils.Teleporter.TeleportTo(p.Player, p.Pos);
+                    }
+                    catch (Exception e) { Log(nameof(Tick), e); }
+                    _pendingTPs.RemoveAt(i);
+                }
+                else
+                {
+                    _pendingTPs[i] = new PendingTP { Player = p.Player, Pos = p.Pos, Delay = remaining };
+                }
+            }
+        }
+
+        public static void ClearPendingTPs() => _pendingTPs.Clear();
 
         
 
@@ -96,8 +127,6 @@ namespace AU_TheDirectorsCut
 
         
 
-        // Si le joueur est dans un vent, on l'en éjecte avant tout TP (sinon il reste "coincé"
-        // dans le vent à la nouvelle position). On boote le vent le plus proche de lui.
         public static void ForceExitVent(PlayerControl player)
         {
             if (player == null || ShipStatus.Instance == null) return;
@@ -121,8 +150,15 @@ namespace AU_TheDirectorsCut
 
         private static void TeleportSafe(PlayerControl player, Vector2 pos)
         {
-            ForceExitVent(player);
-            Utils.Teleporter.TeleportTo(player, pos);
+            if (player.inVent)
+            {
+                ForceExitVent(player);
+                _pendingTPs.Add(new PendingTP { Player = player, Pos = pos, Delay = 1.5f });
+            }
+            else
+            {
+                Utils.Teleporter.TeleportTo(player, pos);
+            }
         }
 
         public static void Teleport(PlayerControl player, Vector2 pos)
@@ -222,13 +258,9 @@ namespace AU_TheDirectorsCut
         }
 
 
-        // ===== /colorblinds =====
-        // SetName RPC : payload = (uint32 Data.NetId)(string nom).
         private static void WName(Hazel.MessageWriter w, PlayerControl p, string n)
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }
 
-        // Applique le nom localement (Data + plaque au-dessus du perso) côté hôte, car l'hôte
-        // ne reçoit pas son propre RPC réseau → sinon le changement n'était pas instantané.
         public static void ApplyNameLocal(PlayerControl p, string name)
         {
             if (p?.Data == null) return;
@@ -237,7 +269,6 @@ namespace AU_TheDirectorsCut
             catch (Exception e) { Log("ApplyNameLocal", e); }
         }
 
-        // Renomme un joueur (admin /rename) : diffusion réseau + application locale.
         public static void SetPlayerName(PlayerControl p, string name)
         {
             if (!IsHost() || p?.Data == null || string.IsNullOrEmpty(name)) return;
@@ -255,9 +286,6 @@ namespace AU_TheDirectorsCut
             catch (Exception e) { Log(nameof(SetPlayerName), e); }
         }
 
-        // Met tout le monde en gris (couleur 15) et masque les noms (espace).
-        // RpcSetColor applique localement + réseau ; les noms sont diffusés (tag 5)
-        // puis appliqués localement côté hôte pour cohérence d'affichage.
         public static void GreyAllAndHideNames()
         {
             if (!IsHost()) return;
@@ -290,7 +318,6 @@ namespace AU_TheDirectorsCut
             catch (Exception e) { Log(nameof(GreyAllAndHideNames), e); }
         }
 
-        // Restaure couleurs + noms d'origine mémorisés.
         public static void RestoreColorsAndNames(Dictionary<byte, (int colorId, string name)> originals)
         {
             if (!IsHost() || originals == null) return;

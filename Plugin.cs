@@ -25,7 +25,6 @@ namespace AU_TheDirectorsCut
             DirectorCore.Initialize();
             NetworkManager.Initialize();
 
-            // Panneau Admin hôte (IMGUI) — ouvert avec la touche Suppr (Delete)
             AddComponent<AdminUI>();
 
             Log.LogInfo($"[{PluginInfo.PLUGIN_NAME}] Loaded!");

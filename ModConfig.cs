@@ -3,7 +3,6 @@ using UnityEngine;
 
 namespace AU_TheDirectorsCut
 {
-    // Configuration éditable sans recompiler (BepInEx/config/com.anish.au.thedirectorscut.cfg).
     public static class ModConfig
     {
         public static ConfigEntry<KeyCode> AdminPanelKey;

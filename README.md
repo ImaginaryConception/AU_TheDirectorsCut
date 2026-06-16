@@ -108,7 +108,7 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | `/gg` | Previous-game stats (alive / eliminated) |
 | `/players` | List players with their letter IDs |
 | `/join` · `/discord` | Discord invite |
-| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hquarantine` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Detailed help per command |
+| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Detailed help per command |
 
 ### 🎬 Director — in-game effects
 | Command | Effect | Cooldown |
@@ -121,6 +121,7 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | `/shuffle` | Randomly shuffles everyone's positions | 20s |
 | `/swap A B` | Swaps the positions of two players | 15s |
 | `/teleportall A` | Teleports everyone to player A | 20s |
+| `/tp A B` | Teleport player A to player B's position | 10s |
 
 ### 🎬 Director — meeting only
 | Command | Effect | Cooldown |
@@ -136,7 +137,6 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | `/voiceover <text>` | **The Voice-Off** — anonymous, theatrical message shown huge to everyone | 8s |
 | `/spotlight A` | Everyone goes dark **except** player A (20s) | 30s |
 | `/marathon` | Speed boost for everyone (15s) | 30s |
-| `/quarantine A` | Everyone frozen **except** A (8s) | 30s |
 | `/roulette` | A random living player is dramatically eliminated | 45s |
 | `/bodyswap A B` | Swaps two players' identities (color + name) — total confusion | 30s |
 
@@ -285,7 +285,7 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
 | `/players` | Liste les joueurs et leurs ID-lettres |
 | `/join` · `/discord` | Invitation Discord |
-| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hquarantine` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Aide détaillée par commande |
+| `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Aide détaillée par commande |
 
 ### 🎬 Réalisateur — effets en partie
 | Commande | Effet | Cooldown |
@@ -298,6 +298,7 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | `/shuffle` | Mélange aléatoirement les positions de tous | 20s |
 | `/swap A B` | Échange les positions de deux joueurs | 15s |
 | `/teleportall A` | Téléporte tout le monde vers le joueur A | 20s |
+| `/tp A B` | Téléporte le joueur A sur la position du joueur B | 10s |
 
 ### 🎬 Réalisateur — réunion uniquement
 | Commande | Effet | Cooldown |
@@ -313,7 +314,6 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | `/voiceover <texte>` | **La Voix Off** — message anonyme et théâtral affiché en grand à tous | 8s |
 | `/spotlight A` | Tout le monde dans le noir **sauf** A (20s) | 30s |
 | `/marathon` | Boost de vitesse pour tous (15s) | 30s |
-| `/quarantine A` | Tout le monde figé **sauf** A (8s) | 30s |
 | `/roulette` | Un joueur vivant au hasard est éliminé avec suspense | 45s |
 | `/bodyswap A B` | Échange les identités (couleur + pseudo) de deux joueurs | 30s |
 

@@ -42,7 +42,6 @@ namespace AU_TheDirectorsCut
             ["/voiceover"] = 8f,
             ["/spotlight"] = 30f,
             ["/marathon"] = 30f,
-            ["/quarantine"] = 30f,
             ["/roulette"] = 45f,
             ["/bodyswap"] = 30f,
             ["/tp"] = 10f,
@@ -56,7 +55,6 @@ namespace AU_TheDirectorsCut
         private static float _originalCrewLightMod = 1f;
         private static float _originalImpostorLightMod = 1f;
 
-        // /colorblinds : effet temporisé (gris + noms masqués), restauration auto
         private const float ColorBlindDuration = 25f;
         private static bool _colorBlindActive = false;
         private static float _colorBlindTimer = 0f;
@@ -131,6 +129,7 @@ namespace AU_TheDirectorsCut
             _colorBlindOriginal.Clear();
             _frozenPlayers.Clear();
             _pendingPunishments.Clear();
+            NetworkManager.ClearPendingTPs();
             ScriptManager.Reset();
             ChatManager.ClearWelcomeSent();
             Directives.Reset();
@@ -151,8 +150,7 @@ namespace AU_TheDirectorsCut
                 $"(PlayerId={player.PlayerId}, OwnerId={player.OwnerId})"
             );
 
-            // Confidentialité : on prévient en privé le nouveau Réalisateur, pas tout le monde.
-            SendDirectorMessage(
+            ChatManager.Queue(
                 string.Format(ModMessages.FirstDirector, player.Data.PlayerName),
                 string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName)
             );
@@ -216,7 +214,6 @@ namespace AU_TheDirectorsCut
             Plugin.Log?.LogInfo($"[Director] Le Réalisateur \"{formerName}\" a quitté la partie — poste VACANT. La prochaine mort deviendra le nouveau Réalisateur.");
 
             
-            // Annonce PUBLIQUE (visible par tous)
             ChatManager.Queue(
                 $"<b><color=#ffd23f>RÉALISATEUR</color></b> : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur.",
                 $"RÉALISATEUR : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur."
@@ -280,8 +277,6 @@ namespace AU_TheDirectorsCut
                 errorMessage = ModMessages.PlayerNotFoundPlain;
                 return false;
             }
-            // L'hôte EST une cible valide (s'il est vivant) : l'ordre doit pouvoir lui
-            // être envoyé et agir comme pour n'importe quel joueur.
             if (target.PlayerId == sender.PlayerId)
             {
                 errorMessage = "Tu ne peux pas te choisir toi-même";
@@ -361,7 +356,6 @@ namespace AU_TheDirectorsCut
 
             if (isAdminCommand)
             {
-                // Commandes ADMIN : réservées à l'hôte. Interdit pour tout autre joueur.
                 if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
                 {
                     ChatManager.QueueSystemMessage(sender, ModMessages.HostOnly, ModMessages.HostOnlyPlain);
@@ -374,7 +368,6 @@ namespace AU_TheDirectorsCut
                         if (!inLobby) { ChatManager.QueueSystemMessage(sender, "Pas en lobby !", "Pas en lobby !"); return true; }
                         try
                         {
-                            // BeginGame() = le vrai bouton "Start" de l'hôte (gère le lancement réseau).
                             if (GameStartManager.Instance != null)
                                 GameStartManager.Instance.BeginGame();
                             else
@@ -467,7 +460,6 @@ namespace AU_TheDirectorsCut
                         }
                         try
                         {
-                            // Force la fin : le timer dépasse le total discussion+vote → clôture
                             MeetingHud.Instance.discussionTimer = 9999f;
                             ChatManager.QueueSystemMessage(sender, ModMessages.MeetingEnded, ModMessages.MeetingEndedPlain);
                             Plugin.Log?.LogInfo("[Admin] /endmeeting → réunion forcée à se terminer.");
@@ -555,8 +547,6 @@ namespace AU_TheDirectorsCut
 
                 case "/help":
                     {
-                        // UN seul message : tout est affiché, stylisé. La ligne Admin n'est
-                        // ajoutée que pour l'hôte.
                         string helpColored = ModMessages.HelpAll;
                         string helpPlain = ModMessages.HelpAllPlain;
                         if (sender.PlayerId == PlayerControl.LocalPlayer.PlayerId)
@@ -604,7 +594,6 @@ namespace AU_TheDirectorsCut
                             .OrderBy(p => p.PlayerId)
                             .ToList();
 
-                        // Un seul message, une ligne par joueur (gras + couleur)
                         var sbColored = new System.Text.StringBuilder("<b><color=#ffd23f>Joueurs</color></b>");
                         var sbPlain = new System.Text.StringBuilder("Joueurs");
                         foreach (var p in players)
@@ -678,7 +667,6 @@ namespace AU_TheDirectorsCut
                     ChatManager.QueueSystemMessage(sender, ModMessages.HelpVote, ModMessages.HelpVotePlain);
                     return true;
 
-                // ---- Aides des commandes générales ----
                 case "/hhelp":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HHelp, ModMessages.HHelpPlain);
                     return true;
@@ -700,7 +688,6 @@ namespace AU_TheDirectorsCut
                     ChatManager.QueueSystemMessage(sender, ModMessages.HCooldowns, ModMessages.HCooldownsPlain);
                     return true;
 
-                // ---- Aides des commandes Réalisateur (en jeu) ----
                 case "/hcolorblind":
                 case "/hcolorblinds":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HColorblind, ModMessages.HColorblindPlain);
@@ -727,9 +714,6 @@ namespace AU_TheDirectorsCut
                 case "/hmarathon":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HMarathon, ModMessages.HMarathonPlain);
                     return true;
-                case "/hquarantine":
-                    ChatManager.QueueSystemMessage(sender, ModMessages.HQuarantine, ModMessages.HQuarantinePlain);
-                    return true;
                 case "/hroulette":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HRoulette, ModMessages.HRoulettePlain);
                     return true;
@@ -737,7 +721,6 @@ namespace AU_TheDirectorsCut
                     ChatManager.QueueSystemMessage(sender, ModMessages.HBodyswap, ModMessages.HBodyswapPlain);
                     return true;
 
-                // ---- Aides des commandes Réalisateur (en réunion) ----
                 case "/hstalker":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HStalker, ModMessages.HStalkerPlain);
                     return true;
@@ -745,7 +728,6 @@ namespace AU_TheDirectorsCut
                     ChatManager.QueueSystemMessage(sender, ModMessages.HUltimatum, ModMessages.HUltimatumPlain);
                     return true;
 
-                // ---- Aides des commandes Admin ----
                 case "/hstart":
                     ChatManager.QueueSystemMessage(sender, ModMessages.HStart, ModMessages.HStartPlain);
                     return true;
@@ -924,7 +906,6 @@ namespace AU_TheDirectorsCut
                     
                     var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order, actionTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(actionTarget, coloredMsg, plainMsg);
-                    // Confirmation privée à l'hôte ET au réalisateur
                     SendDirectorMessage(
                         string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName),
                         string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName)
@@ -994,7 +975,6 @@ namespace AU_TheDirectorsCut
                     
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(locTarget, locColored, locPlain);
-                    // Confirmation privée à l'hôte ET au réalisateur
                     SendDirectorMessage(
                         string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName),
                         string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName)
@@ -1069,7 +1049,6 @@ namespace AU_TheDirectorsCut
                     
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(voteTarget, voteColored, votePlain);
-                    // Confirmation privée à l'hôte ET au réalisateur
                     SendDirectorMessage(
                         string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName),
                         string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName)
@@ -1199,7 +1178,6 @@ namespace AU_TheDirectorsCut
                     SetCooldown("/tp");
                     return true;
 
-                // ===================== DIRECTIVES (en jeu) =====================
                 case "/voiceover":
                 case "/voixoff":
                     if (parts.Length < 2)
@@ -1229,16 +1207,6 @@ namespace AU_TheDirectorsCut
                     SetCooldown("/marathon");
                     return true;
 
-                case "/quarantine":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
-                    if (!TryCheckCooldown("/quarantine", sender)) return true;
-                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte qId)) { ChatManager.QueueSystemMessage(sender, "Usage : /quarantine ID", "Usage : /quarantine ID"); return true; }
-                    PlayerControl? qTarget = FindById(qId);
-                    if (qTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
-                    Directives.Quarantine(qTarget);
-                    SetCooldown("/quarantine");
-                    return true;
-
                 case "/roulette":
                     if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
                     if (!TryCheckCooldown("/roulette", sender)) return true;
@@ -1257,7 +1225,6 @@ namespace AU_TheDirectorsCut
                     SetCooldown("/bodyswap");
                     return true;
 
-                // ===================== DIRECTIVES (réunion) =====================
                 case "/stalker":
                     if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
                     if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte skA) || !LetterToPlayerId(parts[2], out byte skB)) { ChatManager.QueueSystemMessage(sender, "Usage : /stalker IDA IDB (A doit suivre B)", "Usage : /stalker IDA IDB (A doit suivre B)"); return true; }
@@ -1272,8 +1239,25 @@ namespace AU_TheDirectorsCut
                     if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte ulId)) { ChatManager.QueueSystemMessage(sender, "Usage : /ultimatum ID [secondes] (un Imposteur)", "Usage : /ultimatum ID [secondes] (un Imposteur)"); return true; }
                     PlayerControl? ulTarget = FindById(ulId);
                     if (ulTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
+                    if (ulTarget.Data.Role == null || !ulTarget.Data.Role.CanUseKillButton)
+                    {
+                        ChatManager.QueueSystemMessage(sender, "<color=#ff6b6b>/ultimatum : la cible doit être un <b>Imposteur</b> !</color>", "/ultimatum : la cible doit etre un Imposteur !");
+                        return true;
+                    }
                     float ulSec = 0f;
-                    if (parts.Length >= 3) float.TryParse(parts[2], out ulSec);
+                    if (parts.Length >= 3)
+                    {
+                        if (!float.TryParse(parts[2], out ulSec))
+                        {
+                            ChatManager.QueueSystemMessage(sender, "<color=#ff6b6b>/ultimatum : secondes invalides !</color>", "/ultimatum : secondes invalides !");
+                            return true;
+                        }
+                        if (ulSec < 30f)
+                        {
+                            ChatManager.QueueSystemMessage(sender, "<color=#ff6b6b>/ultimatum : le délai minimum est de <b>30s</b> !</color>", "/ultimatum : le delai minimum est de 30s !");
+                            return true;
+                        }
+                    }
                     Directives.Ultimatum(ulTarget, ulSec);
                     return true;
 
@@ -1292,13 +1276,11 @@ namespace AU_TheDirectorsCut
             _cutKilledPlayers.Clear();
 
             
-            // Privé au Réalisateur (confidentialité) — les joueurs ne sont pas prévenus
             SendDirectorMessage(ModMessages.CutStart, ModMessages.CutStartPlain);
 
             
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
-                // L'hôte est désormais inclus : /cut peut le tuer aussi s'il bouge.
                 if (pc?.Data != null && !pc.Data.IsDead && !pc.Data.Disconnected)
                 {
                     _cutInitialPositions[pc.PlayerId] = (Vector2)pc.transform.position;
@@ -1399,7 +1381,6 @@ namespace AU_TheDirectorsCut
         {
             if (ShipStatus.Instance == null) return;
 
-            // Mémorise couleurs + noms d'origine pour pouvoir restaurer
             _colorBlindOriginal.Clear();
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
             {
@@ -1492,6 +1473,7 @@ namespace AU_TheDirectorsCut
 
             ScriptManager.Update();
             Directives.Update(dt);
+            NetworkManager.Tick(dt);
 
             
             if (_darknessActive)
@@ -1559,13 +1541,10 @@ namespace AU_TheDirectorsCut
                 }
                 else if (_cutPhase == 2)
                 {
-                    // Pendant TOUTE la fenêtre d'arrêt : chaque joueur qui bouge est
-                    // éliminé (aucune exclusion). On ne s'arrête plus au premier bougeur.
                     foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
                     {
                         if (pc?.Data == null || pc.Data.IsDead || pc.Data.Disconnected) continue;
                         if (_cutKilledPlayers.Contains(pc.PlayerId)) continue;
-                        // L'hôte n'est plus épargné : s'il bouge, il meurt comme les autres.
 
                         if (_cutInitialPositions.TryGetValue(pc.PlayerId, out Vector2 initialPos))
                         {
@@ -1581,7 +1560,6 @@ namespace AU_TheDirectorsCut
 
                     if (_cutTimer <= 0f)
                     {
-                        // Fin de la fenêtre → clôture
                         _cutPhase = 3;
                         _cutTimer = 2f;
                         TriggerReactorSabotage(true);
@@ -1615,8 +1593,6 @@ namespace AU_TheDirectorsCut
                 {
                     PendingAutoGG = false;
                     pendingAutoGGDelay = 0f;
-                    // On oublie les welcomes déjà envoyés pour que tous les joueurs de retour
-                    // au lobby reçoivent le récap GG via le scan de ProcessPendingWelcome.
                     ChatManager.ClearSentWelcome();
                     Plugin.Log?.LogInfo("[DirectorCore] Fin de partie → récap GG délégué au flux welcome.");
                 }
@@ -1626,14 +1602,10 @@ namespace AU_TheDirectorsCut
                 _cd[k] = Mathf.Max(0f, _cd[k] - dt);
         }
 
-        // Wrapper public : permet au module Directives d'envoyer un retour privé au Réalisateur.
         public static void DirectorNotify(string coloredMessage, string plainMessage) => SendDirectorMessage(coloredMessage, plainMessage);
 
         private static void SendDirectorMessage(string coloredMessage, string plainMessage)
         {
-            // Confidentialité : ces retours (confirmations, bannières d'effet) ne vont
-            // QU'au Réalisateur, c.-à-d. l'émetteur des commandes director. Si le poste
-            // est vacant (aucun mort encore), on retombe sur l'hôte.
             PlayerControl? director = DirectorPlayerId.HasValue ? FindById(DirectorPlayerId.Value) : null;
             PlayerControl? recipient = director ?? PlayerControl.LocalPlayer;
             if (recipient != null)
@@ -1659,14 +1631,11 @@ namespace AU_TheDirectorsCut
     {
         static void Postfix(PlayerControl __instance)
         {
-            // Plus de revert anti-cheat : sur serveur privé sans anti-cheat, la mort de
-            // l'hôte doit tenir (sinon /cut ne pourrait pas tuer l'hôte).
             DirectorCore.OnPlayerDie(__instance);
             Directives.OnDeath(__instance);
         }
     }
 
-    // Détecte les VRAIS kills (killer != victime) pour l'Ultimatum.
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.MurderPlayer))]
     static class MurderDetect_P
     {
@@ -1674,7 +1643,7 @@ namespace AU_TheDirectorsCut
         {
             if (AmongUsClient.Instance?.AmHost != true) return;
             if (__instance == null || target == null) return;
-            if (__instance.PlayerId == target.PlayerId) return; // self-kill (mod) → ignoré
+            if (__instance.PlayerId == target.PlayerId) return;
             Directives.NotifyKill(__instance.PlayerId);
         }
     }
@@ -1745,9 +1714,6 @@ namespace AU_TheDirectorsCut
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartGame))]
     static class Start_P { static void Postfix() => DirectorCore.Reset(); }
 
-    // Désactive la fermeture automatique du lobby pour inactivité (compte à rebours ~10 min).
-    // Le nom du champ varie selon les versions d'Among Us : on le retrouve par réflexion
-    // (propriété float dont le nom contient "Inactiv") et on le maintient à 600 chaque frame.
     [HarmonyPatch(typeof(GameStartManager), nameof(GameStartManager.Update))]
     static class NoLobbyTimeout_P
     {
@@ -1894,11 +1860,6 @@ namespace AU_TheDirectorsCut
 
 
     
-    // [SUPPRIMÉ] HydraForceDTLS : forçait dtls=true sur chaque appel à
-    // InnerNetClient.SetEndpoint, ce qui écrasait le réglage natif du jeu et
-    // faisait échouer la négociation DTLS à la création d'un lobby
-    // ("DTLS negotiation failed after 35 resends"). On laisse Among Us gérer
-    // lui-même le transport.
 
     [HarmonyPatch(typeof(CustomNetworkTransform), nameof(CustomNetworkTransform.HandleRpc))]
     static class HydraBlockServerTeleports
@@ -2040,10 +2001,8 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
             
-            // Marquer les ordres /loc, /action comme complétés
             ScriptManager.CompleteAllScriptsAtMeeting();
             
-            // Réinitialiser le tracking VoteFirst
             ScriptManager.ResetVoteFirstTracking();
             Directives.OnMeetingStart();
             Plugin.Log?.LogInfo("[DirectorCore] Meeting started - Scripts completed, VoteFirst tracking reset");
@@ -2057,7 +2016,6 @@ namespace AU_TheDirectorsCut
         {
             if (!AmongUsClient.Instance.AmHost) return;
 
-            // Directives liées à la fin de réunion (éjection scriptée, activation Stalker)
             Directives.OnMeetingClose();
 
             Plugin.Log?.LogInfo("[MeetingClose_P] Meeting closed - checking vote scripts");

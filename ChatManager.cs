@@ -11,14 +11,8 @@ namespace AU_TheDirectorsCut
     {
         internal static bool IsSending = false;
 
-        // ===== Identité du bot =====
-        // Pseudo affiché par le bot dans le chat. Les balises <color> sont rendues
-        // dans le nom (pas d'anti-cheat sur serveur privé). Bleu.
         private const string BotName = "<color=#3B9DFF>The Director's Cut</color>";
-        // Couleur d'avatar du bot dans la bulle de chat. 1 = Blue (cf. Palette.ColorNames).
         private const byte BotColorId = 1;
-        // Si true, on change aussi la couleur de l'avatar (en plus du nom).
-        // Piloté par la config (BepInEx) ; true par défaut si la config n'est pas prête.
         private static bool BotCosmetics => ModConfig.BotCosmetics?.Value ?? true;
 
         
@@ -31,9 +25,6 @@ namespace AU_TheDirectorsCut
         private const int MaxQueueSize = 20; 
 
         
-        // Plus de découpage : on autorise les longs messages formatés (gras, couleurs,
-        // sauts de ligne). On garde juste un plafond de sécurité large pour ne pas
-        // dépasser la taille d'un paquet Hazel fiable (~MTU) et risquer un drop.
         private const int MaxChatChars = 1500;
         private const int MaxChatBytes = 1200;
         public static string SafeChat(string s)
@@ -41,7 +32,6 @@ namespace AU_TheDirectorsCut
             if (string.IsNullOrEmpty(s)) return s;
             if (s.Length > MaxChatChars) s = s.Substring(0, MaxChatChars - 3) + "...";
 
-            // Filet de sécurité transport : ne tronque que les messages réellement énormes.
             while (System.Text.Encoding.UTF8.GetByteCount(s) > MaxChatBytes && s.Length > 1)
                 s = s.Substring(0, s.Length - 1);
             return s;
@@ -65,14 +55,12 @@ namespace AU_TheDirectorsCut
             {
                 _colorMap[plainMsg] = coloredMsg;
                 
-                // Afficher localement uniquement si le message est pour nous
                 if (target == PlayerControl.LocalPlayer)
                 {
                     AddChatLocal(speaker, coloredMsg);
                 }
                 else
                 {
-                    // Envoyer le message via réseau au destinataire (privé → tag 6 ciblé)
                     var w = MessageWriter.Get(SendOption.Reliable);
                     w.StartMessage(6);
                     w.Write(AmongUsClient.Instance.GameId);
@@ -99,7 +87,6 @@ namespace AU_TheDirectorsCut
             try
             {
                 
-                // Afficher localement uniquement si le message est pour nous
                 if (target == PlayerControl.LocalPlayer)
                 {
                     AddChatLocal(speaker, coloredMsg);
@@ -200,10 +187,6 @@ namespace AU_TheDirectorsCut
 
             if (_queue.Count == 0) return;
 
-            // Plus d'attente artificielle : on vide TOUTE la file dès cette frame.
-            // Les réponses aux commandes s'affichent donc instantanément, tout en
-            // restant dans le contexte sûr de ChatController.Update et en conservant
-            // la confidentialité (messages ciblés via SendSystemMessage / tag 6).
             while (_queue.Count > 0)
             {
                 var (plain, colored, _, target) = _queue.Dequeue();
@@ -226,9 +209,8 @@ namespace AU_TheDirectorsCut
         private static void ProcessPendingGG()
         {
             if (!AmongUsClient.Instance.AmHost || _ggPlayerQueue.Count == 0) return;
-            if (ShipStatus.Instance != null) return; // GG en lobby uniquement
+            if (ShipStatus.Instance != null) return; 
 
-            // Instantané : on envoie le GG à TOUS les joueurs en file, d'un coup.
             while (_ggPlayerQueue.Count > 0)
             {
                 byte pid = _ggPlayerQueue[0];
@@ -248,14 +230,12 @@ namespace AU_TheDirectorsCut
 
         private static void Send(PlayerControl speaker, string plainMsg, string coloredMsg)
         {
-            // Affichage local (hôte) sous l'identité du bot
             AddChatLocal(speaker, coloredMsg);
 
-            // Diffusion à tous (tag 5) sous l'identité du bot
             var w = MessageWriter.Get(SendOption.Reliable);
             w.StartMessage(5);
             w.Write(AmongUsClient.Instance.GameId);
-            WBotChat(w, speaker, plainMsg);
+            WBotChat(w, speaker, coloredMsg);
             w.EndMessage();
             AmongUsClient.Instance.SendOrDisconnect(w);
             w.Recycle();
@@ -277,9 +257,6 @@ namespace AU_TheDirectorsCut
                 }
                 else
                 {
-                    // Si l'hôte est mort, on emprunte l'identité d'un joueur vivant pour
-                    // envoyer le chat réseau : sinon le serveur kick l'hôte pour avoir
-                    // fait parler un personnage mort.
                     var netSpeaker = (speaker.Data?.IsDead == true) ? (LowestAlive() ?? speaker) : speaker;
 
                     _colorMap[plainMsg] = coloredMsg;
@@ -310,14 +287,12 @@ namespace AU_TheDirectorsCut
             
             _colorMap[plainMsg] = coloredMsg;
 
-            // Afficher localement uniquement si le message est pour nous
             if (target == PlayerControl.LocalPlayer)
             {
                 AddChatLocal(speaker, coloredMsg);
             }
             else if (!inLobby || target != PlayerControl.LocalPlayer)
             {
-                // Envoyer le message via réseau au destinataire (sauf si c'est pour nous en lobby)
                 try
                 {
                     var w = MessageWriter.Get(SendOption.Reliable);
@@ -357,7 +332,6 @@ namespace AU_TheDirectorsCut
         private static readonly HashSet<byte> _sentWelcome = new();
 
         
-        // Délais neutralisés : welcome/GG instantanés (pas d'attente ni d'anti-spam).
         private const float WelcomeDelaySec = 0f;
         private const int MaxWelcomesPerWave = 99999;
         private const float WaveResetWindow = 10f;
@@ -403,11 +377,8 @@ namespace AU_TheDirectorsCut
             }
         }
 
-        // Conservé pour les patches Start/HudStart, mais le welcome est désormais géré en
-        // continu par ProcessPendingWelcome (appelé chaque frame depuis Pump). No-op.
         public static void CheckNewPlayers() { }
 
-        // Construit le message de bienvenue, en y ajoutant le lien Discord configuré (si défini).
         private static (string plain, string colored) BuildWelcome()
         {
             string colored = ModMessages.Welcome;
@@ -418,29 +389,22 @@ namespace AU_TheDirectorsCut
                 colored += $"\n<b><color=#5865F2>Discord</color></b> : <color=#5865F2><u>{link}</u></color>";
                 plain += $"\nDiscord : {link}";
             }
-            // Pseudos pour les ajouts directs (alternative à la copie du lien)
             colored += "\n" + ModMessages.DiscordContacts;
             plain += "\n" + ModMessages.DiscordContactsPlain;
             return (plain, colored);
         }
 
-        // Oublie qui a déjà été accueilli (appelé à la fin d'une partie) pour que tous les
-        // joueurs de retour au lobby reçoivent le récap GG.
         public static void ClearSentWelcome()
         {
             _sentWelcome.Clear();
             Plugin.Log?.LogInfo("[ChatManager] Suivi welcome réinitialisé (fin de partie → récap GG).");
         }
 
-        // REFONTE : plus de file ni de hooks fragiles. À chaque frame (en lobby), on scanne
-        // tous les joueurs présents et on envoie le message à tout joueur pas encore accueilli.
-        // Auto-réparant : si un joueur n'était pas prêt (nom/OwnerId pas encore reçus), il sera
-        // accueilli dès la frame suivante. Joueur "de retour" → récap GG, sinon → welcome.
         private static void ProcessPendingWelcome()
         {
             if (!AmongUsClient.Instance.AmHost) return;
-            if (ShipStatus.Instance != null) return;            // lobby uniquement
-            if (HudManager.Instance?.Chat == null) return;      // chat prêt
+            if (ShipStatus.Instance != null) return;            
+            if (HudManager.Instance?.Chat == null) return;      
 
             var currentIds = new HashSet<byte>();
             foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
@@ -449,7 +413,7 @@ namespace AU_TheDirectorsCut
                 currentIds.Add(pc.PlayerId);
 
                 if (pc.OwnerId < 0 || pc.Data.Disconnected) continue;
-                if (string.IsNullOrEmpty(pc.Data.PlayerName)) continue; // pas encore initialisé
+                if (string.IsNullOrEmpty(pc.Data.PlayerName)) continue; 
                 if (_sentWelcome.Contains(pc.PlayerId)) continue;
 
                 bool isReturning = DirectorCore.LastAlive.Contains(pc.Data.PlayerName) || DirectorCore.LastDead.Contains(pc.Data.PlayerName);
@@ -470,7 +434,6 @@ namespace AU_TheDirectorsCut
                 _sentWelcome.Add(pc.PlayerId);
             }
 
-            // Oublier les joueurs partis pour les ré-accueillir s'ils reviennent.
             _sentWelcome.RemoveWhere(id => !currentIds.Contains(id));
         }
 
@@ -480,16 +443,9 @@ namespace AU_TheDirectorsCut
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetName); w.Write(p.Data.NetId); w.Write(n); w.EndMessage(); }
         private static void WSendChat(MessageWriter w, PlayerControl p, string m)
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SendChat); w.Write(m); w.EndMessage(); }
-        // SetColor RPC : payload = (uint32 Data.NetId)(byte colorId). Confirmé par l'anticheat.
         private static void WSetColor(MessageWriter w, PlayerControl p, byte color)
         { w.StartMessage(2); w.WritePacked(p.NetId); w.Write((byte)RpcCalls.SetColor); w.Write(p.Data.NetId); w.Write(color); w.EndMessage(); }
 
-        // Écrit dans le writer la séquence "le bot parle" : on bascule cosmétiques + nom
-        // sur le bot, on envoie le chat, puis on remet l'apparence d'origine du speaker.
-        // Le nom et l'avatar sont figés par la bulle de chat au moment de l'AddChat distant,
-        // donc le retour à la normale juste après n'affecte pas le message déjà affiché.
-        // msg = texte RICH (gras/couleurs/\n). Envoyé tel quel à tous les clients pour
-        // qu'ils voient le formatage (les clients vanilla rendent le rich text TMP).
         private static void WBotChat(MessageWriter w, PlayerControl p, string msg)
         {
             string origName = p.Data.PlayerName;
@@ -501,9 +457,6 @@ namespace AU_TheDirectorsCut
             if (BotCosmetics) WSetColor(w, p, origColor);
         }
 
-        // Affichage LOCAL (côté hôte) sous l'identité du bot : on force temporairement le
-        // pseudo de l'hôte sur le bot le temps que la bulle se crée, puis on le remet.
-        // Purement local (aucun RPC), sans risque réseau.
         private static void AddChatLocal(PlayerControl speaker, string coloredMsg)
         {
             if (speaker == null || HudManager.Instance?.Chat == null) return;
@@ -616,9 +569,6 @@ namespace AU_TheDirectorsCut
         static void Postfix(ChatController __instance)
         {
             ChatManager.Pump(__instance);
-            // Hôte uniquement : on annule le cooldown d'envoi (~3s) en gardant le compteur
-            // "temps depuis le dernier message" toujours au-dessus du seuil. L'hôte peut donc
-            // enchaîner ses messages sans attendre.
             if (AmongUsClient.Instance?.AmHost == true)
                 __instance.timeSinceLastMessage = 99f;
         }
