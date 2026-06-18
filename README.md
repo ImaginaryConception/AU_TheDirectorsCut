@@ -108,7 +108,7 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | `/gg` | Previous-game stats (alive / eliminated) |
 | `/players` | List players with their letter IDs |
 | `/join` · `/discord` | Discord invite |
-| `/lang [fr/en]` Changes your individual language in-game |
+| `/lang [fr/en]` | Changes your individual language in-game |
 | `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Detailed help per command |
 
 ### 🎬 Director — in-game effects
@@ -155,7 +155,7 @@ On success the DLL is **auto-copied** to `BepInEx/plugins/` (the `PostBuild` tar
 | `/rename A NEW_NAME` | Rename a player |
 | `/kill A` | Eliminate a player |
 | `/endmeeting` | Force the current meeting to end |
-| `/langforall [fr/en]` Changes the language for all players simultaneously (Host only) |
+| `/langforall [fr/en]` | Changes the language for all players simultaneously (Host only) |
 | **Delete (Suppr) key** | Open the **Admin panel**: buttons for all of the above + a per-player list (Kill / Set Director / Rename) |
 
 > ❌ **Not included — "Slasher" mode** (black-and-white screen with red blood). This is a client-side camera/shader effect and is **impossible without a mod on every player's PC**, which breaks the host-only design.
@@ -287,7 +287,7 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | `/gg` | Stats de la partie précédente (vivants / éliminés) |
 | `/players` | Liste les joueurs et leurs ID-lettres |
 | `/join` · `/discord` | Invitation Discord |
-| `/lang [fr/en]` Change votre langue individuelle en jeu |
+| `/lang [fr/en]` | Change votre langue individuelle en jeu |
 | `/hcut` `/hdarkness` `/hfreeze` `/haction` `/helpaction` `/hloc` `/hvote` `/hrandomcolors` `/hcolorblind` `/hshuffle` `/hswap` `/hteleportall` `/htp` `/hvoiceover` `/hspotlight` `/hmarathon` `/hroulette` `/hbodyswap` `/hultimatum` `/hstalker` | Aide détaillée par commande |
 
 ### 🎬 Réalisateur — effets en partie
@@ -334,7 +334,7 @@ En cas de succès, la DLL est **copiée automatiquement** dans `BepInEx/plugins/
 | `/rename A NOUVEAU_NOM` | Renomme un joueur |
 | `/kill A` | Élimine un joueur |
 | `/endmeeting` | Force la fin de la réunion en cours |
-| `/langforall [fr/en]` Change la langue pour tous les joueurs simultanément (Hôte uniquement) |
+| `/langforall [fr/en]` | Change la langue pour tous les joueurs simultanément (Hôte uniquement) |
 | **Touche Suppr (Delete)** | Ouvre le **panneau Admin** : boutons pour tout ce qui précède + une liste par joueur (Kill / Réalisateur / Renommer) |
 
 > ❌ **Non inclus — mode « Slasher »** (écran noir & blanc avec sang rouge). C'est un effet de caméra/shader côté client, **impossible sans mod installé chez chaque joueur**, ce qui casserait le principe host-only.
