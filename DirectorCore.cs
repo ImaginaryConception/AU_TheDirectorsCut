@@ -150,9 +150,9 @@ namespace AU_TheDirectorsCut
                 $"(PlayerId={player.PlayerId}, OwnerId={player.OwnerId})"
             );
 
-            ChatManager.Queue(
-                string.Format(ModMessages.FirstDirector, player.Data.PlayerName),
-                string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName)
+            ChatManager.QueueBroadcastLoc(
+                () => string.Format(ModMessages.FirstDirector, player.Data.PlayerName),
+                () => string.Format(ModMessages.FirstDirectorPlain, player.Data.PlayerName)
             );
         }
 
@@ -214,9 +214,9 @@ namespace AU_TheDirectorsCut
             Plugin.Log?.LogInfo($"[Director] Le Réalisateur \"{formerName}\" a quitté la partie — poste VACANT. La prochaine mort deviendra le nouveau Réalisateur.");
 
             
-            ChatManager.Queue(
-                $"<b><color=#ffd23f>RÉALISATEUR</color></b> : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur.",
-                $"RÉALISATEUR : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur."
+            ChatManager.QueueBroadcastLoc(
+                () => L($"<b><color=#ffd23f>DIRECTOR</color></b>: {formerName} has left — the position is vacant, the next death becomes the new Director.", $"<b><color=#ffd23f>RÉALISATEUR</color></b> : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur."),
+                () => L($"DIRECTOR: {formerName} has left — the position is vacant, the next death becomes the new Director.", $"RÉALISATEUR : {formerName} a quitté — poste vacant, la prochaine mort devient le nouveau Réalisateur.")
             );
         }
 
@@ -325,6 +325,8 @@ namespace AU_TheDirectorsCut
             return ((char)('A' + playerId)).ToString();
         }
 
+        private static string L(string en, string fr) => Localization.Tr(Localization.CurrentLang, en, fr);
+
         private static bool LetterToPlayerId(string letter, out byte playerId)
         {
             playerId = 0;
@@ -348,6 +350,8 @@ namespace AU_TheDirectorsCut
             if (parts.Length == 0) return false;
             string cmd = parts[0].ToLowerInvariant();
 
+            Localization.CurrentLang = Localization.Get(sender.PlayerId);
+
             bool inLobby = ShipStatus.Instance == null;
 
             bool isAdminCommand = cmd == "/start" || cmd == "/stop" || cmd == "/setdirector"
@@ -365,7 +369,7 @@ namespace AU_TheDirectorsCut
                 switch (cmd)
                 {
                     case "/start":
-                        if (!inLobby) { ChatManager.QueueSystemMessage(sender, "Pas en lobby !", "Pas en lobby !"); return true; }
+                        if (!inLobby) { ChatManager.QueueSystemMessage(sender, L("Not in the lobby!", "Pas en lobby !"), L("Not in the lobby!", "Pas en lobby !")); return true; }
                         try
                         {
                             if (GameStartManager.Instance != null)
@@ -421,7 +425,7 @@ namespace AU_TheDirectorsCut
                     case "/kill":
                         if (inLobby)
                         {
-                            ChatManager.QueueSystemMessage(sender, "Pas en jeu !", "Pas en jeu !");
+                            ChatManager.QueueSystemMessage(sender, L("Not in game!", "Pas en jeu !"), L("Not in game!", "Pas en jeu !"));
                             return true;
                         }
                         if (parts.Length < 2)
@@ -442,7 +446,7 @@ namespace AU_TheDirectorsCut
                         }
                         if (klTarget.Data.IsDead)
                         {
-                            ChatManager.QueueSystemMessage(sender, $"{klTarget.Data.PlayerName} est déjà éliminé(e)", $"{klTarget.Data.PlayerName} est déjà éliminé(e)");
+                            ChatManager.QueueSystemMessage(sender, L($"{klTarget.Data.PlayerName} is already eliminated", $"{klTarget.Data.PlayerName} est déjà éliminé(e)"), L($"{klTarget.Data.PlayerName} is already eliminated", $"{klTarget.Data.PlayerName} est déjà éliminé(e)"));
                             return true;
                         }
                         NetworkManager.MurderPlayer(klTarget);
@@ -455,7 +459,7 @@ namespace AU_TheDirectorsCut
                     case "/endmeeting":
                         if (MeetingHud.Instance == null)
                         {
-                            ChatManager.QueueSystemMessage(sender, "Aucune réunion en cours !", "Aucune réunion en cours !");
+                            ChatManager.QueueSystemMessage(sender, L("No meeting in progress!", "Aucune réunion en cours !"), L("No meeting in progress!", "Aucune réunion en cours !"));
                             return true;
                         }
                         try
@@ -470,7 +474,7 @@ namespace AU_TheDirectorsCut
                     case "/kick":
                         if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte kkId))
                         {
-                            ChatManager.QueueSystemMessage(sender, "Usage : /kick ID", "Usage : /kick ID");
+                            ChatManager.QueueSystemMessage(sender, L("Usage: /kick ID", "Usage : /kick ID"), L("Usage: /kick ID", "Usage : /kick ID"));
                             return true;
                         }
                         PlayerControl? kkTarget = FindById(kkId);
@@ -481,13 +485,13 @@ namespace AU_TheDirectorsCut
                         }
                         if (kkTarget.PlayerId == PlayerControl.LocalPlayer.PlayerId)
                         {
-                            ChatManager.QueueSystemMessage(sender, "Tu ne peux pas te kick toi-même !", "Tu ne peux pas te kick toi-même !");
+                            ChatManager.QueueSystemMessage(sender, L("You can't kick yourself!", "Tu ne peux pas te kick toi-même !"), L("You can't kick yourself!", "Tu ne peux pas te kick toi-même !"));
                             return true;
                         }
                         try
                         {
                             AmongUsClient.Instance.KickPlayer(kkTarget.OwnerId, false);
-                            ChatManager.QueueSystemMessage(sender, $"<b><color=#ff4d4d>{kkTarget.Data.PlayerName}</color></b> a été exclu.", $"{kkTarget.Data.PlayerName} a été exclu.");
+                            ChatManager.QueueSystemMessage(sender, L($"<b><color=#ff4d4d>{kkTarget.Data.PlayerName}</color></b> has been kicked.", $"<b><color=#ff4d4d>{kkTarget.Data.PlayerName}</color></b> a été exclu."), L($"{kkTarget.Data.PlayerName} has been kicked.", $"{kkTarget.Data.PlayerName} a été exclu."));
                         }
                         catch (Exception e) { Plugin.Log?.LogError($"[/kick] {e.Message}"); }
                         return true;
@@ -495,15 +499,16 @@ namespace AU_TheDirectorsCut
                     case "/status":
                         {
                             var fx = new List<string>();
-                            if (_cutActive) fx.Add("Cut en cours");
+                            if (_cutActive) fx.Add(L("Cut in progress", "Cut en cours"));
                             if (_darknessActive) fx.Add("Darkness");
                             if (_colorBlindActive) fx.Add("Colorblind");
-                            if (_frozenPlayers.Count > 0) fx.Add($"{_frozenPlayers.Count} gelé(s)");
+                            if (_frozenPlayers.Count > 0) fx.Add(L($"{_frozenPlayers.Count} frozen", $"{_frozenPlayers.Count} gelé(s)"));
                             string dir = Directives.Status();
                             if (!string.IsNullOrEmpty(dir)) fx.Add(dir);
-                            string body = fx.Count == 0 ? "Aucun effet actif." : string.Join(", ", fx);
-                            string colored = $"<b><color=#ffd23f>État</color></b>\nRéalisateur : {DirectorName ?? "aucun"}\n{body}";
-                            string plain = $"Etat - Realisateur : {DirectorName ?? "aucun"} - {body}";
+                            string body = fx.Count == 0 ? L("No active effect.", "Aucun effet actif.") : string.Join(", ", fx);
+                            string dirName = DirectorName ?? L("none", "aucun");
+                            string colored = L($"<b><color=#ffd23f>Status</color></b>\nDirector: {dirName}\n{body}", $"<b><color=#ffd23f>État</color></b>\nRéalisateur : {dirName}\n{body}");
+                            string plain = L($"Status - Director: {dirName} - {body}", $"Etat - Realisateur : {dirName} - {body}");
                             ChatManager.QueueSystemMessage(sender, colored, plain);
                         }
                         return true;
@@ -541,6 +546,40 @@ namespace AU_TheDirectorsCut
 
             switch (cmd)
             {
+                case "/lang":
+                    if (parts.Length < 2 || !Localization.TryParse(parts[1], out Lang newLang))
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.UsageLang, ModMessages.UsageLangPlain);
+                        return true;
+                    }
+                    Localization.SetPlayer(sender.PlayerId, newLang);
+                    Localization.CurrentLang = newLang;
+                    ChatManager.QueueSystemMessage(sender, ModMessages.LangChanged, ModMessages.LangChangedPlain);
+                    return true;
+
+                case "/langforall":
+                    if (sender.PlayerId != PlayerControl.LocalPlayer.PlayerId)
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.HostOnly, ModMessages.HostOnlyPlain);
+                        return true;
+                    }
+                    if (parts.Length < 2 || !Localization.TryParse(parts[1], out Lang allLang))
+                    {
+                        ChatManager.QueueSystemMessage(sender, ModMessages.UsageLangForAll, ModMessages.UsageLangForAllPlain);
+                        return true;
+                    }
+                    Localization.SetForAll(allLang);
+                    Localization.CurrentLang = allLang;
+                    ChatManager.QueueBroadcastLoc(() => ModMessages.LangChangedAll, () => ModMessages.LangChangedAllPlain);
+                    return true;
+
+                case "/hlang":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HLang, ModMessages.HLangPlain);
+                    return true;
+                case "/hlangforall":
+                    ChatManager.QueueSystemMessage(sender, ModMessages.HLangForAll, ModMessages.HLangForAllPlain);
+                    return true;
+
                 case "/welcome":
                     ChatManager.QueueSystemMessageSlow(sender, ModMessages.Welcome, ModMessages.WelcomePlain);
                     return true;
@@ -569,7 +608,7 @@ namespace AU_TheDirectorsCut
                         if (string.IsNullOrWhiteSpace(link))
                             ChatManager.QueueSystemMessage(sender, ModMessages.Discord, ModMessages.DiscordPlain);
                         else
-                            ChatManager.QueueSystemMessage(sender, $"<b><color=#5865F2>Discord</color></b> : <color=#5865F2><u>{link}</u></color>", $"Discord : {link}");
+                            ChatManager.QueueSystemMessage(sender, L($"<b><color=#5865F2>Discord</color></b>: <color=#5865F2><u>{link}</u></color>", $"<b><color=#5865F2>Discord</color></b> : <color=#5865F2><u>{link}</u></color>"), L($"Discord: {link}", $"Discord : {link}"));
                     }
                     return true;
 
@@ -580,7 +619,7 @@ namespace AU_TheDirectorsCut
                         foreach (var kvp in _cdMax)
                         {
                             float rem = CooldownRemaining(kvp.Key);
-                            sb.Append($"\n{kvp.Key} : {(rem > 0f ? Mathf.CeilToInt(rem) + "s" : "<color=#00e676>prêt</color>")}");
+                            sb.Append($"\n{kvp.Key} : {(rem > 0f ? Mathf.CeilToInt(rem) + "s" : L("<color=#00e676>ready</color>", "<color=#00e676>prêt</color>"))}");
                         }
                         string cdTxt = sb.ToString();
                         ChatManager.QueueSystemMessage(sender, cdTxt, cdTxt);
@@ -594,13 +633,13 @@ namespace AU_TheDirectorsCut
                             .OrderBy(p => p.PlayerId)
                             .ToList();
 
-                        var sbColored = new System.Text.StringBuilder("<b><color=#ffd23f>Joueurs</color></b>");
-                        var sbPlain = new System.Text.StringBuilder("Joueurs");
+                        var sbColored = new System.Text.StringBuilder(L("<b><color=#ffd23f>Players</color></b>", "<b><color=#ffd23f>Joueurs</color></b>"));
+                        var sbPlain = new System.Text.StringBuilder(L("Players", "Joueurs"));
                         foreach (var p in players)
                         {
                             string letter = PlayerIdToLetter(p.PlayerId);
-                            string deadColored = p.Data.IsDead ? " <color=#ff6b6b>(éliminé)</color>" : "";
-                            string deadPlain = p.Data.IsDead ? " (éliminé)" : "";
+                            string deadColored = p.Data.IsDead ? L(" <color=#ff6b6b>(eliminated)</color>", " <color=#ff6b6b>(éliminé)</color>") : "";
+                            string deadPlain = p.Data.IsDead ? L(" (eliminated)", " (éliminé)") : "";
                             sbColored.Append($"\n<b><color=#3B9DFF>{letter}</color></b> {p.Data.PlayerName}{deadColored}");
                             sbPlain.Append($"\n{letter} {p.Data.PlayerName}{deadPlain}");
                         }
@@ -774,7 +813,7 @@ namespace AU_TheDirectorsCut
                 case "/randomcolors":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/randomcolors", sender)) return true;
@@ -786,7 +825,7 @@ namespace AU_TheDirectorsCut
                 case "/cut":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/cut", sender)) return true;
@@ -797,7 +836,7 @@ namespace AU_TheDirectorsCut
                 case "/darkness":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/darkness", sender)) return true;
@@ -808,13 +847,13 @@ namespace AU_TheDirectorsCut
                 case "/freeze":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/freeze", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Usage : /freeze LETTRE (ex: /freeze A)", "Usage : /freeze LETTRE (ex: /freeze A)");
+                        ChatManager.QueueSystemMessage(sender, L("Usage: /freeze LETTER (ex: /freeze A)", "Usage : /freeze LETTRE (ex: /freeze A)"), L("Usage: /freeze LETTER (ex: /freeze A)", "Usage : /freeze LETTRE (ex: /freeze A)"));
                         return true;
                     }
                     if (!LetterToPlayerId(parts[1], out byte freezeTargetId))
@@ -830,7 +869,7 @@ namespace AU_TheDirectorsCut
                     }
                     if (_frozenPlayers.ContainsKey(freezeTarget.PlayerId))
                     {
-                        ChatManager.QueueSystemMessage(sender, $"{freezeTarget.Data.PlayerName} est déjà bloqué !", $"{freezeTarget.Data.PlayerName} est déjà bloqué !");
+                        ChatManager.QueueSystemMessage(sender, L($"{freezeTarget.Data.PlayerName} is already frozen!", $"{freezeTarget.Data.PlayerName} est déjà bloqué !"), L($"{freezeTarget.Data.PlayerName} is already frozen!", $"{freezeTarget.Data.PlayerName} est déjà bloqué !"));
                         return true;
                     }
                     StartFreeze(freezeTarget);
@@ -882,7 +921,7 @@ namespace AU_TheDirectorsCut
                     
                     if (order == ScriptOrder.StayOut || order == ScriptOrder.VoteForPlayer)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Utilisez /loc ou /vote pour ces ordres !", "Utilisez /loc ou /vote pour ces ordres !");
+                        ChatManager.QueueSystemMessage(sender, L("Use /loc or /vote for these orders!", "Utilisez /loc ou /vote pour ces ordres !"), L("Use /loc or /vote for these orders!", "Utilisez /loc ou /vote pour ces ordres !"));
                         return true;
                     }
                     
@@ -904,8 +943,10 @@ namespace AU_TheDirectorsCut
                     ScriptManager.AssignScript(actionTarget.PlayerId, order);
                     
                     
+                    Localization.CurrentLang = Localization.Get(actionTarget.PlayerId);
                     var (plainMsg, coloredMsg) = ScriptManager.GetOrderPrivateMessages(order, actionTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(actionTarget, coloredMsg, plainMsg);
+                    Localization.CurrentLang = Localization.Get(sender.PlayerId);
                     SendDirectorMessage(
                         string.Format(ModMessages.ActionAssigned, actionTarget.Data.PlayerName),
                         string.Format(ModMessages.ActionAssignedPlain, actionTarget.Data.PlayerName)
@@ -973,8 +1014,10 @@ namespace AU_TheDirectorsCut
                     ScriptManager.AssignStayOutScript(locTarget.PlayerId, location);
                     
                     
+                    Localization.CurrentLang = Localization.Get(locTarget.PlayerId);
                     var (locPlain, locColored) = ScriptManager.GetStayOutPrivateMessages(location, locTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(locTarget, locColored, locPlain);
+                    Localization.CurrentLang = Localization.Get(sender.PlayerId);
                     SendDirectorMessage(
                         string.Format(ModMessages.LocAssigned, locTarget.Data.PlayerName),
                         string.Format(ModMessages.LocAssignedPlain, locTarget.Data.PlayerName)
@@ -1026,12 +1069,12 @@ namespace AU_TheDirectorsCut
                     }
                     if (voteForTarget.Data.IsDead)
                     {
-                        ChatManager.QueueSystemMessage(sender, $"{voteForTarget.Data.PlayerName} est éliminé(e)", $"{voteForTarget.Data.PlayerName} est éliminé(e)");
+                        ChatManager.QueueSystemMessage(sender, L($"{voteForTarget.Data.PlayerName} is eliminated", $"{voteForTarget.Data.PlayerName} est éliminé(e)"), L($"{voteForTarget.Data.PlayerName} is eliminated", $"{voteForTarget.Data.PlayerName} est éliminé(e)"));
                         return true;
                     }
                     if (voteForTarget.Data.Disconnected)
                     {
-                        ChatManager.QueueSystemMessage(sender, $"{voteForTarget.Data.PlayerName} est déconnecté(e)", $"{voteForTarget.Data.PlayerName} est déconnecté(e)");
+                        ChatManager.QueueSystemMessage(sender, L($"{voteForTarget.Data.PlayerName} is disconnected", $"{voteForTarget.Data.PlayerName} est déconnecté(e)"), L($"{voteForTarget.Data.PlayerName} is disconnected", $"{voteForTarget.Data.PlayerName} est déconnecté(e)"));
                         return true;
                     }
                     
@@ -1047,8 +1090,10 @@ namespace AU_TheDirectorsCut
                     ScriptManager.AssignVoteForPlayerScript(voteTarget.PlayerId, voteForId);
                     
                     
+                    Localization.CurrentLang = Localization.Get(voteTarget.PlayerId);
                     var (votePlain, voteColored) = ScriptManager.GetVoteForPlayerPrivateMessages(voteForTarget.Data.PlayerName, voteTarget.Data.PlayerName);
                     ChatManager.QueueSystemMessage(voteTarget, voteColored, votePlain);
+                    Localization.CurrentLang = Localization.Get(sender.PlayerId);
                     SendDirectorMessage(
                         string.Format(ModMessages.VoteAssigned, voteTarget.Data.PlayerName),
                         string.Format(ModMessages.VoteAssignedPlain, voteTarget.Data.PlayerName)
@@ -1060,13 +1105,13 @@ namespace AU_TheDirectorsCut
                 case "/colorblind":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/colorblinds", sender)) return true;
                     if (_colorBlindActive)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Colorblind est déjà actif !", "Colorblind est déjà actif !");
+                        ChatManager.QueueSystemMessage(sender, L("Colorblind is already active!", "Colorblind est déjà actif !"), L("Colorblind is already active!", "Colorblind est déjà actif !"));
                         return true;
                     }
                     StartColorBlind();
@@ -1076,7 +1121,7 @@ namespace AU_TheDirectorsCut
                 case "/shuffle":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/shuffle", sender)) return true;
@@ -1088,13 +1133,13 @@ namespace AU_TheDirectorsCut
                 case "/swap":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/swap", sender)) return true;
                     if (parts.Length < 3)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Usage : /swap IDA IDB (ex: /swap A B)", "Usage : /swap IDA IDB (ex: /swap A B)");
+                        ChatManager.QueueSystemMessage(sender, L("Usage: /swap IDA IDB (ex: /swap A B)", "Usage : /swap IDA IDB (ex: /swap A B)"), L("Usage: /swap IDA IDB (ex: /swap A B)", "Usage : /swap IDA IDB (ex: /swap A B)"));
                         return true;
                     }
                     if (!LetterToPlayerId(parts[1], out byte swapAId) || !LetterToPlayerId(parts[2], out byte swapBId))
@@ -1111,7 +1156,7 @@ namespace AU_TheDirectorsCut
                     }
                     if (swapA.PlayerId == swapB.PlayerId)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !");
+                        ChatManager.QueueSystemMessage(sender, L("Choose two different players!", "Choisis deux joueurs différents !"), L("Choose two different players!", "Choisis deux joueurs différents !"));
                         return true;
                     }
                     NetworkManager.SwapPlayers(swapA, swapB);
@@ -1125,13 +1170,13 @@ namespace AU_TheDirectorsCut
                 case "/teleportall":
                     if (MeetingHud.Instance != null)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !");
+                        ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"));
                         return true;
                     }
                     if (!TryCheckCooldown("/teleportall", sender)) return true;
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Usage : /teleportall ID (ex: /teleportall A)", "Usage : /teleportall ID (ex: /teleportall A)");
+                        ChatManager.QueueSystemMessage(sender, L("Usage: /teleportall ID (ex: /teleportall A)", "Usage : /teleportall ID (ex: /teleportall A)"), L("Usage: /teleportall ID (ex: /teleportall A)", "Usage : /teleportall ID (ex: /teleportall A)"));
                         return true;
                     }
                     if (!LetterToPlayerId(parts[1], out byte tpAllId))
@@ -1154,11 +1199,11 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/tp":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !")); return true; }
                     if (!TryCheckCooldown("/tp", sender)) return true;
                     if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte tpA) || !LetterToPlayerId(parts[2], out byte tpB))
                     {
-                        ChatManager.QueueSystemMessage(sender, "Usage : /tp IDA IDB (téléporte A vers B)", "Usage : /tp IDA IDB (téléporte A vers B)");
+                        ChatManager.QueueSystemMessage(sender, L("Usage: /tp IDA IDB (teleports A to B)", "Usage : /tp IDA IDB (téléporte A vers B)"), L("Usage: /tp IDA IDB (teleports A to B)", "Usage : /tp IDA IDB (téléporte A vers B)"));
                         return true;
                     }
                     PlayerControl? tpTa = FindById(tpA);
@@ -1170,11 +1215,11 @@ namespace AU_TheDirectorsCut
                     }
                     if (tpTa.PlayerId == tpTb.PlayerId)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !");
+                        ChatManager.QueueSystemMessage(sender, L("Choose two different players!", "Choisis deux joueurs différents !"), L("Choose two different players!", "Choisis deux joueurs différents !"));
                         return true;
                     }
                     NetworkManager.Teleport(tpTa, tpTb.GetTruePosition());
-                    SendDirectorMessage($"<b>{tpTa.Data.PlayerName}</b> téléporté vers <b>{tpTb.Data.PlayerName}</b>.", $"{tpTa.Data.PlayerName} téléporté vers {tpTb.Data.PlayerName}.");
+                    SendDirectorMessage(L($"<b>{tpTa.Data.PlayerName}</b> teleported to <b>{tpTb.Data.PlayerName}</b>.", $"<b>{tpTa.Data.PlayerName}</b> téléporté vers <b>{tpTb.Data.PlayerName}</b>."), L($"{tpTa.Data.PlayerName} teleported to {tpTb.Data.PlayerName}.", $"{tpTa.Data.PlayerName} téléporté vers {tpTb.Data.PlayerName}."));
                     SetCooldown("/tp");
                     return true;
 
@@ -1182,7 +1227,7 @@ namespace AU_TheDirectorsCut
                 case "/voixoff":
                     if (parts.Length < 2)
                     {
-                        ChatManager.QueueSystemMessage(sender, "Usage : /voiceover <texte>", "Usage : /voiceover <texte>");
+                        ChatManager.QueueSystemMessage(sender, L("Usage: /voiceover <text>", "Usage : /voiceover <texte>"), L("Usage: /voiceover <text>", "Usage : /voiceover <texte>"));
                         return true;
                     }
                     if (!TryCheckCooldown("/voiceover", sender)) return true;
@@ -1191,9 +1236,9 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/spotlight":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !")); return true; }
                     if (!TryCheckCooldown("/spotlight", sender)) return true;
-                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte spId)) { ChatManager.QueueSystemMessage(sender, "Usage : /spotlight ID", "Usage : /spotlight ID"); return true; }
+                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte spId)) { ChatManager.QueueSystemMessage(sender, L("Usage: /spotlight ID", "Usage : /spotlight ID"), L("Usage: /spotlight ID", "Usage : /spotlight ID")); return true; }
                     PlayerControl? spTarget = FindById(spId);
                     if (spTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
                     Directives.Spotlight(spTarget);
@@ -1201,47 +1246,47 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 case "/marathon":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !")); return true; }
                     if (!TryCheckCooldown("/marathon", sender)) return true;
                     Directives.Marathon();
                     SetCooldown("/marathon");
                     return true;
 
                 case "/roulette":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !")); return true; }
                     if (!TryCheckCooldown("/roulette", sender)) return true;
                     Directives.Roulette();
                     SetCooldown("/roulette");
                     return true;
 
                 case "/bodyswap":
-                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"); return true; }
+                    if (MeetingHud.Instance != null) { ChatManager.QueueSystemMessage(sender, L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !"), L("This command can only be used in game, not in a meeting!", "Cette commande ne peut être utilisée qu'en jeu, pas en réunion !")); return true; }
                     if (!TryCheckCooldown("/bodyswap", sender)) return true;
-                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte bsA) || !LetterToPlayerId(parts[2], out byte bsB)) { ChatManager.QueueSystemMessage(sender, "Usage : /bodyswap IDA IDB", "Usage : /bodyswap IDA IDB"); return true; }
+                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte bsA) || !LetterToPlayerId(parts[2], out byte bsB)) { ChatManager.QueueSystemMessage(sender, L("Usage: /bodyswap IDA IDB", "Usage : /bodyswap IDA IDB"), L("Usage: /bodyswap IDA IDB", "Usage : /bodyswap IDA IDB")); return true; }
                     PlayerControl? bsTa = FindById(bsA); PlayerControl? bsTb = FindById(bsB);
                     if (bsTa?.Data == null || bsTb?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
-                    if (bsTa.PlayerId == bsTb.PlayerId) { ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !"); return true; }
+                    if (bsTa.PlayerId == bsTb.PlayerId) { ChatManager.QueueSystemMessage(sender, L("Choose two different players!", "Choisis deux joueurs différents !"), L("Choose two different players!", "Choisis deux joueurs différents !")); return true; }
                     Directives.BodySwap(bsTa, bsTb);
                     SetCooldown("/bodyswap");
                     return true;
 
                 case "/stalker":
                     if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
-                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte skA) || !LetterToPlayerId(parts[2], out byte skB)) { ChatManager.QueueSystemMessage(sender, "Usage : /stalker IDA IDB (A doit suivre B)", "Usage : /stalker IDA IDB (A doit suivre B)"); return true; }
+                    if (parts.Length < 3 || !LetterToPlayerId(parts[1], out byte skA) || !LetterToPlayerId(parts[2], out byte skB)) { ChatManager.QueueSystemMessage(sender, L("Usage: /stalker IDA IDB (A must follow B)", "Usage : /stalker IDA IDB (A doit suivre B)"), L("Usage: /stalker IDA IDB (A must follow B)", "Usage : /stalker IDA IDB (A doit suivre B)")); return true; }
                     PlayerControl? skTa = FindById(skA); PlayerControl? skTb = FindById(skB);
                     if (skTa?.Data == null || skTb?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
-                    if (skTa.PlayerId == skTb.PlayerId) { ChatManager.QueueSystemMessage(sender, "Choisis deux joueurs différents !", "Choisis deux joueurs différents !"); return true; }
+                    if (skTa.PlayerId == skTb.PlayerId) { ChatManager.QueueSystemMessage(sender, L("Choose two different players!", "Choisis deux joueurs différents !"), L("Choose two different players!", "Choisis deux joueurs différents !")); return true; }
                     Directives.RegisterStalker(skTa, skTb);
                     return true;
 
                 case "/ultimatum":
                     if (MeetingHud.Instance == null) { ChatManager.QueueSystemMessage(sender, ModMessages.OnlyInMeeting, ModMessages.OnlyInMeetingPlain); return true; }
-                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte ulId)) { ChatManager.QueueSystemMessage(sender, "Usage : /ultimatum ID [secondes] (un Imposteur)", "Usage : /ultimatum ID [secondes] (un Imposteur)"); return true; }
+                    if (parts.Length < 2 || !LetterToPlayerId(parts[1], out byte ulId)) { ChatManager.QueueSystemMessage(sender, L("Usage: /ultimatum ID [seconds] (an Impostor)", "Usage : /ultimatum ID [secondes] (un Imposteur)"), L("Usage: /ultimatum ID [seconds] (an Impostor)", "Usage : /ultimatum ID [secondes] (un Imposteur)")); return true; }
                     PlayerControl? ulTarget = FindById(ulId);
                     if (ulTarget?.Data == null) { ChatManager.QueueSystemMessage(sender, ModMessages.PlayerNotFound, ModMessages.PlayerNotFoundPlain); return true; }
                     if (ulTarget.Data.Role == null || !ulTarget.Data.Role.CanUseKillButton)
                     {
-                        ChatManager.QueueSystemMessage(sender, "<color=#ff6b6b>/ultimatum : la cible doit être un <b>Imposteur</b> !</color>", "/ultimatum : la cible doit etre un Imposteur !");
+                        ChatManager.QueueSystemMessage(sender, L("<color=#ff6b6b>/ultimatum: the target must be an <b>Impostor</b>!</color>", "<color=#ff6b6b>/ultimatum : la cible doit être un <b>Imposteur</b> !</color>"), L("/ultimatum: the target must be an Impostor!", "/ultimatum : la cible doit etre un Imposteur !"));
                         return true;
                     }
                     float ulSec = 0f;
@@ -1249,12 +1294,12 @@ namespace AU_TheDirectorsCut
                     {
                         if (!float.TryParse(parts[2], out ulSec))
                         {
-                            ChatManager.QueueSystemMessage(sender, "<color=#ff6b6b>/ultimatum : secondes invalides !</color>", "/ultimatum : secondes invalides !");
+                            ChatManager.QueueSystemMessage(sender, L("<color=#ff6b6b>/ultimatum: invalid seconds!</color>", "<color=#ff6b6b>/ultimatum : secondes invalides !</color>"), L("/ultimatum: invalid seconds!", "/ultimatum : secondes invalides !"));
                             return true;
                         }
                         if (ulSec < 30f)
                         {
-                            ChatManager.QueueSystemMessage(sender, "<color=#ff6b6b>/ultimatum : le délai minimum est de <b>30s</b> !</color>", "/ultimatum : le delai minimum est de 30s !");
+                            ChatManager.QueueSystemMessage(sender, L("<color=#ff6b6b>/ultimatum: the minimum delay is <b>30s</b>!</color>", "<color=#ff6b6b>/ultimatum : le délai minimum est de <b>30s</b> !</color>"), L("/ultimatum: the minimum delay is 30s!", "/ultimatum : le delai minimum est de 30s !"));
                             return true;
                         }
                     }
@@ -1262,7 +1307,7 @@ namespace AU_TheDirectorsCut
                     return true;
 
                 default:
-                    ChatManager.QueueSystemMessage(sender, $"Commande inconnue : {cmd} — /help", $"Commande inconnue : {cmd} — /help");
+                    ChatManager.QueueSystemMessage(sender, L($"Unknown command: {cmd} — /help", $"Commande inconnue : {cmd} — /help"), L($"Unknown command: {cmd} — /help", $"Commande inconnue : {cmd} — /help"));
                     return true;
             }
         }
@@ -1451,6 +1496,8 @@ namespace AU_TheDirectorsCut
             if (!AmongUsClient.Instance.AmHost) return;
             float dt = Time.deltaTime;
 
+            Localization.CurrentLang = Localization.Get(DirectorPlayerId ?? (PlayerControl.LocalPlayer != null ? PlayerControl.LocalPlayer.PlayerId : (byte)0));
+
             
             if (_pendingPunishments.Count > 0)
             {
@@ -1465,7 +1512,7 @@ namespace AU_TheDirectorsCut
                         {
                             HydraKillPlayer(player);
                         }
-                        ChatManager.Queue($"<color=#ff6b6b>{player.Data.PlayerName} a désobéi au script — éliminé !</color>", $"{player.Data.PlayerName} a désobéi au script — éliminé !");
+                        ChatManager.QueueBroadcastLoc(() => L($"<color=#ff6b6b>{player.Data.PlayerName} disobeyed the script — eliminated!</color>", $"<color=#ff6b6b>{player.Data.PlayerName} a désobéi au script — éliminé !</color>"), () => L($"{player.Data.PlayerName} disobeyed the script — eliminated!", $"{player.Data.PlayerName} a désobéi au script — éliminé !"));
                     }
                 }
             }
@@ -1552,7 +1599,7 @@ namespace AU_TheDirectorsCut
                             if (Vector2.Distance(initialPos, currentPos) > 0.5f)
                             {
                                 _cutKilledPlayers.Add(pc.PlayerId);
-                                ChatManager.Queue(string.Format(ModMessages.CutEliminated, pc.Data.PlayerName), string.Format(ModMessages.CutEliminatedPlain, pc.Data.PlayerName));
+                                ChatManager.QueueBroadcastLoc(() => string.Format(ModMessages.CutEliminated, pc.Data.PlayerName), () => string.Format(ModMessages.CutEliminatedPlain, pc.Data.PlayerName));
                                 HydraKillPlayer(pc);
                             }
                         }

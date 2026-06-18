@@ -22,7 +22,7 @@ namespace AU_TheDirectorsCut
         
         
         private static readonly Queue<(string plain, string colored, float wait, PlayerControl? target)> _queue = new();
-        private const int MaxQueueSize = 20; 
+        private const int MaxQueueSize = 200;
 
         
         private const int MaxChatChars = 1500;
@@ -144,7 +144,20 @@ namespace AU_TheDirectorsCut
             Queue(coloredMsg, plainMsg);
         }
 
-        
+
+        public static void QueueBroadcastLoc(System.Func<string> coloredFn, System.Func<string> plainFn)
+        {
+            if (coloredFn == null || plainFn == null) return;
+            foreach (var pc in PlayerControl.AllPlayerControls.ToArray())
+            {
+                if (pc?.Data == null || pc.OwnerId < 0 || pc.Data.Disconnected) continue;
+                Localization.CurrentLang = Localization.Get(pc.PlayerId);
+                string colored = coloredFn();
+                string plain = plainFn();
+                QueueSystemMessage(pc, colored, plain);
+            }
+        }
+
         public static void QueueSlow(string coloredMsg, string plainMsg)
         {
             if (!string.IsNullOrWhiteSpace(coloredMsg) && !string.IsNullOrWhiteSpace(plainMsg))
@@ -222,6 +235,7 @@ namespace AU_TheDirectorsCut
 
                 if (target?.Data != null && target.OwnerId >= 0)
                 {
+                    Localization.CurrentLang = Localization.Get(target.PlayerId);
                     SendPrivate(target, GenerateGGMessagePlain(), GenerateGGMessageColored());
                     Plugin.Log?.LogInfo($"[ChatManager] GG envoyé à {target.Data.PlayerName} !");
                 }
@@ -416,6 +430,8 @@ namespace AU_TheDirectorsCut
                 if (string.IsNullOrEmpty(pc.Data.PlayerName)) continue; 
                 if (_sentWelcome.Contains(pc.PlayerId)) continue;
 
+                Localization.CurrentLang = Localization.Get(pc.PlayerId);
+
                 bool isReturning = DirectorCore.LastAlive.Contains(pc.Data.PlayerName) || DirectorCore.LastDead.Contains(pc.Data.PlayerName);
                 bool hasGG = DirectorCore.LastAlive.Count > 0 || DirectorCore.LastDead.Count > 0;
 
@@ -499,7 +515,7 @@ namespace AU_TheDirectorsCut
         {
             var alive = DirectorCore.LastAlive;
             var dead = DirectorCore.LastDead;
-            var director = DirectorCore.DirectorName ?? "aucun";
+            var director = DirectorCore.DirectorName ?? Localization.Pick("none", "aucun");
             Plugin.Log?.LogInfo($"[ChatManager] GenerateGGMessageColored - Alive count: {alive.Count}, Dead count: {dead.Count}, Director: {director}");
             if (alive.Count == 0 && dead.Count == 0)
                 return ModMessages.GgNoGame;
@@ -516,8 +532,8 @@ namespace AU_TheDirectorsCut
                 return result;
             }
 
-            string s = TruncateList(new List<string>(alive), "aucun");
-            string d = TruncateList(new List<string>(dead), "aucun");
+            string s = TruncateList(new List<string>(alive), Localization.Pick("none", "aucun"));
+            string d = TruncateList(new List<string>(dead), Localization.Pick("none", "aucun"));
             string msgPlain = string.Format(ModMessages.GgFormatPlain, s, d, director);
             
             if (msgPlain.Length > 120)
@@ -532,7 +548,7 @@ namespace AU_TheDirectorsCut
         {
             var alive = DirectorCore.LastAlive;
             var dead = DirectorCore.LastDead;
-            var director = DirectorCore.DirectorName ?? "aucun";
+            var director = DirectorCore.DirectorName ?? Localization.Pick("none", "aucun");
             Plugin.Log?.LogInfo($"[ChatManager] GenerateGGMessagePlain - Alive count: {alive.Count}, Dead count: {dead.Count}, Director: {director}");
             if (alive.Count == 0 && dead.Count == 0)
                 return ModMessages.GgNoGamePlain;
@@ -549,8 +565,8 @@ namespace AU_TheDirectorsCut
                 return result;
             }
 
-            string s = TruncateList(new List<string>(alive), "aucun");
-            string d = TruncateList(new List<string>(dead), "aucun");
+            string s = TruncateList(new List<string>(alive), Localization.Pick("none", "aucun"));
+            string d = TruncateList(new List<string>(dead), Localization.Pick("none", "aucun"));
             string msg = string.Format(ModMessages.GgFormatPlain, s, d, director);
             
             

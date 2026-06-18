@@ -64,11 +64,21 @@ namespace AU_TheDirectorsCut
             foreach (var id in owners) RestoreClient(id);
         }
 
-        private static void Director(string colored, string plain) => DirectorCore.DirectorNotify(colored, plain);
-        private static void Broadcast(string colored, string plain) => ChatManager.Queue(colored, plain);
-        private static void Whisper(PlayerControl t, string colored, string plain)
+        private static void Director(string enC, string frC, string enP, string frP)
         {
-            if (t != null) ChatManager.QueueSystemMessage(t, colored, plain);
+            byte pid = DirectorCore.DirectorPlayerId ?? (PlayerControl.LocalPlayer != null ? PlayerControl.LocalPlayer.PlayerId : (byte)0);
+            var lang = Localization.Get(pid);
+            DirectorCore.DirectorNotify(Localization.Tr(lang, enC, frC), Localization.Tr(lang, enP, frP));
+        }
+        private static void Broadcast(string enC, string frC, string enP, string frP)
+            => ChatManager.QueueBroadcastLoc(
+                () => Localization.Tr(Localization.CurrentLang, enC, frC),
+                () => Localization.Tr(Localization.CurrentLang, enP, frP));
+        private static void Whisper(PlayerControl t, string enC, string frC, string enP, string frP)
+        {
+            if (t == null) return;
+            var lang = Localization.Get(t.PlayerId);
+            ChatManager.QueueSystemMessage(t, Localization.Tr(lang, enC, frC), Localization.Tr(lang, enP, frP));
         }
 
         private class Timed { public float t; public Action end; }
@@ -138,7 +148,7 @@ namespace AU_TheDirectorsCut
                     if (d > StalkerDist)
                     {
                         _stalkerOn = false;
-                        Broadcast($"<b><color=#ff6b6b>{a.Data.PlayerName}</color></b> a perdu sa cible — éliminé(e) !", $"{a.Data.PlayerName} a perdu sa cible - elimine !");
+                        Broadcast($"<b><color=#ff6b6b>{a.Data.PlayerName}</color></b> lost their target — eliminated!", $"<b><color=#ff6b6b>{a.Data.PlayerName}</color></b> a perdu sa cible — éliminé(e) !", $"{a.Data.PlayerName} lost their target - eliminated!", $"{a.Data.PlayerName} a perdu sa cible - elimine !");
                         NetworkManager.MurderPlayer(a);
                     }
                 }
@@ -169,7 +179,7 @@ namespace AU_TheDirectorsCut
             {
                 string original = t.Data.PlayerName;
                 NetworkManager.SetPlayerName(t, $"<color=#ff1f1f>{original}</color>");
-                Broadcast($"<b><color=#ff1f1f>{original} est un IMPOSTEUR !</color></b> Il n'a pas tué à temps.", $"{original} est un IMPOSTEUR ! Il n'a pas tue a temps.");
+                Broadcast($"<b><color=#ff1f1f>{original} is an IMPOSTOR!</color></b> They didn't kill in time.", $"<b><color=#ff1f1f>{original} est un IMPOSTEUR !</color></b> Il n'a pas tué à temps.", $"{original} is an IMPOSTOR! They didn't kill in time.", $"{original} est un IMPOSTEUR ! Il n'a pas tue a temps.");
             }
             catch (Exception e) { Plugin.Log?.LogError($"[Ultimatum] {e.Message}"); }
         }
@@ -214,7 +224,7 @@ namespace AU_TheDirectorsCut
         public static void VoiceOver(string text)
         {
             string colored = $"<b><size=150%><color=#000000>« {text} »</color></size></b>";
-            Broadcast(colored, $"« {text} »");
+            Broadcast(colored, colored, $"« {text} »", $"« {text} »");
         }
 
         public static void Spotlight(PlayerControl target)
@@ -227,7 +237,7 @@ namespace AU_TheDirectorsCut
                 affected.Add(p.OwnerId);
             }
             AddTimed(20f, () => RestoreOwners(affected));
-            Director($"<b><color=#ffd23f>Projecteur</color></b> braqué sur {target.Data.PlayerName} (20s).", $"Projecteur braque sur {target.Data.PlayerName} (20s).");
+            Director($"<b><color=#ffd23f>Spotlight</color></b> aimed at {target.Data.PlayerName} (20s).", $"<b><color=#ffd23f>Projecteur</color></b> braqué sur {target.Data.PlayerName} (20s).", $"Spotlight aimed at {target.Data.PlayerName} (20s).", $"Projecteur braque sur {target.Data.PlayerName} (20s).");
         }
 
         public static void Marathon()
@@ -239,7 +249,7 @@ namespace AU_TheDirectorsCut
                 affected.Add(p.OwnerId);
             }
             AddTimed(15f, () => RestoreOwners(affected));
-            Director("<b><color=#a29bfe>Marathon</color></b> : tout le monde accéléré 15s !", "Marathon : tout le monde accelere 15s !");
+            Director("<b><color=#a29bfe>Marathon</color></b>: everyone sped up 15s!", "<b><color=#a29bfe>Marathon</color></b> : tout le monde accéléré 15s !", "Marathon: everyone sped up 15s!", "Marathon : tout le monde accelere 15s !");
         }
 
         public static void Roulette()
@@ -247,13 +257,13 @@ namespace AU_TheDirectorsCut
             var living = Living();
             if (living.Count == 0) return;
             byte vid = living[_rng.Next(living.Count)].PlayerId;
-            Broadcast("<b><color=#ff6b6b>La roulette tourne…</color></b>", "La roulette tourne...");
+            Broadcast("<b><color=#ff6b6b>The roulette is spinning…</color></b>", "<b><color=#ff6b6b>La roulette tourne…</color></b>", "The roulette is spinning...", "La roulette tourne...");
             AddTimed(2.5f, () =>
             {
                 var v = Find(vid);
                 if (v?.Data != null && !v.Data.IsDead)
                 {
-                    Broadcast($"<b><color=#ff6b6b>Le sort a frappé {v.Data.PlayerName} !</color></b>", $"Le sort a frappe {v.Data.PlayerName} !");
+                    Broadcast($"<b><color=#ff6b6b>Fate struck {v.Data.PlayerName}!</color></b>", $"<b><color=#ff6b6b>Le sort a frappé {v.Data.PlayerName} !</color></b>", $"Fate struck {v.Data.PlayerName}!", $"Le sort a frappe {v.Data.PlayerName} !");
                     NetworkManager.MurderPlayer(v);
                 }
             });
@@ -266,15 +276,15 @@ namespace AU_TheDirectorsCut
             try { a.RpcSetColor((byte)cb); b.RpcSetColor((byte)ca); } catch (Exception e) { Plugin.Log?.LogError($"[Directives.BodySwap] {e.Message}"); }
             NetworkManager.SetPlayerName(a, nb);
             NetworkManager.SetPlayerName(b, na);
-            Director($"<b><color=#a29bfe>Échange d'identités</color></b> : {na} ⇄ {nb}.", $"Echange d'identites : {na} <-> {nb}.");
+            Director($"<b><color=#a29bfe>Identity swap</color></b>: {na} ⇄ {nb}.", $"<b><color=#a29bfe>Échange d'identités</color></b> : {na} ⇄ {nb}.", $"Identity swap: {na} <-> {nb}.", $"Echange d'identites : {na} <-> {nb}.");
         }
 
         public static void RegisterStalker(PlayerControl a, PlayerControl b)
         {
             _pendStalkerA = a.PlayerId; _pendStalkerB = b.PlayerId;
-            Whisper(a, $"<b><color=#ffd23f>Obsession</color></b> : reste à moins de 3m de <b>{b.Data.PlayerName}</b> toute la manche, sinon… !", $"Obsession : reste a moins de 3m de {b.Data.PlayerName} toute la manche, sinon... !");
-            Whisper(b, $"<b><color=#ffd23f>Surveillance</color></b> : <b>{a.Data.PlayerName}</b> doit te suivre de près cette manche.", $"Surveillance : {a.Data.PlayerName} doit te suivre cette manche.");
-            Director($"<b>Stalker</b> armé : {a.Data.PlayerName} → {b.Data.PlayerName} (dès la prochaine manche).", $"Stalker arme : {a.Data.PlayerName} -> {b.Data.PlayerName}.");
+            Whisper(a, $"<b><color=#ffd23f>Obsession</color></b>: stay within 3m of <b>{b.Data.PlayerName}</b> the whole round, otherwise… !", $"<b><color=#ffd23f>Obsession</color></b> : reste à moins de 3m de <b>{b.Data.PlayerName}</b> toute la manche, sinon… !", $"Obsession: stay within 3m of {b.Data.PlayerName} the whole round, otherwise... !", $"Obsession : reste a moins de 3m de {b.Data.PlayerName} toute la manche, sinon... !");
+            Whisper(b, $"<b><color=#ffd23f>Surveillance</color></b>: <b>{a.Data.PlayerName}</b> must follow you closely this round.", $"<b><color=#ffd23f>Surveillance</color></b> : <b>{a.Data.PlayerName}</b> doit te suivre de près cette manche.", $"Surveillance: {a.Data.PlayerName} must follow you this round.", $"Surveillance : {a.Data.PlayerName} doit te suivre cette manche.");
+            Director($"<b>Stalker</b> armed: {a.Data.PlayerName} → {b.Data.PlayerName} (starting next round).", $"<b>Stalker</b> armé : {a.Data.PlayerName} → {b.Data.PlayerName} (dès la prochaine manche).", $"Stalker armed: {a.Data.PlayerName} -> {b.Data.PlayerName}.", $"Stalker arme : {a.Data.PlayerName} -> {b.Data.PlayerName}.");
         }
 
         public static void Ultimatum(PlayerControl target, float seconds)
@@ -282,18 +292,18 @@ namespace AU_TheDirectorsCut
             _pendUltimatumId = target.PlayerId;
             _pendUltimatumDur = seconds > 0f ? seconds : UltimatumDefault;
             int s = Mathf.RoundToInt(_pendUltimatumDur);
-            Whisper(target, $"<b><color=#ff4d4d>Ultimatum</color></b> : tu dois tuer dans les <b>{s}s</b> après le début de la manche, sinon ton rôle sera révélé à tous !", $"Ultimatum : tue dans les {s}s apres le debut de la manche, sinon ton role sera revele !");
-            Director($"<b>Ultimatum</b> appliqué à {target.Data.PlayerName} ({s}s) — dès la prochaine manche.", $"Ultimatum applique a {target.Data.PlayerName} ({s}s).");
+            Whisper(target, $"<b><color=#ff4d4d>Ultimatum</color></b>: you must kill within <b>{s}s</b> after the round starts, otherwise your role will be revealed to everyone!", $"<b><color=#ff4d4d>Ultimatum</color></b> : tu dois tuer dans les <b>{s}s</b> après le début de la manche, sinon ton rôle sera révélé à tous !", $"Ultimatum: kill within {s}s after the round starts, otherwise your role will be revealed!", $"Ultimatum : tue dans les {s}s apres le debut de la manche, sinon ton role sera revele !");
+            Director($"<b>Ultimatum</b> applied to {target.Data.PlayerName} ({s}s) — starting next round.", $"<b>Ultimatum</b> appliqué à {target.Data.PlayerName} ({s}s) — dès la prochaine manche.", $"Ultimatum applied to {target.Data.PlayerName} ({s}s).", $"Ultimatum applique a {target.Data.PlayerName} ({s}s).");
         }
 
         public static string Status()
         {
             var lines = new List<string>();
-            if (_stalkerOn) lines.Add("Stalker actif");
-            if (_pendStalkerA.HasValue) lines.Add("Stalker programmé (prochaine manche)");
-            if (_ultimatumOn) lines.Add($"Ultimatum en cours ({Mathf.CeilToInt(_ultimatumTimer)}s)");
-            if (_pendUltimatumId.HasValue) lines.Add("Ultimatum programmé (prochaine manche)");
-            if (_timed.Count > 0) lines.Add($"{_timed.Count} effet(s) temporisé(s)");
+            if (_stalkerOn) lines.Add(Localization.Tr(Localization.CurrentLang, "Stalker active", "Stalker actif"));
+            if (_pendStalkerA.HasValue) lines.Add(Localization.Tr(Localization.CurrentLang, "Stalker scheduled (next round)", "Stalker programmé (prochaine manche)"));
+            if (_ultimatumOn) lines.Add(Localization.Tr(Localization.CurrentLang, $"Ultimatum in progress ({Mathf.CeilToInt(_ultimatumTimer)}s)", $"Ultimatum en cours ({Mathf.CeilToInt(_ultimatumTimer)}s)"));
+            if (_pendUltimatumId.HasValue) lines.Add(Localization.Tr(Localization.CurrentLang, "Ultimatum scheduled (next round)", "Ultimatum programmé (prochaine manche)"));
+            if (_timed.Count > 0) lines.Add(Localization.Tr(Localization.CurrentLang, $"{_timed.Count} timed effect(s)", $"{_timed.Count} effet(s) temporisé(s)"));
             return string.Join(", ", lines);
         }
     }

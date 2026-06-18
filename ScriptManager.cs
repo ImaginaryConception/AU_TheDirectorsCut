@@ -253,12 +253,12 @@ namespace AU_TheDirectorsCut
         {
             return location switch
             {
-                MapLocation.Skeld_Cafeteria => "Cafétéria",
+                MapLocation.Skeld_Cafeteria => Localization.Pick("Cafeteria", "Cafétéria"),
                 MapLocation.Skeld_Admin => "Admin",
                 MapLocation.Skeld_Electrical => "Electrical",
                 MapLocation.Skeld_Storage => "Storage",
                 MapLocation.Skeld_Security => "Security",
-                MapLocation.Skeld_Reactor => "Réacteur",
+                MapLocation.Skeld_Reactor => Localization.Pick("Reactor", "Réacteur"),
                 MapLocation.Skeld_UpperEngine => "Upper Engine",
                 MapLocation.Skeld_LowerEngine => "Lower Engine",
                 MapLocation.Skeld_Medbay => "Medbay",
@@ -267,7 +267,7 @@ namespace AU_TheDirectorsCut
                 MapLocation.Skeld_O2 => "O2",
                 MapLocation.Skeld_Navigation => "Navigation",
                 MapLocation.Skeld_Weapons => "Weapons",
-                _ => "Zone inconnue"
+                _ => Localization.Pick("Unknown zone", "Zone inconnue")
             };
         }
 
@@ -304,7 +304,9 @@ namespace AU_TheDirectorsCut
         {
             if (player == null) return;
             Plugin.Log?.LogInfo($"[ScriptManager] {player.Data.PlayerName} a respecté son ordre !");
-            ChatManager.Queue($"<color=#00ff00>{player.Data.PlayerName} a respecté son ordre !</color>", $"{player.Data.PlayerName} a respecté son ordre !");
+            ChatManager.QueueBroadcastLoc(
+                () => Localization.Tr(Localization.CurrentLang, $"<color=#00ff00>{player.Data.PlayerName} followed their order!</color>", $"<color=#00ff00>{player.Data.PlayerName} a respecté son ordre !</color>"),
+                () => Localization.Tr(Localization.CurrentLang, $"{player.Data.PlayerName} followed their order!", $"{player.Data.PlayerName} a respecté son ordre !"));
         }
 
         public static void PunishPlayer(PlayerControl player)
@@ -332,39 +334,45 @@ namespace AU_TheDirectorsCut
 
         public static (string plain, string colored) GetOrderPrivateMessages(ScriptOrder order, string playerName)
         {
+            string head = Localization.Pick("ORDER FOR", "ORDRE POUR");
             return order switch
             {
                 ScriptOrder.NoReport => (
-                    $"ORDRE POUR {playerName} : Ne rapporte pas de corps ce round !",
-                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne rapporte pas de corps ce round !"
+                    Localization.Pick($"{head} {playerName} : Don't report any body this round!", $"{head} {playerName} : Ne rapporte pas de corps ce round !"),
+                    Localization.Pick($"<color=#ffd23f>{head} {playerName}</color>: Don't report any body this round!", $"<color=#ffd23f>{head} {playerName}</color>: Ne rapporte pas de corps ce round !")
                 ),
                 ScriptOrder.SkipVote => (
-                    $"ORDRE POUR {playerName} : Passe ton vote ce round !",
-                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Passe ton vote ce round !"
+                    Localization.Pick($"{head} {playerName} : Skip your vote this round!", $"{head} {playerName} : Passe ton vote ce round !"),
+                    Localization.Pick($"<color=#ffd23f>{head} {playerName}</color>: Skip your vote this round!", $"<color=#ffd23f>{head} {playerName}</color>: Passe ton vote ce round !")
                 ),
                 ScriptOrder.DontUseVents => (
-                    $"ORDRE POUR {playerName} : Ne pas utiliser les vents ce round !",
-                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne pas utiliser les vents ce round !"
+                    Localization.Pick($"{head} {playerName} : Don't use vents this round!", $"{head} {playerName} : Ne pas utiliser les vents ce round !"),
+                    Localization.Pick($"<color=#ffd23f>{head} {playerName}</color>: Don't use vents this round!", $"<color=#ffd23f>{head} {playerName}</color>: Ne pas utiliser les vents ce round !")
                 ),
                 ScriptOrder.VoteFirst => (
-                    $"ORDRE POUR {playerName} : Tu dois voter EN PREMIER ce round !",
-                    $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Tu dois voter EN PREMIER ce round !"
+                    Localization.Pick($"{head} {playerName} : You must vote FIRST this round!", $"{head} {playerName} : Tu dois voter EN PREMIER ce round !"),
+                    Localization.Pick($"<color=#ffd23f>{head} {playerName}</color>: You must vote FIRST this round!", $"<color=#ffd23f>{head} {playerName}</color>: Tu dois voter EN PREMIER ce round !")
                 ),
-                _ => ($"ORDRE POUR {playerName} : Suivre un ordre !", $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Suivre un ordre !")
+                _ => (
+                    Localization.Pick($"{head} {playerName} : Follow an order!", $"{head} {playerName} : Suivre un ordre !"),
+                    Localization.Pick($"<color=#ffd23f>{head} {playerName}</color>: Follow an order!", $"<color=#ffd23f>{head} {playerName}</color>: Suivre un ordre !")
+                )
             };
         }
         
         public static (string plain, string colored) GetStayOutPrivateMessages(MapLocation location, string playerName)
         {
-            string plain = $"ORDRE POUR {playerName} : Ne vas pas dans {GetLocationName(location)} ce round !";
-            string colored = $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Ne vas pas dans {GetLocationName(location)} ce round !";
+            string head = Localization.Pick("ORDER FOR", "ORDRE POUR");
+            string plain = Localization.Pick($"{head} {playerName} : Don't go to {GetLocationName(location)} this round!", $"{head} {playerName} : Ne vas pas dans {GetLocationName(location)} ce round !");
+            string colored = Localization.Pick($"<color=#ffd23f>{head} {playerName}</color>: Don't go to {GetLocationName(location)} this round!", $"<color=#ffd23f>{head} {playerName}</color>: Ne vas pas dans {GetLocationName(location)} ce round !");
             return (plain, colored);
         }
         
         public static (string plain, string colored) GetVoteForPlayerPrivateMessages(string targetVoteName, string playerName)
         {
-            string plain = $"ORDRE POUR {playerName} : Vote pour {targetVoteName} ce round !";
-            string colored = $"<color=#ffd23f>ORDRE POUR {playerName}</color>: Vote pour {targetVoteName} ce round !";
+            string head = Localization.Pick("ORDER FOR", "ORDRE POUR");
+            string plain = Localization.Pick($"{head} {playerName} : Vote for {targetVoteName} this round!", $"{head} {playerName} : Vote pour {targetVoteName} ce round !");
+            string colored = Localization.Pick($"<color=#ffd23f>{head} {playerName}</color>: Vote for {targetVoteName} this round!", $"<color=#ffd23f>{head} {playerName}</color>: Vote pour {targetVoteName} ce round !");
             return (plain, colored);
         }
     }

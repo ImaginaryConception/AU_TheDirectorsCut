@@ -30,17 +30,19 @@ namespace AU_TheDirectorsCut
             if (AmongUsClient.Instance == null || !AmongUsClient.Instance.AmHost) return;
             if (PlayerControl.LocalPlayer == null) return;
 
+            Localization.CurrentLang = Localization.Get(PlayerControl.LocalPlayer.PlayerId);
+
             GUI.Box(_window, "The Director's Cut — Admin");
             GUILayout.BeginArea(new Rect(_window.x + 10f, _window.y + 26f, _window.width - 20f, _window.height - 36f));
 
-            GUILayout.Label("Actions globales");
+            GUILayout.Label(Localization.Pick("Global actions", "Actions globales"));
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Démarrer")) Run("/start");
-            if (GUILayout.Button("Arrêter")) Run("/stop");
+            if (GUILayout.Button(Localization.Pick("Start", "Démarrer"))) Run("/start");
+            if (GUILayout.Button(Localization.Pick("Stop", "Arrêter"))) Run("/stop");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Fin réunion")) Run("/endmeeting");
-            if (GUILayout.Button("GG à tous")) Run("/gg");
+            if (GUILayout.Button(Localization.Pick("End meeting", "Fin réunion"))) Run("/endmeeting");
+            if (GUILayout.Button(Localization.Pick("GG to all", "GG à tous"))) Run("/gg");
             GUILayout.EndHorizontal();
 
             bool hostIsDirector = DirectorCore.DirectorPlayerId.HasValue
@@ -48,7 +50,7 @@ namespace AU_TheDirectorsCut
             if (hostIsDirector)
             {
                 GUILayout.Space(6f);
-                GUILayout.Label("Réalisateur");
+                GUILayout.Label(Localization.Pick("Director", "Réalisateur"));
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Cut")) Run("/cut");
                 if (GUILayout.Button("Darkness")) Run("/darkness");
@@ -57,29 +59,29 @@ namespace AU_TheDirectorsCut
                 if (GUILayout.Button("ColorBlind")) Run("/colorblind");
                 if (GUILayout.Button("Shuffle")) Run("/shuffle");
                 GUILayout.EndHorizontal();
-                if (GUILayout.Button("Couleurs aléatoires")) Run("/randomcolors");
+                if (GUILayout.Button(Localization.Pick("Random colors", "Couleurs aléatoires"))) Run("/randomcolors");
             }
 
             GUILayout.Space(6f);
-            GUILayout.Label("Joueurs");
+            GUILayout.Label(Localization.Pick("Players", "Joueurs"));
             _scroll = GUILayout.BeginScrollView(_scroll);
             foreach (var p in PlayerControl.AllPlayerControls.ToArray())
             {
                 if (p?.Data == null) continue;
                 char letter = (char)('A' + p.PlayerId);
-                string status = p.Data.IsDead ? "  (mort)" : "";
+                string status = p.Data.IsDead ? Localization.Pick("  (dead)", "  (mort)") : "";
                 GUILayout.Label($"{letter} — {p.Data.PlayerName}{status}");
 
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Kill")) Run($"/kill {letter}");
-                if (GUILayout.Button("Réalisateur")) Run($"/setdirector {letter}");
+                if (GUILayout.Button(Localization.Pick("Director", "Réalisateur"))) Run($"/setdirector {letter}");
                 if (GUILayout.Button("Kick")) Run($"/kick {letter}");
                 GUILayout.EndHorizontal();
 
                 if (!_renameBuf.ContainsKey(p.PlayerId)) _renameBuf[p.PlayerId] = "";
                 GUILayout.BeginHorizontal();
                 _renameBuf[p.PlayerId] = GUILayout.TextField(_renameBuf[p.PlayerId], 30);
-                if (GUILayout.Button("Renommer") && !string.IsNullOrWhiteSpace(_renameBuf[p.PlayerId]))
+                if (GUILayout.Button(Localization.Pick("Rename", "Renommer")) && !string.IsNullOrWhiteSpace(_renameBuf[p.PlayerId]))
                 {
                     Run($"/rename {letter} {_renameBuf[p.PlayerId]}");
                     _renameBuf[p.PlayerId] = "";
@@ -90,7 +92,7 @@ namespace AU_TheDirectorsCut
             GUILayout.EndScrollView();
 
             GUILayout.Space(4f);
-            if (GUILayout.Button("Fermer (Suppr)")) _visible = false;
+            if (GUILayout.Button(Localization.Pick("Close (Del)", "Fermer (Suppr)"))) _visible = false;
 
             GUILayout.EndArea();
         }
